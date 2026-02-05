@@ -119,6 +119,12 @@
         .hero-card:hover {
             transform: translateY(-2px);
             background: rgba(0,0,0,0.4);
+            cursor: pointer;
+        }
+
+        .mini-hero:hover {
+            background: rgba(0,0,0,0.4);
+            cursor: pointer;
         }
 
         .hero-info { display: flex; align-items: center; gap: 12px; }
@@ -496,7 +502,7 @@
                 <strong style="color: #aaa;">最近常用英雄:</strong>
                 <div class="recent-heroes">
                     {% for hero in most_played_recent %}
-                    <span class="recent-hero-tag">
+                    <span class="recent-hero-tag" onclick="filterByHero('{{ hero.name }}')" style="cursor: pointer;">
                         {% if hero.icon %}<img src="{{ hero.icon }}" alt="">{% endif %}
                         {{ hero.name }} ({{ hero.count }}场)
                     </span>
@@ -511,7 +517,7 @@
                 <h2 class="section-title">🏆 最佳英雄 (≥10场)</h2>
                 <div class="mini-hero-list">
                     {% for hero in best_heroes %}
-                    <div class="mini-hero">
+                    <div class="mini-hero" onclick="filterByHero('{{ hero.hero_cn }}')">
                         <div class="mini-hero-info">
                             <img class="mini-hero-icon" src="{{ hero.hero_icon }}" alt="">
                             <div>
@@ -529,7 +535,7 @@
                 <h2 class="section-title">⚠️ 需要练习 (≥10场)</h2>
                 <div class="mini-hero-list">
                     {% for hero in worst_heroes %}
-                    <div class="mini-hero">
+                    <div class="mini-hero" onclick="filterByHero('{{ hero.hero_cn }}')">
                         <div class="mini-hero-info">
                             <img class="mini-hero-icon" src="{{ hero.hero_icon }}" alt="">
                             <div>
@@ -549,7 +555,7 @@
             <h2 class="section-title">🦸 英雄数据 (按场次排序)</h2>
             <div class="hero-grid">
                 {% for hero in hero_stats %}
-                <div class="hero-card">
+                <div class="hero-card" onclick="filterByHero('{{ hero.hero_cn }}')">
                     <div class="hero-info">
                         <img class="hero-icon" src="{{ hero.hero_icon }}" alt="{{ hero.hero_cn }}">
                         <div>
@@ -566,7 +572,7 @@
         </div>
 
         <!-- Match History -->
-        <div class="section">
+        <div class="section" id="matches">
             <h2 class="section-title">📜 比赛记录</h2>
 
             <!-- Hero Filter -->
@@ -651,6 +657,10 @@
     </div>
 
     <script>
+        function filterByHero(heroName) {
+            window.location.href = '/?hero=' + encodeURIComponent(heroName) + '#matches';
+        }
+
         async function updateData() {
             const btn = document.getElementById('updateBtn');
             const status = document.getElementById('updateStatus');
