@@ -161,6 +161,9 @@ stop.bat
 
 ## Maintenance Notes
 
+### Git Commit Rules
+**IMPORTANT:** Do NOT add "Co-Authored-By: Claude" to commit messages. All commits should only show the repository owner (yueyifei0716) as the author. Claude assists with code but should not be listed as a co-author.
+
 ### When Adding New Features
 1. Update this file with changes
 2. Document new API endpoints used
