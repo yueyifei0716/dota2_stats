@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dota 2 数据分析 - {{ profile.get('username', '玩家') }}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #e8e8e8;
+            padding: 20px;
+        }
+
+        .container { max-width: 1400px; margin: 0 auto; }
+
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            color: #ffd700;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .profile-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .profile-header {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .profile-name { font-size: 2em; font-weight: bold; color: #fff; }
+
+        .profile-rank {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #ffd700, #ff8c00);
+            color: #1a1a2e;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .rank-icon {
+            width: 36px;
+            height: 36px;
+        }
+
+        .profile-mmr { color: #4ecdc4; font-size: 1.3em; font-weight: bold; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            margin-top: 25px;
+        }
+
+        .stat-box {
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-value { font-size: 2.5em; font-weight: bold; color: #4ecdc4; }
+        .stat-value.win { color: #4ecdc4; }
+        .stat-value.loss { color: #ff6b6b; }
+        .stat-value.streak-win { color: #4ecdc4; }
+        .stat-value.streak-loss { color: #ff6b6b; }
+        .stat-label { color: #aaa; margin-top: 5px; font-size: 0.95em; }
+
+        .section {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .section-title {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #ffd700;
+            border-bottom: 2px solid rgba(255,215,0,0.3);
+            padding-bottom: 10px;
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+        }
+
+        .hero-card {
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            padding: 12px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: transform 0.2s, background 0.2s;
+        }
+
+        .hero-card:hover {
+            transform: translateY(-2px);
+            background: rgba(0,0,0,0.4);
+        }
+
+        .hero-info { display: flex; align-items: center; gap: 12px; }
+
+        .hero-icon {
+            width: 48px;
+            height: 27px;
+            border-radius: 4px;
+            object-fit: cover;
+            background: rgba(0,0,0,0.3);
+        }
+
+        .hero-name { font-weight: bold; font-size: 1.05em; }
+        .hero-games { color: #888; font-size: 0.85em; }
+
+        .hero-winrate { font-size: 1.3em; font-weight: bold; }
+        .hero-winrate.high { color: #4ecdc4; }
+        .hero-winrate.medium { color: #ffd700; }
+        .hero-winrate.low { color: #ff6b6b; }
+
+        .matches-table { width: 100%; border-collapse: collapse; font-size: 0.95em; }
+
+        .matches-table th {
+            background: rgba(0,0,0,0.4);
+            padding: 12px 10px;
+            text-align: left;
+            color: #ffd700;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        .matches-table td {
+            padding: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .matches-table tr:hover { background: rgba(255,255,255,0.05); }
+
+        .match-hero {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .match-hero-icon {
+            width: 40px;
+            height: 22px;
+            border-radius: 3px;
+            object-fit: cover;
+        }
+
+        .result-win { color: #4ecdc4; font-weight: bold; }
+        .result-loss { color: #ff6b6b; font-weight: bold; }
+
+        .kda { font-family: monospace; font-size: 1em; }
+        .kda-good { color: #4ecdc4; }
+        .kda-ok { color: #ffd700; }
+        .kda-bad { color: #ff6b6b; }
+
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+        }
+
+        @media (max-width: 900px) {
+            .two-col { grid-template-columns: 1fr; }
+        }
+
+        .mini-hero-list { display: flex; flex-direction: column; gap: 10px; }
+
+        .mini-hero {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+        }
+
+        .mini-hero-info { display: flex; align-items: center; gap: 10px; }
+
+        .mini-hero-icon {
+            width: 36px;
+            height: 20px;
+            border-radius: 3px;
+            object-fit: cover;
+        }
+
+        .table-scroll { max-height: 600px; overflow-y: auto; }
+
+        .refresh-note {
+            text-align: center;
+            color: #666;
+            margin-top: 30px;
+            font-size: 0.9em;
+        }
+
+        .recent-heroes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+
+        .recent-hero-tag {
+            background: rgba(78, 205, 196, 0.2);
+            color: #4ecdc4;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .recent-hero-tag img {
+            width: 28px;
+            height: 16px;
+            border-radius: 2px;
+        }
+
+        .mmr-chart-container {
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .mmr-form {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .mmr-form input[type="number"] {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 10px 15px;
+            color: #fff;
+            font-size: 1em;
+            width: 120px;
+        }
+
+        .mmr-form select {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 10px 15px;
+            color: #fff;
+            font-size: 1em;
+        }
+
+        .mmr-form button {
+            background: linear-gradient(135deg, #4ecdc4, #44a08d);
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            color: #fff;
+            font-size: 1em;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+
+        .mmr-form button:hover { transform: scale(1.05); }
+
+        .no-data {
+            text-align: center;
+            color: #888;
+            padding: 40px;
+            font-size: 1.1em;
+        }
+
+        .filter-bar {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-form {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .filter-form select {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 8px 15px;
+            color: #fff;
+            font-size: 1em;
+            min-width: 150px;
+        }
+
+        .filter-stats {
+            color: #aaa;
+            font-size: 0.95em;
+        }
+
+        .filter-stats .win { color: #4ecdc4; font-weight: bold; }
+        .filter-stats .loss { color: #ff6b6b; font-weight: bold; }
+        .filter-stats .filter-hero { color: #ffd700; font-weight: bold; }
+
+        .clear-filter {
+            color: #888;
+            margin-left: 15px;
+            text-decoration: underline;
+        }
+
+        .clear-filter:hover { color: #fff; }
+
+        .items-cell { min-width: 200px; }
+
+        .update-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            color: #fff;
+            font-size: 1em;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s, opacity 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .update-btn:hover { transform: scale(1.05); }
+        .update-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .update-btn.loading { animation: pulse 1.5s infinite; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .update-options {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-left: auto;
+        }
+
+        .update-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #aaa;
+            font-size: 0.9em;
+        }
+
+        .update-checkbox input { cursor: pointer; }
+
+        .update-status {
+            font-size: 0.9em;
+            padding: 5px 10px;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .update-status.success { background: rgba(78, 205, 196, 0.2); color: #4ecdc4; display: inline; }
+        .update-status.error { background: rgba(255, 107, 107, 0.2); color: #ff6b6b; display: inline; }
+
+        .items-row {
+            display: flex;
+            gap: 3px;
+            flex-wrap: wrap;
+        }
+
+        .item-icon {
+            width: 28px;
+            height: 20px;
+            border-radius: 3px;
+            background: rgba(0,0,0,0.3);
+        }
+
+        .item-icon.neutral {
+            border: 1px solid #ffd700;
+        }
+
+        .no-items { color: #555; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Dota 2 数据分析</h1>
+
+        <!-- Profile Card -->
+        <div class="profile-card">
+            <div class="profile-header">
+                <span class="profile-name">{{ profile.get('username', '玩家') }}</span>
+                <span class="profile-rank">
+                    {% if rank_icon %}<img class="rank-icon" src="{{ rank_icon }}" alt="">{% endif %}
+                    {{ rank_name }}
+                </span>
+                <span class="profile-mmr">MMR: {{ profile.get('current_mmr', profile.get('estimated_mmr', 'N/A')) }}</span>
+
+                <div class="update-options">
+                    <label class="update-checkbox">
+                        <input type="checkbox" id="fetchItems">
+                        同时更新装备数据
+                    </label>
+                    <button class="update-btn" id="updateBtn" onclick="updateData()">
+                        🔄 更新数据
+                    </button>
+                    <span class="update-status" id="updateStatus"></span>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value win">{{ profile.get('total_wins', 0) }}</div>
+                    <div class="stat-label">总胜场</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value loss">{{ profile.get('total_losses', 0) }}</div>
+                    <div class="stat-label">总败场</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">{{ profile.get('win_rate', 0) }}%</div>
+                    <div class="stat-label">总胜率</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value {% if streak_type == '连胜' %}streak-win{% else %}streak-loss{% endif %}">{{ current_streak }}</div>
+                    <div class="stat-label">当前{{ streak_type }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MMR Trend -->
+        <div class="section">
+            <h2 class="section-title">📈 MMR 趋势</h2>
+            {% if mmr_values %}
+            <div class="mmr-chart-container">
+                <canvas id="mmrChart" height="100"></canvas>
+            </div>
+            {% else %}
+            <div class="no-data">暂无MMR记录，请在下方添加你的当前MMR</div>
+            {% endif %}
+
+            <form class="mmr-form" action="/update_mmr" method="POST">
+                <input type="number" name="mmr" placeholder="当前MMR" required min="0" max="15000">
+                <select name="result">
+                    <option value="">--比赛结果--</option>
+                    <option value="Win">胜利</option>
+                    <option value="Loss">失败</option>
+                </select>
+                <input type="number" name="change" placeholder="分数变化 (如25)" min="-100" max="100" style="width: 140px;">
+                <button type="submit">记录MMR</button>
+            </form>
+        </div>
+
+        <!-- Recent Performance -->
+        <div class="section">
+            <h2 class="section-title">📊 近期表现 (最近20场)</h2>
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value win">{{ recent_wins }}</div>
+                    <div class="stat-label">胜</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value loss">{{ recent_losses }}</div>
+                    <div class="stat-label">负</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">{{ ((recent_wins / 20) * 100) | round(1) }}%</div>
+                    <div class="stat-label">近期胜率</div>
+                </div>
+            </div>
+            <div style="margin-top: 20px;">
+                <strong style="color: #aaa;">最近常用英雄:</strong>
+                <div class="recent-heroes">
+                    {% for hero in most_played_recent %}
+                    <span class="recent-hero-tag">
+                        {% if hero.icon %}<img src="{{ hero.icon }}" alt="">{% endif %}
+                        {{ hero.name }} ({{ hero.count }}场)
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Best/Worst Heroes -->
+        <div class="two-col">
+            <div class="section">
+                <h2 class="section-title">🏆 最佳英雄 (≥10场)</h2>
+                <div class="mini-hero-list">
+                    {% for hero in best_heroes %}
+                    <div class="mini-hero">
+                        <div class="mini-hero-info">
+                            <img class="mini-hero-icon" src="{{ hero.hero_icon }}" alt="">
+                            <div>
+                                <div class="hero-name">{{ hero.hero_cn }}</div>
+                                <div class="hero-games">{{ hero.games }} 场</div>
+                            </div>
+                        </div>
+                        <div class="hero-winrate high">{{ hero.win_rate }}%</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">⚠️ 需要练习 (≥10场)</h2>
+                <div class="mini-hero-list">
+                    {% for hero in worst_heroes %}
+                    <div class="mini-hero">
+                        <div class="mini-hero-info">
+                            <img class="mini-hero-icon" src="{{ hero.hero_icon }}" alt="">
+                            <div>
+                                <div class="hero-name">{{ hero.hero_cn }}</div>
+                                <div class="hero-games">{{ hero.games }} 场</div>
+                            </div>
+                        </div>
+                        <div class="hero-winrate low">{{ hero.win_rate }}%</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Hero Stats -->
+        <div class="section">
+            <h2 class="section-title">🦸 英雄数据 (按场次排序)</h2>
+            <div class="hero-grid">
+                {% for hero in hero_stats %}
+                <div class="hero-card">
+                    <div class="hero-info">
+                        <img class="hero-icon" src="{{ hero.hero_icon }}" alt="{{ hero.hero_cn }}">
+                        <div>
+                            <div class="hero-name">{{ hero.hero_cn }}</div>
+                            <div class="hero-games">{{ hero.games }} 场 | {{ hero.wins }} 胜</div>
+                        </div>
+                    </div>
+                    <div class="hero-winrate {% if hero.win_rate|float >= 55 %}high{% elif hero.win_rate|float >= 45 %}medium{% else %}low{% endif %}">
+                        {{ hero.win_rate }}%
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Match History -->
+        <div class="section">
+            <h2 class="section-title">📜 比赛记录</h2>
+
+            <!-- Hero Filter -->
+            <div class="filter-bar">
+                <form method="GET" action="/" class="filter-form">
+                    <label>筛选英雄:</label>
+                    <select name="hero" onchange="this.form.submit()">
+                        <option value="">全部英雄</option>
+                        {% for hero_cn, hero_icon in all_heroes %}
+                        <option value="{{ hero_cn }}" {% if hero_filter == hero_cn %}selected{% endif %}>{{ hero_cn }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+                {% if hero_filter %}
+                <div class="filter-stats">
+                    <span class="filter-hero">{{ hero_filter }}</span>:
+                    <span class="win">{{ filtered_wins }}胜</span> /
+                    <span class="loss">{{ filtered_losses }}负</span>
+                    ({{ ((filtered_wins / (filtered_wins + filtered_losses)) * 100) | round(1) if (filtered_wins + filtered_losses) > 0 else 0 }}%)
+                    <a href="/" class="clear-filter">清除筛选</a>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="table-scroll">
+                <table class="matches-table">
+                    <thead>
+                        <tr>
+                            <th>日期</th>
+                            <th>英雄</th>
+                            <th>结果</th>
+                            <th>K/D/A</th>
+                            <th>KDA</th>
+                            <th>物品</th>
+                            <th>时长</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for match in matches %}
+                        <tr>
+                            <td>{{ match.date }}</td>
+                            <td>
+                                <div class="match-hero">
+                                    <img class="match-hero-icon" src="{{ match.hero_icon }}" alt="">
+                                    <strong>{{ match.hero_cn }}</strong>
+                                </div>
+                            </td>
+                            <td class="{% if match.win == 'Win' %}result-win{% else %}result-loss{% endif %}">
+                                {{ '胜利' if match.win == 'Win' else '失败' }}
+                            </td>
+                            <td class="kda">{{ match.kills }}/{{ match.deaths }}/{{ match.assists }}</td>
+                            <td class="kda {% if match.kda|float >= 4 %}kda-good{% elif match.kda|float >= 2 %}kda-ok{% else %}kda-bad{% endif %}">
+                                {{ match.kda }}
+                            </td>
+                            <td class="items-cell">
+                                {% if match.item_icons %}
+                                <div class="items-row">
+                                    {% for icon_url in match.item_icons %}
+                                    {% if icon_url %}
+                                    <img class="item-icon" src="{{ icon_url }}" alt="" onerror="this.style.display='none'">
+                                    {% endif %}
+                                    {% endfor %}
+                                    {% if match.item_neutral_icon %}
+                                    <img class="item-icon neutral" src="{{ match.item_neutral_icon }}" alt="" onerror="this.style.display='none'">
+                                    {% endif %}
+                                </div>
+                                {% else %}
+                                <span class="no-items">-</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ match.duration }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="refresh-note">
+            最后更新: {{ profile.get('last_updated', 'N/A') }}
+        </div>
+    </div>
+
+    <script>
+        async function updateData() {
+            const btn = document.getElementById('updateBtn');
+            const status = document.getElementById('updateStatus');
+            const fetchItems = document.getElementById('fetchItems').checked;
+
+            btn.disabled = true;
+            btn.classList.add('loading');
+            btn.innerHTML = '⏳ 更新中...';
+            status.className = 'update-status';
+            status.style.display = 'none';
+
+            try {
+                const formData = new FormData();
+                if (fetchItems) {
+                    formData.append('fetch_items', '1');
+                }
+
+                const response = await fetch('/update_data', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    status.textContent = result.message;
+                    status.className = 'update-status success';
+                    // Reload page after 1 second to show new data
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    status.textContent = result.message;
+                    status.className = 'update-status error';
+                }
+            } catch (error) {
+                status.textContent = '网络错误，请重试';
+                status.className = 'update-status error';
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('loading');
+                btn.innerHTML = '🔄 更新数据';
+            }
+        }
+    </script>
+
+    {% if mmr_values %}
+    <script>
+        const ctx = document.getElementById('mmrChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: {{ mmr_dates | tojson }},
+                datasets: [{
+                    label: 'MMR',
+                    data: {{ mmr_values | tojson }},
+                    borderColor: '#4ecdc4',
+                    backgroundColor: 'rgba(78, 205, 196, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.3,
+                    pointBackgroundColor: '#4ecdc4',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        titleColor: '#ffd700',
+                        bodyColor: '#fff',
+                        padding: 12,
+                        displayColors: false
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        ticks: { color: '#888' }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        ticks: { color: '#888' },
+                        suggestedMin: Math.min(...{{ mmr_values | tojson }}) - 100,
+                        suggestedMax: Math.max(...{{ mmr_values | tojson }}) + 100
+                    }
+                }
+            }
+        });
+    </script>
+    {% endif %}
+</body>
+</html>
