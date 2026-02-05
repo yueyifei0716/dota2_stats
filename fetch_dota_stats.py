@@ -498,6 +498,62 @@ def quick_update():
     print("Done!")
 
 
+def backfill_items(batch_size=20):
+    """Fetch items for all matches that don't have item data yet."""
+    import time
+
+    # Load all matches
+    matches_file = DATA_DIR / "matches.csv"
+    if not matches_file.exists():
+        print("No matches.csv found. Run update_all first.")
+        return
+
+    all_match_ids = []
+    with open(matches_file, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            all_match_ids.append(row["match_id"])
+
+    # Load existing items
+    existing_items = load_existing_items()
+
+    # Find matches without items
+    missing_ids = [mid for mid in all_match_ids if mid not in existing_items]
+
+    if not missing_ids:
+        print("All matches already have item data!")
+        return
+
+    print(f"Found {len(missing_ids)} matches without item data.")
+    print(f"Fetching items in batches of {batch_size}...")
+
+    total_fetched = 0
+    for i in range(0, len(missing_ids), batch_size):
+        batch = missing_ids[i:i + batch_size]
+        print(f"\nBatch {i // batch_size + 1}: Fetching items for {len(batch)} matches...")
+
+        items_data = fetch_matches_with_items(batch, max_matches=len(batch))
+
+        # Merge with existing items
+        for item in items_data:
+            existing_items[str(item["match_id"])] = item
+
+        total_fetched += len(items_data)
+
+        # Save after each batch
+        all_items = list(existing_items.values())
+        save_match_items_csv(all_items)
+
+        print(f"Progress: {total_fetched}/{len(missing_ids)} matches processed")
+
+        # Rate limiting between batches
+        if i + batch_size < len(missing_ids):
+            print("Waiting before next batch...")
+            time.sleep(2)
+
+    print(f"\nDone! Fetched items for {total_fetched} matches.")
+
+
 if __name__ == "__main__":
     import sys
 
@@ -516,6 +572,9 @@ if __name__ == "__main__":
     elif len(sys.argv) > 1 and sys.argv[1] == "--items":
         # Fetch with items: python fetch_dota_stats.py --items
         update_all(match_limit=200, fetch_items=True)
+    elif len(sys.argv) > 1 and sys.argv[1] == "--backfill":
+        # Backfill items for all matches: python fetch_dota_stats.py --backfill
+        backfill_items()
     else:
         limit = 500
         if len(sys.argv) > 1:

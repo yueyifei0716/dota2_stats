@@ -11,6 +11,35 @@ Dota 2 Stats Tracker - A Flask web application that fetches and displays Dota 2 
 
 ## Recent Changes
 
+### 2026-02-06: Added Item Backfill Feature
+**Problem:** Previously fetched matches were missing item data because items were only fetched for new matches.
+
+**Solution:** Added `backfill_items()` function to fetch items for all matches that don't have item data.
+
+**Usage:**
+```bash
+python fetch_dota_stats.py --backfill
+```
+
+**Files Modified:**
+- `fetch_dota_stats.py` - Added `backfill_items()` function and `--backfill` CLI option
+
+---
+
+### 2026-02-06: Added Clickable Hero Cards
+**Feature:** Clicking on any hero card now filters the match history to show only that hero's matches.
+
+**Works on:**
+- Hero Statistics section (英雄数据)
+- Best Heroes section (最佳英雄)
+- Worst Heroes section (需要练习)
+- Recent Heroes tags (最近常用英雄)
+
+**Files Modified:**
+- `templates/index.html` - Added `filterByHero()` function and onclick handlers
+
+---
+
 ### 2026-02-06: Fixed Match Update Issue
 **Problem:** Update button wasn't fetching recent matches - OpenDota API was returning cached data.
 
