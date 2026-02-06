@@ -304,15 +304,20 @@ def get_match_badges(match, advanced_data=None, impact_score=0):
         if advanced_data and advanced_data.get("is_throw") == "True":
             badges.append({"icon": "💀", "text": "Throw", "class": "badge-throw"})
 
-        # Hard Carry - High damage + win
-        hero_damage = float(match.get("hero_damage", 0))
+        # Hard Carry - High damage + win (use advanced_data for accurate hero_damage)
+        hero_damage = float(advanced_data.get("hero_damage", 0)) if advanced_data else float(match.get("hero_damage", 0))
         if match.get("win") == "Win" and hero_damage > 20000:
             badges.append({"icon": "⭐", "text": "Carry", "class": "badge-carry"})
 
-        # Support MVP - High assists, low deaths
-        kills = float(match.get("kills", 0))
-        assists = float(match.get("assists", 0))
-        deaths = float(match.get("deaths", 0))
+        # Support MVP - High assists, low deaths (use advanced_data for accurate stats)
+        if advanced_data:
+            kills = float(advanced_data.get("kills", 0))
+            assists = float(advanced_data.get("assists", 0))
+            deaths = float(advanced_data.get("deaths", 0))
+        else:
+            kills = float(match.get("kills", 0))
+            assists = float(match.get("assists", 0))
+            deaths = float(match.get("deaths", 0))
         if assists > 15 and deaths < 5 and assists > kills:
             badges.append({"icon": "🛡️", "text": "Support", "class": "badge-support"})
 
