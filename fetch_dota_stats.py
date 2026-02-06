@@ -208,6 +208,11 @@ def fetch_match_advanced_data(match_id):
         "net_worth": player_data.get("net_worth", 0),
         "level": player_data.get("level", 0),
         "gold_spent": player_data.get("gold_spent", 0),
+        "hero_damage": player_data.get("hero_damage", 0),
+        "tower_damage": player_data.get("tower_damage", 0),
+        "kills": player_data.get("kills", 0),
+        "deaths": player_data.get("deaths", 0),
+        "assists": player_data.get("assists", 0),
         "max_gold_lead": max_gold_lead,
         "max_gold_deficit": max_gold_deficit,
         "is_comeback": is_comeback,
@@ -378,6 +383,7 @@ def save_match_advanced_csv(advanced_data, filename="match_advanced.csv"):
 
     fieldnames = [
         "match_id", "lane_role", "lane", "is_roaming", "net_worth", "level", "gold_spent",
+        "hero_damage", "tower_damage", "kills", "deaths", "assists",
         "max_gold_lead", "max_gold_deficit", "is_comeback", "is_throw",
         "benchmark_gpm_pct", "benchmark_xpm_pct", "benchmark_kills_pct",
         "benchmark_damage_pct", "benchmark_tower_pct",

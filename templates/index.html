@@ -444,6 +444,168 @@
         .badge-throw { background: rgba(128, 128, 128, 0.3); color: #888; }
         .badge-carry { background: rgba(255, 215, 0, 0.2); color: #ffd700; }
         .badge-support { background: rgba(100, 149, 237, 0.2); color: #6495ed; }
+
+        /* Scoring Legend */
+        .scoring-legend {
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
+        .legend-title {
+            color: #ffd700;
+            font-weight: bold;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+        .legend-content {
+            display: none;
+        }
+        .legend-content.show {
+            display: block;
+        }
+        .legend-section {
+            margin-bottom: 12px;
+        }
+        .legend-section h4 {
+            color: #4ecdc4;
+            margin-bottom: 5px;
+            font-size: 0.95em;
+        }
+        .legend-formula {
+            background: rgba(0,0,0,0.3);
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-family: monospace;
+            color: #aaa;
+            margin: 5px 0;
+        }
+        .legend-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 8px;
+        }
+        .legend-badge-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* Enhanced Filter Bar */
+        .filter-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .filter-group label {
+            color: #aaa;
+            font-size: 0.9em;
+        }
+        .search-input {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: #fff;
+            font-size: 0.95em;
+            width: 150px;
+        }
+        .search-input::placeholder {
+            color: #666;
+        }
+        .filter-toggle {
+            display: flex;
+            gap: 5px;
+        }
+        .filter-toggle button {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 6px;
+            padding: 6px 12px;
+            color: #aaa;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-toggle button.active {
+            background: rgba(78, 205, 196, 0.3);
+            border-color: #4ecdc4;
+            color: #4ecdc4;
+        }
+        .filter-toggle button:hover {
+            background: rgba(255,255,255,0.15);
+        }
+
+        /* Match Notes */
+        .note-toggle {
+            cursor: pointer;
+            color: #888;
+            font-size: 0.85em;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .note-toggle:hover {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+        .note-toggle.has-note {
+            color: #ffd700;
+        }
+        .note-row {
+            display: none;
+        }
+        .note-row.show {
+            display: table-row;
+        }
+        .note-cell {
+            background: rgba(0,0,0,0.2);
+            padding: 15px !important;
+        }
+        .note-textarea {
+            width: 100%;
+            min-height: 60px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 10px;
+            color: #fff;
+            font-size: 0.9em;
+            resize: vertical;
+        }
+        .note-textarea::placeholder {
+            color: #666;
+        }
+        .note-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            align-items: center;
+        }
+        .note-save-btn {
+            background: linear-gradient(135deg, #4ecdc4, #44a08d);
+            border: none;
+            border-radius: 6px;
+            padding: 6px 15px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 0.85em;
+        }
+        .note-save-btn:hover {
+            transform: scale(1.05);
+        }
+        .note-status {
+            font-size: 0.85em;
+            color: #4ecdc4;
+        }
     </style>
 </head>
 <body>
@@ -609,10 +771,77 @@
         <div class="section" id="matches">
             <h2 class="section-title">📜 比赛记录</h2>
 
-            <!-- Hero Filter -->
-            <div class="filter-bar">
-                <form method="GET" action="/" class="filter-form">
-                    <label>筛选英雄:</label>
+            <!-- Scoring Legend -->
+            <div class="scoring-legend">
+                <div class="legend-title" onclick="toggleLegend()">📊 评分与标签说明 (点击展开) ▼</div>
+                <div class="legend-content" id="legendContent">
+                    <div class="legend-section">
+                        <h4>评分计算公式 (Impact Score)</h4>
+                        <div class="legend-formula">
+                            基础分 = (击杀×1.0 + 助攻×0.7 + 英雄伤害/1000×0.5 + 建筑伤害/1000×1.0) ÷ (死亡+1)<br>
+                            归一化 = min(基础分 × 5, 75)
+                        </div>
+                        <div style="color: #888; margin-top: 5px;">
+                            • 胜利加成: ×1.2 (+20%) | • 表现超过75%玩家(GPM/XPM/伤害平均): ×1.1 (+10%)
+                        </div>
+                        <div style="margin-top: 8px;">
+                            <span class="impact-score impact-high">70+</span> 高表现
+                            <span class="impact-score impact-medium" style="margin-left: 10px;">40-69</span> 中等
+                            <span class="impact-score impact-low" style="margin-left: 10px;">&lt;40</span> 需改进
+                        </div>
+                    </div>
+                    <div class="legend-section">
+                        <h4>标签说明</h4>
+                        <div class="legend-badges">
+                            <div class="legend-badge-item">
+                                <span class="match-badge badge-high-impact">🔥</span>
+                                <span>High Impact - 评分超过80</span>
+                            </div>
+                            <div class="legend-badge-item">
+                                <span class="match-badge badge-comeback">📈</span>
+                                <span>Comeback - 落后5000金后翻盘</span>
+                            </div>
+                            <div class="legend-badge-item">
+                                <span class="match-badge badge-throw">💀</span>
+                                <span>Throw - 领先5000金后输掉</span>
+                            </div>
+                            <div class="legend-badge-item">
+                                <span class="match-badge badge-carry">⭐</span>
+                                <span>Carry - 高伤害且获胜</span>
+                            </div>
+                            <div class="legend-badge-item">
+                                <span class="match-badge badge-support">🛡️</span>
+                                <span>Support - 高助攻低死亡</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Enhanced Filter Bar -->
+            <div class="filter-controls">
+                <div class="filter-group">
+                    <label>搜索:</label>
+                    <input type="text" class="search-input" id="searchInput" placeholder="英雄名称..." oninput="filterMatches()">
+                </div>
+                <div class="filter-group">
+                    <label>结果:</label>
+                    <div class="filter-toggle">
+                        <button id="filterAll" class="active" onclick="setResultFilter('all')">全部</button>
+                        <button id="filterWin" onclick="setResultFilter('win')">胜利</button>
+                        <button id="filterLoss" onclick="setResultFilter('loss')">失败</button>
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label>标签:</label>
+                    <div class="filter-toggle">
+                        <button id="filterBadgeAll" class="active" onclick="setBadgeFilter('all')">全部</button>
+                        <button id="filterComeback" onclick="setBadgeFilter('comeback')">📈翻盘</button>
+                        <button id="filterThrow" onclick="setBadgeFilter('throw')">💀送掉</button>
+                    </div>
+                </div>
+                <form method="GET" action="/" class="filter-form" style="margin-left: auto;">
+                    <label>英雄:</label>
                     <select name="hero" onchange="this.form.submit()">
                         <option value="">全部英雄</option>
                         {% for hero_cn, hero_icon in all_heroes %}
@@ -620,16 +849,17 @@
                         {% endfor %}
                     </select>
                 </form>
-                {% if hero_filter %}
-                <div class="filter-stats">
-                    <span class="filter-hero">{{ hero_filter }}</span>:
-                    <span class="win">{{ filtered_wins }}胜</span> /
-                    <span class="loss">{{ filtered_losses }}负</span>
-                    ({{ ((filtered_wins / (filtered_wins + filtered_losses)) * 100) | round(1) if (filtered_wins + filtered_losses) > 0 else 0 }}%)
-                    <a href="/" class="clear-filter">清除筛选</a>
-                </div>
-                {% endif %}
             </div>
+
+            {% if hero_filter %}
+            <div class="filter-stats" style="margin-bottom: 15px;">
+                <span class="filter-hero">{{ hero_filter }}</span>:
+                <span class="win">{{ filtered_wins }}胜</span> /
+                <span class="loss">{{ filtered_losses }}负</span>
+                ({{ ((filtered_wins / (filtered_wins + filtered_losses)) * 100) | round(1) if (filtered_wins + filtered_losses) > 0 else 0 }}%)
+                <a href="/" class="clear-filter">清除筛选</a>
+            </div>
+            {% endif %}
 
             <div class="table-scroll">
                 <table class="matches-table">
@@ -643,11 +873,16 @@
                             <th>标签</th>
                             <th>物品</th>
                             <th>时长</th>
+                            <th>笔记</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for match in matches %}
-                        <tr>
+                        <tr class="match-row"
+                            data-hero="{{ match.hero_cn }}"
+                            data-result="{{ match.win }}"
+                            data-comeback="{{ 'true' if match.badges|selectattr('class', 'equalto', 'badge-comeback')|list else 'false' }}"
+                            data-throw="{{ 'true' if match.badges|selectattr('class', 'equalto', 'badge-throw')|list else 'false' }}">
                             <td>{{ match.date }}</td>
                             <td>
                                 <div class="match-hero">
@@ -688,6 +923,20 @@
                                 {% endif %}
                             </td>
                             <td>{{ match.duration }}</td>
+                            <td>
+                                <span class="note-toggle {% if match.note %}has-note{% endif %}" onclick="toggleNote('{{ match.match_id }}')">
+                                    {{ '📝' if match.note else '➕' }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr class="note-row" id="note-row-{{ match.match_id }}">
+                            <td colspan="9" class="note-cell">
+                                <textarea class="note-textarea" id="note-text-{{ match.match_id }}" placeholder="添加比赛笔记...">{{ match.note }}</textarea>
+                                <div class="note-actions">
+                                    <button class="note-save-btn" onclick="saveNote('{{ match.match_id }}')">保存笔记</button>
+                                    <span class="note-status" id="note-status-{{ match.match_id }}"></span>
+                                </div>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -703,6 +952,127 @@
     <script>
         function filterByHero(heroName) {
             window.location.href = '/?hero=' + encodeURIComponent(heroName) + '#matches';
+        }
+
+        // Toggle scoring legend visibility
+        function toggleLegend() {
+            const content = document.getElementById('legendContent');
+            const title = document.querySelector('.legend-title');
+            content.classList.toggle('show');
+            if (content.classList.contains('show')) {
+                title.innerHTML = '📊 评分与标签说明 (点击收起) ▲';
+            } else {
+                title.innerHTML = '📊 评分与标签说明 (点击展开) ▼';
+            }
+        }
+
+        // Filter state
+        let currentResultFilter = 'all';
+        let currentBadgeFilter = 'all';
+
+        // Filter matches based on all criteria
+        function filterMatches() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const rows = document.querySelectorAll('.match-row');
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                const hero = row.dataset.hero.toLowerCase();
+                const result = row.dataset.result;
+                const isComeback = row.dataset.comeback === 'true';
+                const isThrow = row.dataset.throw === 'true';
+
+                // Check search filter
+                const matchesSearch = hero.includes(searchTerm);
+
+                // Check result filter
+                let matchesResult = true;
+                if (currentResultFilter === 'win') {
+                    matchesResult = result === 'Win';
+                } else if (currentResultFilter === 'loss') {
+                    matchesResult = result === 'Loss';
+                }
+
+                // Check badge filter
+                let matchesBadge = true;
+                if (currentBadgeFilter === 'comeback') {
+                    matchesBadge = isComeback;
+                } else if (currentBadgeFilter === 'throw') {
+                    matchesBadge = isThrow;
+                }
+
+                // Show/hide row
+                if (matchesSearch && matchesResult && matchesBadge) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        // Set result filter (Win/Loss/All)
+        function setResultFilter(filter) {
+            currentResultFilter = filter;
+
+            // Update button states
+            document.getElementById('filterAll').classList.toggle('active', filter === 'all');
+            document.getElementById('filterWin').classList.toggle('active', filter === 'win');
+            document.getElementById('filterLoss').classList.toggle('active', filter === 'loss');
+
+            filterMatches();
+        }
+
+        // Set badge filter (Comeback/Throw/All)
+        function setBadgeFilter(filter) {
+            currentBadgeFilter = filter;
+
+            // Update button states
+            document.getElementById('filterBadgeAll').classList.toggle('active', filter === 'all');
+            document.getElementById('filterComeback').classList.toggle('active', filter === 'comeback');
+            document.getElementById('filterThrow').classList.toggle('active', filter === 'throw');
+
+            filterMatches();
+        }
+
+        // Toggle note row visibility
+        function toggleNote(matchId) {
+            const noteRow = document.getElementById('note-row-' + matchId);
+            noteRow.classList.toggle('show');
+        }
+
+        // Save note via AJAX
+        async function saveNote(matchId) {
+            const textarea = document.getElementById('note-text-' + matchId);
+            const status = document.getElementById('note-status-' + matchId);
+            const toggle = document.querySelector(`[onclick="toggleNote('${matchId}')"]`);
+            const note = textarea.value;
+
+            try {
+                const response = await fetch('/api/match_notes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ match_id: matchId, note: note })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    status.textContent = '✓ 已保存';
+                    // Update toggle icon
+                    if (note.trim()) {
+                        toggle.textContent = '📝';
+                        toggle.classList.add('has-note');
+                    } else {
+                        toggle.textContent = '➕';
+                        toggle.classList.remove('has-note');
+                    }
+                    setTimeout(() => { status.textContent = ''; }, 2000);
+                } else {
+                    status.textContent = '保存失败';
+                }
+            } catch (error) {
+                status.textContent = '网络错误';
+            }
         }
 
         async function updateData() {

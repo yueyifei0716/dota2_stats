@@ -212,6 +212,8 @@ stop.bat
 2. **Rate Limiting:** OpenDota API has rate limits (0.5s delay between match detail requests)
 3. **Item Fetching:** Fetching items for all matches is slow (only fetches 20 new matches by default)
 4. **Timeout:** Update operation has 5-minute timeout
+5. **Throw/Comeback Detection:** Only works for matches that have been fully parsed by OpenDota. Many matches don't have `radiant_gold_adv` data available, so throw/comeback badges won't appear for those matches.
+6. **Impact Score Data:** Uses `hero_damage` and `tower_damage` from `match_advanced.csv` (detailed match API). If advanced data is missing, scores will be inaccurate.
 
 ---
 

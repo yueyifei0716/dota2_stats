@@ -86,6 +86,32 @@ def read_match_advanced():
     return data
 
 
+def read_match_notes():
+    """Read match notes data."""
+    filepath = DATA_DIR / "match_notes.csv"
+    if not filepath.exists():
+        return {}
+    notes = {}
+    with open(filepath, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            notes[row["match_id"]] = row.get("note", "")
+    return notes
+
+
+def save_match_note(match_id, note):
+    """Save or update a match note."""
+    filepath = DATA_DIR / "match_notes.csv"
+    notes = read_match_notes()
+    notes[match_id] = note
+
+    with open(filepath, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["match_id", "note", "updated_at"])
+        for mid, n in notes.items():
+            writer.writerow([mid, n, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+
+
 # Item ID to name mapping for icons (from OpenDota API)
 ITEM_NAMES = {
     1: "blink", 2: "blades_of_attack", 3: "broadsword", 4: "chainmail", 5: "claymore",
@@ -222,11 +248,19 @@ def get_rank_name(rank_tier):
 def calculate_impact_score(match, advanced_data=None):
     """Calculate impact score for a match (0-100)."""
     try:
-        kills = float(match.get("kills", 0))
-        assists = float(match.get("assists", 0))
-        deaths = float(match.get("deaths", 0))
-        hero_damage = float(match.get("hero_damage", 0))
-        tower_damage = float(match.get("tower_damage", 0))
+        # Prefer advanced_data for accurate values (from detailed match API)
+        if advanced_data:
+            kills = float(advanced_data.get("kills", 0)) or float(match.get("kills", 0))
+            assists = float(advanced_data.get("assists", 0)) or float(match.get("assists", 0))
+            deaths = float(advanced_data.get("deaths", 0)) or float(match.get("deaths", 0))
+            hero_damage = float(advanced_data.get("hero_damage", 0))
+            tower_damage = float(advanced_data.get("tower_damage", 0))
+        else:
+            kills = float(match.get("kills", 0))
+            assists = float(match.get("assists", 0))
+            deaths = float(match.get("deaths", 0))
+            hero_damage = float(match.get("hero_damage", 0))
+            tower_damage = float(match.get("tower_damage", 0))
 
         # Base formula: (kills * 1.0 + assists * 0.7 + (hero_damage / 1000) * 0.5 + (tower_damage / 1000) * 1.0) / (deaths + 1)
         base_score = (kills * 1.0 + assists * 0.7 + (hero_damage / 1000) * 0.5 + (tower_damage / 1000) * 1.0) / (deaths + 1)
@@ -322,6 +356,7 @@ def index():
     mmr_history = read_mmr_history()
     match_items = read_match_items()
     match_advanced = read_match_advanced()
+    match_notes = read_match_notes()
 
     # Get hero filter from query param
     hero_filter = request.args.get("hero", "")
@@ -364,6 +399,7 @@ def index():
         m["is_throw"] = advanced_data.get("is_throw", "False") == "True"
         m["benchmark_gpm_pct"] = advanced_data.get("benchmark_gpm_pct", "0")
         m["benchmark_damage_pct"] = advanced_data.get("benchmark_damage_pct", "0")
+        m["note"] = match_notes.get(match_id, "")
 
     # Calculate recent stats (last 20 games)
     recent = matches[:20]
@@ -460,6 +496,25 @@ def api_heroes():
 @app.route("/api/mmr_history")
 def api_mmr_history():
     return jsonify(read_mmr_history())
+
+
+@app.route("/api/match_notes", methods=["GET", "POST"])
+def api_match_notes():
+    """Get or save match notes."""
+    if request.method == "POST":
+        data = request.get_json()
+        if data and "match_id" in data:
+            match_id = str(data["match_id"])
+            note = data.get("note", "")
+            save_match_note(match_id, note)
+            return jsonify({"success": True, "message": "笔记已保存"})
+        return jsonify({"success": False, "message": "缺少match_id"})
+    else:
+        match_id = request.args.get("match_id")
+        if match_id:
+            notes = read_match_notes()
+            return jsonify({"note": notes.get(match_id, "")})
+        return jsonify(read_match_notes())
 
 
 @app.route("/update_data", methods=["POST"])
