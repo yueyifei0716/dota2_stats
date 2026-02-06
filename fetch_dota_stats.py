@@ -149,6 +149,79 @@ def fetch_match_details(match_id):
     return response.json()
 
 
+def fetch_match_advanced_data(match_id):
+    """Fetch advanced match data for analytics (lane, benchmarks, gold advantage)."""
+    details = fetch_match_details(match_id)
+
+    # Find player data
+    player_data = None
+    player_team = None  # True = Radiant, False = Dire
+    all_players = details.get("players", [])
+
+    for player in all_players:
+        if player.get("account_id") == STEAM_ID:
+            player_data = player
+            player_team = player.get("player_slot", 0) < 128  # Radiant if slot < 128
+            break
+
+    if not player_data:
+        return None
+
+    # Get gold/xp advantage arrays (from team perspective)
+    radiant_gold_adv = details.get("radiant_gold_adv", [])
+    radiant_xp_adv = details.get("radiant_xp_adv", [])
+
+    # Calculate max gold lead/deficit from player's team perspective
+    if player_team:  # Radiant
+        gold_adv = radiant_gold_adv
+    else:  # Dire - invert the values
+        gold_adv = [-x for x in radiant_gold_adv] if radiant_gold_adv else []
+
+    max_gold_lead = max(gold_adv) if gold_adv else 0
+    max_gold_deficit = min(gold_adv) if gold_adv else 0
+
+    # Determine throw/comeback
+    won = determine_win(player_data.get("player_slot", 0), details.get("radiant_win", False))
+    is_comeback = won and max_gold_deficit < -5000  # Won after being 5k behind
+    is_throw = not won and max_gold_lead > 5000  # Lost after being 5k ahead
+
+    # Get benchmarks
+    benchmarks = player_data.get("benchmarks", {})
+
+    # Get ally and enemy heroes
+    ally_heroes = []
+    enemy_heroes = []
+    for p in all_players:
+        if p.get("account_id") == STEAM_ID:
+            continue
+        p_team = p.get("player_slot", 0) < 128
+        if p_team == player_team:
+            ally_heroes.append(p.get("hero_id", 0))
+        else:
+            enemy_heroes.append(p.get("hero_id", 0))
+
+    return {
+        "match_id": match_id,
+        "lane_role": player_data.get("lane_role", 0),
+        "lane": player_data.get("lane", 0),
+        "is_roaming": player_data.get("is_roaming", False),
+        "net_worth": player_data.get("net_worth", 0),
+        "level": player_data.get("level", 0),
+        "gold_spent": player_data.get("gold_spent", 0),
+        "max_gold_lead": max_gold_lead,
+        "max_gold_deficit": max_gold_deficit,
+        "is_comeback": is_comeback,
+        "is_throw": is_throw,
+        "benchmark_gpm_pct": round(benchmarks.get("gold_per_min", {}).get("pct", 0) * 100, 1),
+        "benchmark_xpm_pct": round(benchmarks.get("xp_per_min", {}).get("pct", 0) * 100, 1),
+        "benchmark_kills_pct": round(benchmarks.get("kills_per_min", {}).get("pct", 0) * 100, 1),
+        "benchmark_damage_pct": round(benchmarks.get("hero_damage_per_min", {}).get("pct", 0) * 100, 1),
+        "benchmark_tower_pct": round(benchmarks.get("tower_damage", {}).get("pct", 0) * 100, 1),
+        "ally_heroes": ",".join(map(str, ally_heroes)),
+        "enemy_heroes": ",".join(map(str, enemy_heroes)),
+    }
+
+
 def fetch_items():
     """Fetch item constants."""
     url = f"{BASE_URL}/constants/items"
@@ -283,6 +356,42 @@ def save_match_items_csv(items_data, filename="match_items.csv"):
             writer.writerow(row)
 
     print(f"Saved items for {len(items_data)} matches to {filepath}")
+
+
+def load_existing_advanced_data():
+    """Load existing advanced match data from CSV."""
+    filepath = DATA_DIR / "match_advanced.csv"
+    if not filepath.exists():
+        return {}
+    data = {}
+    with open(filepath, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            data[row["match_id"]] = row
+    return data
+
+
+def save_match_advanced_csv(advanced_data, filename="match_advanced.csv"):
+    """Save advanced match data to CSV."""
+    ensure_data_dir()
+    filepath = DATA_DIR / filename
+
+    fieldnames = [
+        "match_id", "lane_role", "lane", "is_roaming", "net_worth", "level", "gold_spent",
+        "max_gold_lead", "max_gold_deficit", "is_comeback", "is_throw",
+        "benchmark_gpm_pct", "benchmark_xpm_pct", "benchmark_kills_pct",
+        "benchmark_damage_pct", "benchmark_tower_pct",
+        "ally_heroes", "enemy_heroes"
+    ]
+
+    with open(filepath, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for data in advanced_data:
+            if isinstance(data, dict):
+                writer.writerow(data)
+
+    print(f"Saved advanced data for {len(advanced_data)} matches to {filepath}")
 
 
 def save_matches_csv(matches, filename="matches.csv"):
@@ -554,6 +663,65 @@ def backfill_items(batch_size=20):
     print(f"\nDone! Fetched items for {total_fetched} matches.")
 
 
+def backfill_advanced_data(batch_size=20):
+    """Fetch advanced data for all matches that don't have it yet."""
+    import time
+
+    # Load all matches
+    matches_file = DATA_DIR / "matches.csv"
+    if not matches_file.exists():
+        print("No matches.csv found. Run update_all first.")
+        return
+
+    all_match_ids = []
+    with open(matches_file, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            all_match_ids.append(row["match_id"])
+
+    # Load existing advanced data
+    existing_advanced = load_existing_advanced_data()
+
+    # Find matches without advanced data
+    missing_ids = [mid for mid in all_match_ids if mid not in existing_advanced]
+
+    if not missing_ids:
+        print("All matches already have advanced data!")
+        return
+
+    print(f"Found {len(missing_ids)} matches without advanced data.")
+    print(f"Fetching advanced data in batches of {batch_size}...")
+
+    advanced_data_list = list(existing_advanced.values())
+    total_fetched = 0
+
+    for i in range(0, len(missing_ids), batch_size):
+        batch = missing_ids[i:i + batch_size]
+        print(f"\nBatch {i // batch_size + 1}: Fetching advanced data for {len(batch)} matches...")
+
+        for j, match_id in enumerate(batch):
+            try:
+                print(f"  Fetching match {j+1}/{len(batch)}: {match_id}")
+                advanced_data = fetch_match_advanced_data(match_id)
+                if advanced_data:
+                    advanced_data_list.append(advanced_data)
+                    total_fetched += 1
+                time.sleep(0.5)  # Rate limiting
+            except Exception as e:
+                print(f"  Error fetching match {match_id}: {e}")
+
+        # Save after each batch
+        save_match_advanced_csv(advanced_data_list)
+        print(f"Progress: {total_fetched}/{len(missing_ids)} matches processed")
+
+        # Rate limiting between batches
+        if i + batch_size < len(missing_ids):
+            print("Waiting before next batch...")
+            time.sleep(2)
+
+    print(f"\nDone! Fetched advanced data for {total_fetched} matches.")
+
+
 if __name__ == "__main__":
     import sys
 
@@ -575,6 +743,9 @@ if __name__ == "__main__":
     elif len(sys.argv) > 1 and sys.argv[1] == "--backfill":
         # Backfill items for all matches: python fetch_dota_stats.py --backfill
         backfill_items()
+    elif len(sys.argv) > 1 and sys.argv[1] == "--advanced":
+        # Backfill advanced data for all matches: python fetch_dota_stats.py --advanced
+        backfill_advanced_data()
     else:
         limit = 500
         if len(sys.argv) > 1:

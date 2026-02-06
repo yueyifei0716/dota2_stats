@@ -73,6 +73,19 @@ def read_match_items():
     return items
 
 
+def read_match_advanced():
+    """Read advanced match data (lane, benchmarks, throw/comeback)."""
+    filepath = DATA_DIR / "match_advanced.csv"
+    if not filepath.exists():
+        return {}
+    data = {}
+    with open(filepath, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            data[row["match_id"]] = row
+    return data
+
+
 # Item ID to name mapping for icons (from OpenDota API)
 ITEM_NAMES = {
     1: "blink", 2: "blades_of_attack", 3: "broadsword", 4: "chainmail", 5: "claymore",
@@ -206,6 +219,101 @@ def get_rank_name(rank_tier):
     return name, rank_icon
 
 
+def calculate_impact_score(match, advanced_data=None):
+    """Calculate impact score for a match (0-100)."""
+    try:
+        kills = float(match.get("kills", 0))
+        assists = float(match.get("assists", 0))
+        deaths = float(match.get("deaths", 0))
+        hero_damage = float(match.get("hero_damage", 0))
+        tower_damage = float(match.get("tower_damage", 0))
+
+        # Base formula: (kills * 1.0 + assists * 0.7 + (hero_damage / 1000) * 0.5 + (tower_damage / 1000) * 1.0) / (deaths + 1)
+        base_score = (kills * 1.0 + assists * 0.7 + (hero_damage / 1000) * 0.5 + (tower_damage / 1000) * 1.0) / (deaths + 1)
+
+        # Normalize to 0-100 scale (cap at 15 for base, multiply by 5)
+        normalized_score = min(base_score * 5, 75)
+
+        # Win bonus: +20% if won
+        if match.get("win") == "Win":
+            normalized_score *= 1.2
+
+        # Benchmark bonus: +10% if above 75th percentile in key metrics
+        if advanced_data:
+            benchmark_avg = (
+                float(advanced_data.get("benchmark_gpm_pct", 0)) +
+                float(advanced_data.get("benchmark_xpm_pct", 0)) +
+                float(advanced_data.get("benchmark_damage_pct", 0))
+            ) / 3
+            if benchmark_avg > 75:
+                normalized_score *= 1.1
+
+        return min(int(normalized_score), 100)
+    except (ValueError, ZeroDivisionError):
+        return 0
+
+
+def get_match_badges(match, advanced_data=None, impact_score=0):
+    """Determine badges for a match."""
+    badges = []
+
+    try:
+        # High Impact - Impact score > 80
+        if impact_score > 80:
+            badges.append({"icon": "🔥", "text": "High Impact", "class": "badge-high-impact"})
+
+        # Comeback King - Won after >5k gold deficit
+        if advanced_data and advanced_data.get("is_comeback") == "True":
+            badges.append({"icon": "📈", "text": "Comeback", "class": "badge-comeback"})
+
+        # Game Thrower - Lost after >5k gold lead
+        if advanced_data and advanced_data.get("is_throw") == "True":
+            badges.append({"icon": "💀", "text": "Throw", "class": "badge-throw"})
+
+        # Hard Carry - High damage + win
+        hero_damage = float(match.get("hero_damage", 0))
+        if match.get("win") == "Win" and hero_damage > 20000:
+            badges.append({"icon": "⭐", "text": "Carry", "class": "badge-carry"})
+
+        # Support MVP - High assists, low deaths
+        kills = float(match.get("kills", 0))
+        assists = float(match.get("assists", 0))
+        deaths = float(match.get("deaths", 0))
+        if assists > 15 and deaths < 5 and assists > kills:
+            badges.append({"icon": "🛡️", "text": "Support", "class": "badge-support"})
+
+    except (ValueError, TypeError):
+        pass
+
+    return badges
+
+
+def get_rank_name(rank_tier):
+    """Convert rank tier to Chinese name."""
+    if not rank_tier:
+        return "未校准", None
+    try:
+        tier = int(rank_tier)
+    except ValueError:
+        return "未知", None
+
+    medals = {
+        1: "先锋", 2: "卫士", 3: "中军", 4: "统帅",
+        5: "传奇", 6: "万古流芳", 7: "超凡入圣", 8: "冠绝一世"
+    }
+    medal_icons = {
+        1: "herald", 2: "guardian", 3: "crusader", 4: "archon",
+        5: "legend", 6: "ancient", 7: "divine", 8: "immortal"
+    }
+    medal_num = tier // 10
+    medal = medals.get(medal_num, "未知")
+    stars = tier % 10
+    icon_name = medal_icons.get(medal_num, "")
+    rank_icon = f"https://www.opendota.com/assets/images/dota2/rank_icons/rank_icon_{medal_num}.png" if icon_name else None
+    name = f"{medal} {stars}" if stars else medal
+    return name, rank_icon
+
+
 @app.route("/")
 def index():
     profile = read_profile()
@@ -213,6 +321,7 @@ def index():
     hero_stats = read_csv("hero_stats.csv")
     mmr_history = read_mmr_history()
     match_items = read_match_items()
+    match_advanced = read_match_advanced()
 
     # Get hero filter from query param
     hero_filter = request.args.get("hero", "")
@@ -226,9 +335,11 @@ def index():
     else:
         filtered_matches = matches
 
-    # Add items to matches
+    # Add items, impact scores, and badges to matches
     for m in filtered_matches:
         match_id = m.get("match_id")
+
+        # Add items
         if match_id in match_items:
             item_data = match_items[match_id]
             m["item_icons"] = [
@@ -243,6 +354,16 @@ def index():
         else:
             m["item_icons"] = []
             m["item_neutral_icon"] = ""
+
+        # Add advanced data, impact score, and badges
+        advanced_data = match_advanced.get(match_id, {})
+        m["impact_score"] = calculate_impact_score(m, advanced_data)
+        m["badges"] = get_match_badges(m, advanced_data, m["impact_score"])
+        m["lane_role"] = advanced_data.get("lane_role", "0")
+        m["is_comeback"] = advanced_data.get("is_comeback", "False") == "True"
+        m["is_throw"] = advanced_data.get("is_throw", "False") == "True"
+        m["benchmark_gpm_pct"] = advanced_data.get("benchmark_gpm_pct", "0")
+        m["benchmark_damage_pct"] = advanced_data.get("benchmark_damage_pct", "0")
 
     # Calculate recent stats (last 20 games)
     recent = matches[:20]

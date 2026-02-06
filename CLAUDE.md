@@ -11,6 +11,44 @@ Dota 2 Stats Tracker - A Flask web application that fetches and displays Dota 2 
 
 ## Recent Changes
 
+### 2026-02-06: Added Advanced Analytics (Impact Score, Badges, Throw/Comeback)
+**Features Added:**
+
+1. **Advanced Match Data Fetching:**
+   - Lane role (Pos 1-5)
+   - Net worth, level, gold spent
+   - Max gold lead/deficit for throw/comeback detection
+   - Benchmark percentiles (GPM, XPM, damage, tower damage)
+   - Ally/enemy hero IDs for matchup analysis
+
+2. **Impact Score System:**
+   - Formula: `(kills * 1.0 + assists * 0.7 + (hero_damage / 1000) * 0.5 + (tower_damage / 1000) * 1.0) / (deaths + 1)`
+   - Normalized to 0-100 scale
+   - Win bonus: +20%
+   - Benchmark bonus: +10% if above 75th percentile
+
+3. **Badge System:**
+   - 🔥 **High Impact** - Impact score > 80
+   - 📈 **Comeback** - Won after >5k gold deficit
+   - 💀 **Throw** - Lost after >5k gold lead
+   - ⭐ **Carry** - High damage + win
+   - 🛡️ **Support** - High assists, low deaths
+
+**New Files:**
+- `data/match_advanced.csv` - Advanced match metrics
+
+**CLI Commands:**
+```bash
+python fetch_dota_stats.py --advanced  # Backfill advanced data for all matches
+```
+
+**Files Modified:**
+- `fetch_dota_stats.py` - Added `fetch_match_advanced_data()`, `backfill_advanced_data()`
+- `app.py` - Added `calculate_impact_score()`, `get_match_badges()`, `read_match_advanced()`
+- `templates/index.html` - Added impact score and badges columns to match table
+
+---
+
 ### 2026-02-06: Added Item Backfill Feature
 **Problem:** Previously fetched matches were missing item data because items were only fetched for new matches.
 

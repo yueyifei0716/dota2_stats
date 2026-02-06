@@ -410,6 +410,40 @@
         }
 
         .no-items { color: #555; }
+
+        /* Impact Score and Badges */
+        .impact-score {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 0.9em;
+            min-width: 35px;
+            text-align: center;
+        }
+        .impact-high { background: rgba(78, 205, 196, 0.3); color: #4ecdc4; }
+        .impact-medium { background: rgba(255, 215, 0, 0.3); color: #ffd700; }
+        .impact-low { background: rgba(255, 107, 107, 0.3); color: #ff6b6b; }
+
+        .match-badges {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+        .match-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 0.75em;
+            white-space: nowrap;
+        }
+        .badge-high-impact { background: rgba(255, 107, 107, 0.2); color: #ff6b6b; }
+        .badge-comeback { background: rgba(78, 205, 196, 0.2); color: #4ecdc4; }
+        .badge-throw { background: rgba(128, 128, 128, 0.3); color: #888; }
+        .badge-carry { background: rgba(255, 215, 0, 0.2); color: #ffd700; }
+        .badge-support { background: rgba(100, 149, 237, 0.2); color: #6495ed; }
     </style>
 </head>
 <body>
@@ -605,7 +639,8 @@
                             <th>英雄</th>
                             <th>结果</th>
                             <th>K/D/A</th>
-                            <th>KDA</th>
+                            <th>评分</th>
+                            <th>标签</th>
                             <th>物品</th>
                             <th>时长</th>
                         </tr>
@@ -624,8 +659,17 @@
                                 {{ '胜利' if match.win == 'Win' else '失败' }}
                             </td>
                             <td class="kda">{{ match.kills }}/{{ match.deaths }}/{{ match.assists }}</td>
-                            <td class="kda {% if match.kda|float >= 4 %}kda-good{% elif match.kda|float >= 2 %}kda-ok{% else %}kda-bad{% endif %}">
-                                {{ match.kda }}
+                            <td>
+                                <span class="impact-score {% if match.impact_score >= 70 %}impact-high{% elif match.impact_score >= 40 %}impact-medium{% else %}impact-low{% endif %}">
+                                    {{ match.impact_score }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="match-badges">
+                                    {% for badge in match.badges %}
+                                    <span class="match-badge {{ badge.class }}">{{ badge.icon }}</span>
+                                    {% endfor %}
+                                </div>
                             </td>
                             <td class="items-cell">
                                 {% if match.item_icons %}
