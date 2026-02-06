@@ -798,20 +798,12 @@
                                 <span>High Impact - 评分超过80</span>
                             </div>
                             <div class="legend-badge-item">
-                                <span class="match-badge badge-comeback">📈</span>
-                                <span>Comeback - 落后5000金后翻盘</span>
-                            </div>
-                            <div class="legend-badge-item">
-                                <span class="match-badge badge-throw">💀</span>
-                                <span>Throw - 领先5000金后输掉</span>
-                            </div>
-                            <div class="legend-badge-item">
                                 <span class="match-badge badge-carry">⭐</span>
-                                <span>Carry - 高伤害且获胜</span>
+                                <span>Carry - 高伤害(>20k)且获胜</span>
                             </div>
                             <div class="legend-badge-item">
                                 <span class="match-badge badge-support">🛡️</span>
-                                <span>Support - 高助攻低死亡</span>
+                                <span>Support - 助攻>15, 死亡<5, 助攻>击杀</span>
                             </div>
                         </div>
                     </div>
@@ -830,14 +822,6 @@
                         <button id="filterAll" class="active" onclick="setResultFilter('all')">全部</button>
                         <button id="filterWin" onclick="setResultFilter('win')">胜利</button>
                         <button id="filterLoss" onclick="setResultFilter('loss')">失败</button>
-                    </div>
-                </div>
-                <div class="filter-group">
-                    <label>标签:</label>
-                    <div class="filter-toggle">
-                        <button id="filterBadgeAll" class="active" onclick="setBadgeFilter('all')">全部</button>
-                        <button id="filterComeback" onclick="setBadgeFilter('comeback')">📈翻盘</button>
-                        <button id="filterThrow" onclick="setBadgeFilter('throw')">💀送掉</button>
                     </div>
                 </div>
                 <form method="GET" action="/" class="filter-form" style="margin-left: auto;">
@@ -880,9 +864,7 @@
                         {% for match in matches %}
                         <tr class="match-row"
                             data-hero="{{ match.hero_cn }}"
-                            data-result="{{ match.win }}"
-                            data-comeback="{{ 'true' if match.badges|selectattr('class', 'equalto', 'badge-comeback')|list else 'false' }}"
-                            data-throw="{{ 'true' if match.badges|selectattr('class', 'equalto', 'badge-throw')|list else 'false' }}">
+                            data-result="{{ match.win }}">
                             <td>{{ match.date }}</td>
                             <td>
                                 <div class="match-hero">
@@ -968,7 +950,6 @@
 
         // Filter state
         let currentResultFilter = 'all';
-        let currentBadgeFilter = 'all';
 
         // Filter matches based on all criteria
         function filterMatches() {
@@ -979,8 +960,6 @@
             rows.forEach(row => {
                 const hero = row.dataset.hero.toLowerCase();
                 const result = row.dataset.result;
-                const isComeback = row.dataset.comeback === 'true';
-                const isThrow = row.dataset.throw === 'true';
 
                 // Check search filter
                 const matchesSearch = hero.includes(searchTerm);
@@ -993,16 +972,8 @@
                     matchesResult = result === 'Loss';
                 }
 
-                // Check badge filter
-                let matchesBadge = true;
-                if (currentBadgeFilter === 'comeback') {
-                    matchesBadge = isComeback;
-                } else if (currentBadgeFilter === 'throw') {
-                    matchesBadge = isThrow;
-                }
-
                 // Show/hide row
-                if (matchesSearch && matchesResult && matchesBadge) {
+                if (matchesSearch && matchesResult) {
                     row.style.display = '';
                     visibleCount++;
                 } else {
@@ -1019,18 +990,6 @@
             document.getElementById('filterAll').classList.toggle('active', filter === 'all');
             document.getElementById('filterWin').classList.toggle('active', filter === 'win');
             document.getElementById('filterLoss').classList.toggle('active', filter === 'loss');
-
-            filterMatches();
-        }
-
-        // Set badge filter (Comeback/Throw/All)
-        function setBadgeFilter(filter) {
-            currentBadgeFilter = filter;
-
-            // Update button states
-            document.getElementById('filterBadgeAll').classList.toggle('active', filter === 'all');
-            document.getElementById('filterComeback').classList.toggle('active', filter === 'comeback');
-            document.getElementById('filterThrow').classList.toggle('active', filter === 'throw');
 
             filterMatches();
         }

@@ -296,14 +296,6 @@ def get_match_badges(match, advanced_data=None, impact_score=0):
         if impact_score > 80:
             badges.append({"icon": "🔥", "text": "High Impact", "class": "badge-high-impact"})
 
-        # Comeback King - Won after >5k gold deficit
-        if advanced_data and advanced_data.get("is_comeback") == "True":
-            badges.append({"icon": "📈", "text": "Comeback", "class": "badge-comeback"})
-
-        # Game Thrower - Lost after >5k gold lead
-        if advanced_data and advanced_data.get("is_throw") == "True":
-            badges.append({"icon": "💀", "text": "Throw", "class": "badge-throw"})
-
         # Hard Carry - High damage + win (use advanced_data for accurate hero_damage)
         hero_damage = float(advanced_data.get("hero_damage", 0)) if advanced_data else float(match.get("hero_damage", 0))
         if match.get("win") == "Win" and hero_damage > 20000:
