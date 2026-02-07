@@ -1,18 +1,22 @@
 """
 Dota 2 Stats Fetcher for vinceybb (Steam ID: 894447460)
-Fetches match data from OpenDota API and saves to CSV files.
+Fetches match data from OpenDota API and saves to Notion databases.
 With Chinese hero names and MMR tracking.
 """
 
 import requests
-import csv
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
 
+# Add project root to path for notion_client import
+sys.path.insert(0, str(Path(__file__).parent))
+
+import notion_db as nc
+
 STEAM_ID = 894447460
 BASE_URL = "https://api.opendota.com/api"
-DATA_DIR = Path(__file__).parent / "data"
 
 # Hero ID to English name mapping
 HEROES_EN = {
@@ -95,11 +99,6 @@ def get_hero_icon_url(hero_id):
     return ""
 
 
-def ensure_data_dir():
-    """Create data directory if it doesn't exist."""
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-
-
 def refresh_player_data():
     """Request OpenDota to refresh/parse new matches for the player."""
     url = f"{BASE_URL}/players/{STEAM_ID}/refresh"
@@ -116,9 +115,47 @@ def refresh_player_data():
         return False
 
 
+def request_match_parse(match_ids):
+    """Request OpenDota to parse matches (needed for lane_role data).
+
+    Args:
+        match_ids: list of match ID strings to request parsing for
+    Returns:
+        number of successfully requested parses
+    """
+    import time
+    requested = 0
+    for mid in match_ids:
+        try:
+            url = f"{BASE_URL}/request/{mid}"
+            response = requests.post(url)
+            if response.status_code == 200:
+                requested += 1
+            time.sleep(0.5)
+        except Exception as e:
+            print(f"  Failed to request parse for {mid}: {e}")
+    return requested
+
+
 def fetch_player_profile():
     """Fetch player profile information."""
     url = f"{BASE_URL}/players/{STEAM_ID}"
+    response = requests.get(url)
+    response.raise_for_status()
+    return response.json()
+
+
+def fetch_player_ratings():
+    """Fetch player rank tier history over time."""
+    url = f"{BASE_URL}/players/{STEAM_ID}/ratings"
+    response = requests.get(url)
+    response.raise_for_status()
+    return response.json()
+
+
+def fetch_player_rankings():
+    """Fetch player hero rankings (percentile vs all players)."""
+    url = f"{BASE_URL}/players/{STEAM_ID}/rankings"
     response = requests.get(url)
     response.raise_for_status()
     return response.json()
@@ -147,6 +184,81 @@ def fetch_match_details(match_id):
     response = requests.get(url)
     response.raise_for_status()
     return response.json()
+
+
+def compute_role(account_id, teammates):
+    """Compute Pos 1-5 using lane assignment + farm priority.
+
+    Algorithm:
+    1. lane_role=2 (mid) → Pos 2
+    2. lane_role=3 (offlane) → Pos 3
+    3. lane_role=1 (safe lane): highest last_hits → Pos 1, lowest → Pos 5
+    4. lane_role=4 or is_roaming → Pos 4
+    5. Remaining unassigned → fill by GPM rank
+    Falls back to pure GPM ranking if lane_role data is mostly missing.
+    """
+    # Check if lane_role data is available (at least 3 teammates have it)
+    has_lane = sum(1 for p in teammates if p.get("lane_role", 0) != 0)
+    if has_lane < 3:
+        # Fall back to GPM ranking
+        ranked = sorted(teammates, key=lambda p: p.get("gold_per_min", 0), reverse=True)
+        for i, p in enumerate(ranked, 1):
+            if p.get("account_id") == account_id:
+                return i
+        return 0
+
+    roles = {}  # account_id -> role
+    used_roles = set()
+
+    # Group by lane_role
+    by_lane = {}
+    for p in teammates:
+        lr = p.get("lane_role", 0)
+        by_lane.setdefault(lr, []).append(p)
+
+    # Mid (lane_role=2) → Pos 2
+    for p in by_lane.get(2, []):
+        aid = p.get("account_id")
+        if aid not in roles and 2 not in used_roles:
+            roles[aid] = 2
+            used_roles.add(2)
+
+    # Offlane (lane_role=3) → Pos 3
+    for p in by_lane.get(3, []):
+        aid = p.get("account_id")
+        if aid not in roles and 3 not in used_roles:
+            roles[aid] = 3
+            used_roles.add(3)
+
+    # Safe lane (lane_role=1): highest last_hits → Pos 1, lowest → Pos 5
+    safe = sorted(by_lane.get(1, []), key=lambda p: p.get("last_hits", 0), reverse=True)
+    for i, p in enumerate(safe):
+        aid = p.get("account_id")
+        if aid in roles:
+            continue
+        if i == 0 and 1 not in used_roles:
+            roles[aid] = 1
+            used_roles.add(1)
+        elif 5 not in used_roles:
+            roles[aid] = 5
+            used_roles.add(5)
+
+    # Jungle/Roaming (lane_role=4 or is_roaming) → Pos 4
+    jungle_roam = by_lane.get(4, []) + [p for p in teammates if p.get("is_roaming") and p.get("account_id") not in roles]
+    for p in jungle_roam:
+        aid = p.get("account_id")
+        if aid not in roles and 4 not in used_roles:
+            roles[aid] = 4
+            used_roles.add(4)
+
+    # Fill remaining unassigned by GPM
+    unassigned = [p for p in teammates if p.get("account_id") not in roles]
+    unassigned.sort(key=lambda p: p.get("gold_per_min", 0), reverse=True)
+    available = sorted(r for r in [1, 2, 3, 4, 5] if r not in used_roles)
+    for p, r in zip(unassigned, available):
+        roles[p.get("account_id")] = r
+
+    return roles.get(account_id, 0)
 
 
 def fetch_match_advanced_data(match_id):
@@ -188,6 +300,10 @@ def fetch_match_advanced_data(match_id):
     # Get benchmarks
     benchmarks = player_data.get("benchmarks", {})
 
+    # Compute role (Pos 1-5) using lane + farm priority
+    teammates = [p for p in all_players if (p.get("player_slot", 0) < 128) == player_team]
+    role = compute_role(STEAM_ID, teammates)
+
     # Get ally and enemy heroes
     ally_heroes = []
     enemy_heroes = []
@@ -202,6 +318,7 @@ def fetch_match_advanced_data(match_id):
 
     return {
         "match_id": match_id,
+        "role": role,
         "lane_role": player_data.get("lane_role", 0),
         "lane": player_data.get("lane", 0),
         "is_roaming": player_data.get("is_roaming", False),
@@ -313,257 +430,178 @@ def fetch_matches_with_items(match_ids, max_matches=50):
 
 
 def load_existing_items():
-    """Load existing match items from CSV."""
-    filepath = DATA_DIR / "match_items.csv"
-    if not filepath.exists():
-        return {}
+    """Load existing match IDs that have item data from Notion."""
+    matches = nc.query_matches()
     items = {}
-    with open(filepath, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            items[row["match_id"]] = {
-                "match_id": row["match_id"],
-                "items": [
-                    int(row.get("item_0", 0) or 0),
-                    int(row.get("item_1", 0) or 0),
-                    int(row.get("item_2", 0) or 0),
-                    int(row.get("item_3", 0) or 0),
-                    int(row.get("item_4", 0) or 0),
-                    int(row.get("item_5", 0) or 0),
-                ],
-                "item_neutral": int(row.get("item_neutral", 0) or 0)
+    for m in matches:
+        if m.get("item_0", 0) != 0 or m.get("item_1", 0) != 0:
+            items[str(m["match_id"])] = {
+                "match_id": m["match_id"],
+                "items": [m.get(f"item_{i}", 0) for i in range(6)],
+                "item_neutral": m.get("item_neutral", 0),
             }
     return items
 
 
-def save_match_items_csv(items_data, filename="match_items.csv"):
-    """Save match items to CSV."""
-    ensure_data_dir()
-    filepath = DATA_DIR / filename
-
-    fieldnames = ["match_id", "item_0", "item_1", "item_2", "item_3", "item_4", "item_5", "item_neutral"]
-
-    with open(filepath, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-
-        for item in items_data:
-            row = {
-                "match_id": item["match_id"],
-                "item_0": item["items"][0],
-                "item_1": item["items"][1],
-                "item_2": item["items"][2],
-                "item_3": item["items"][3],
-                "item_4": item["items"][4],
-                "item_5": item["items"][5],
-                "item_neutral": item["item_neutral"]
-            }
-            writer.writerow(row)
-
-    print(f"Saved items for {len(items_data)} matches to {filepath}")
+def save_match_items(items_data):
+    """Save match items to Notion (update existing match pages)."""
+    for item in items_data:
+        mid = str(item["match_id"])
+        nc.update_match_items(mid, item)
+    print(f"Saved items for {len(items_data)} matches to Notion")
 
 
 def load_existing_advanced_data():
-    """Load existing advanced match data from CSV."""
-    filepath = DATA_DIR / "match_advanced.csv"
-    if not filepath.exists():
-        return {}
+    """Load existing match IDs that have advanced data from Notion."""
+    matches = nc.query_matches()
     data = {}
-    with open(filepath, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            data[row["match_id"]] = row
+    for m in matches:
+        # Consider match as having advanced data only if lane_role is set
+        if m.get("lane_role", 0) != 0:
+            data[str(m["match_id"])] = m
     return data
 
 
-def save_match_advanced_csv(advanced_data, filename="match_advanced.csv"):
-    """Save advanced match data to CSV."""
-    ensure_data_dir()
-    filepath = DATA_DIR / filename
-
-    fieldnames = [
-        "match_id", "lane_role", "lane", "is_roaming", "net_worth", "level", "gold_spent",
-        "hero_damage", "tower_damage", "kills", "deaths", "assists",
-        "max_gold_lead", "max_gold_deficit", "is_comeback", "is_throw",
-        "benchmark_gpm_pct", "benchmark_xpm_pct", "benchmark_kills_pct",
-        "benchmark_damage_pct", "benchmark_tower_pct",
-        "ally_heroes", "enemy_heroes"
-    ]
-
-    with open(filepath, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        for data in advanced_data:
-            if isinstance(data, dict):
-                writer.writerow(data)
-
-    print(f"Saved advanced data for {len(advanced_data)} matches to {filepath}")
+def save_match_advanced(advanced_data_list):
+    """Save advanced match data to Notion (update existing match pages)."""
+    for adv in advanced_data_list:
+        if isinstance(adv, dict) and "match_id" in adv:
+            nc.update_match_advanced(str(adv["match_id"]), adv)
+    print(f"Saved advanced data for {len(advanced_data_list)} matches to Notion")
 
 
-def save_matches_csv(matches, filename="matches.csv"):
-    """Save match data to CSV."""
-    ensure_data_dir()
-    filepath = DATA_DIR / filename
+def save_matches(matches):
+    """Save match data to Notion (skip existing match IDs).
 
-    fieldnames = [
-        "match_id", "date", "timestamp", "hero", "hero_cn", "hero_id", "hero_icon",
-        "win", "kills", "deaths", "assists", "kda", "last_hits", "gpm", "xpm",
-        "hero_damage", "tower_damage", "hero_healing", "duration", "game_mode",
-        "lobby_type", "party_size", "avg_rank"
-    ]
+    Returns:
+        set: Hero IDs from newly saved matches (for incremental hero stats update)
+    """
+    existing_ids = nc.get_existing_match_ids()
+    new_count = 0
+    new_hero_ids = set()
 
-    with open(filepath, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
+    for m in matches:
+        match_id = str(m.get("match_id"))
+        if match_id in existing_ids:
+            continue
 
-        for m in matches:
-            win = determine_win(m.get("player_slot", 0), m.get("radiant_win", False))
-            deaths = m.get("deaths", 0)
-            kda = (m.get("kills", 0) + m.get("assists", 0)) / max(deaths, 1)
-            hero_id = m.get("hero_id")
+        win = determine_win(m.get("player_slot", 0), m.get("radiant_win", False))
+        deaths = m.get("deaths", 0)
+        kda = (m.get("kills", 0) + m.get("assists", 0)) / max(deaths, 1)
+        hero_id = m.get("hero_id")
 
-            row = {
-                "match_id": m.get("match_id"),
-                "date": datetime.fromtimestamp(m.get("start_time", 0)).strftime("%Y-%m-%d %H:%M"),
-                "timestamp": m.get("start_time", 0),
-                "hero": HEROES_EN.get(hero_id, f"unknown"),
-                "hero_cn": HEROES_CN.get(hero_id, f"未知英雄"),
-                "hero_id": hero_id,
-                "hero_icon": get_hero_icon_url(hero_id),
-                "win": "Win" if win else "Loss",
-                "kills": m.get("kills", 0),
-                "deaths": deaths,
-                "assists": m.get("assists", 0),
-                "kda": round(kda, 2),
-                "last_hits": m.get("last_hits", 0),
-                "gpm": m.get("gold_per_min", 0),
-                "xpm": m.get("xp_per_min", 0),
-                "hero_damage": m.get("hero_damage", 0),
-                "tower_damage": m.get("tower_damage", 0),
-                "hero_healing": m.get("hero_healing", 0),
-                "duration": format_duration(m.get("duration", 0)),
-                "game_mode": GAME_MODES.get(m.get("game_mode"), str(m.get("game_mode"))),
-                "lobby_type": LOBBY_TYPES.get(m.get("lobby_type"), str(m.get("lobby_type"))),
-                "party_size": m.get("party_size", ""),
-                "avg_rank": m.get("average_rank", "")
-            }
-            writer.writerow(row)
+        match_data = {
+            "match_id": match_id,
+            "date": datetime.fromtimestamp(m.get("start_time", 0)).strftime("%Y-%m-%d %H:%M"),
+            "timestamp": m.get("start_time", 0),
+            "hero": HEROES_EN.get(hero_id, "unknown"),
+            "hero_cn": HEROES_CN.get(hero_id, "未知英雄"),
+            "hero_id": hero_id,
+            "hero_icon": get_hero_icon_url(hero_id),
+            "win": "Win" if win else "Loss",
+            "kills": m.get("kills", 0),
+            "deaths": deaths,
+            "assists": m.get("assists", 0),
+            "kda": round(kda, 2),
+            "last_hits": m.get("last_hits", 0),
+            "gpm": m.get("gold_per_min", 0),
+            "xpm": m.get("xp_per_min", 0),
+            "hero_damage": m.get("hero_damage", 0),
+            "tower_damage": m.get("tower_damage", 0),
+            "hero_healing": m.get("hero_healing", 0),
+            "duration": format_duration(m.get("duration", 0)),
+            "game_mode": GAME_MODES.get(m.get("game_mode"), str(m.get("game_mode"))),
+            "lobby_type": LOBBY_TYPES.get(m.get("lobby_type"), str(m.get("lobby_type"))),
+            "party_size": m.get("party_size", ""),
+            "avg_rank": m.get("average_rank", ""),
+            "lane_role": m.get("lane_role", 0),
+        }
+        nc.create_match(match_data)
+        new_count += 1
+        new_hero_ids.add(hero_id)
 
-    print(f"Saved {len(matches)} matches to {filepath}")
-
-
-def save_hero_stats_csv(hero_stats, filename="hero_stats.csv"):
-    """Save per-hero statistics to CSV."""
-    ensure_data_dir()
-    filepath = DATA_DIR / filename
-
-    fieldnames = ["hero", "hero_cn", "hero_id", "hero_icon", "games", "wins", "win_rate"]
-
-    with open(filepath, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-
-        for h in hero_stats:
-            hero_id = int(h.get("hero_id", 0))
-            games = h.get("games", 0)
-            wins = h.get("win", 0)
-            if games == 0:
-                continue
-
-            row = {
-                "hero": HEROES_EN.get(hero_id, "unknown"),
-                "hero_cn": HEROES_CN.get(hero_id, "未知英雄"),
-                "hero_id": hero_id,
-                "hero_icon": get_hero_icon_url(hero_id),
-                "games": games,
-                "wins": wins,
-                "win_rate": round(wins / games * 100, 1) if games > 0 else 0
-            }
-            writer.writerow(row)
-
-    print(f"Saved hero stats to {filepath}")
+    print(f"Saved {new_count} new matches to Notion (skipped {len(matches) - new_count} existing)")
+    return new_hero_ids
 
 
-def save_profile_csv(profile, wl, current_mmr=None, filename="profile.csv"):
-    """Save player profile to CSV."""
-    ensure_data_dir()
-    filepath = DATA_DIR / filename
+def save_hero_stats(hero_stats, updated_hero_ids=None):
+    """Save per-hero statistics to Notion.
 
+    Args:
+        hero_stats: Full hero stats from OpenDota API
+        updated_hero_ids: If provided, only update these heroes (for incremental updates)
+    """
+    count = 0
+    for h in hero_stats:
+        hero_id = int(h.get("hero_id", 0))
+        games = h.get("games", 0)
+        wins = h.get("win", 0)
+        if games == 0:
+            continue
+
+        # Skip if not in updated list (when doing incremental update)
+        if updated_hero_ids is not None and hero_id not in updated_hero_ids:
+            continue
+
+        nc.upsert_hero_stat({
+            "hero": HEROES_EN.get(hero_id, "unknown"),
+            "hero_cn": HEROES_CN.get(hero_id, "未知英雄"),
+            "hero_id": hero_id,
+            "hero_icon": get_hero_icon_url(hero_id),
+            "games": games,
+            "wins": wins,
+            "win_rate": round(wins / games * 100, 1) if games > 0 else 0,
+        })
+        count += 1
+    print(f"Saved {count} hero stats to Notion")
+
+
+def save_profile(profile, wl, current_mmr=None):
+    """Save player profile to Notion."""
     p = profile.get("profile", {})
-    fieldnames = ["field", "value"]
-
-    # Use provided MMR or estimated MMR
     mmr = current_mmr if current_mmr else profile.get("computed_mmr")
+    total_wins = wl.get("win", 0)
+    total_losses = wl.get("lose", 0)
 
-    with open(filepath, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-
-        data = [
-            ("username", p.get("personaname")),
-            ("steam_id", STEAM_ID),
-            ("rank_tier", profile.get("rank_tier")),
-            ("current_mmr", mmr),
-            ("estimated_mmr", profile.get("computed_mmr")),
-            ("country", p.get("loccountrycode")),
-            ("total_wins", wl.get("win", 0)),
-            ("total_losses", wl.get("lose", 0)),
-            ("win_rate", round(wl.get("win", 0) / max(wl.get("win", 0) + wl.get("lose", 0), 1) * 100, 1)),
-            ("last_updated", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-        ]
-
-        for field, value in data:
-            writer.writerow({"field": field, "value": value})
-
-    print(f"Saved profile to {filepath}")
+    nc.update_profile({
+        "username": p.get("personaname"),
+        "steam_id": STEAM_ID,
+        "rank_tier": profile.get("rank_tier"),
+        "current_mmr": mmr,
+        "estimated_mmr": profile.get("computed_mmr"),
+        "country": p.get("loccountrycode", ""),
+        "total_wins": total_wins,
+        "total_losses": total_losses,
+        "win_rate": round(total_wins / max(total_wins + total_losses, 1) * 100, 1),
+    })
+    print(f"Saved profile to Notion")
 
 
 def update_mmr_history(mmr, win_result=None):
-    """Append MMR to history file for trend tracking."""
-    ensure_data_dir()
-    filepath = DATA_DIR / "mmr_history.csv"
-
-    file_exists = filepath.exists()
-
-    with open(filepath, "a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        if not file_exists:
-            writer.writerow(["date", "mmr", "result"])
-        writer.writerow([
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            mmr,
-            win_result or ""
-        ])
-
+    """Append MMR to Notion history database."""
+    nc.append_mmr_history(mmr, win_result or "")
     print(f"Updated MMR history: {mmr}")
 
 
 def load_mmr_history():
-    """Load MMR history from file."""
-    filepath = DATA_DIR / "mmr_history.csv"
-    if not filepath.exists():
-        return []
-
-    with open(filepath, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        return list(reader)
+    """Load MMR history from Notion."""
+    return nc.query_mmr_history()
 
 
 def update_all(match_limit=500, current_mmr=None, fetch_items=False):
-    """Fetch all data and save to CSV files."""
+    """Fetch all data and save to Notion databases."""
     import time
 
     # Request OpenDota to parse new matches first
     print("Requesting OpenDota to refresh match data...")
     refresh_player_data()
-    # Wait a bit for OpenDota to process the refresh request
     print("Waiting for OpenDota to process...")
     time.sleep(3)
 
     print("Fetching player profile...")
     profile = fetch_player_profile()
     wl = fetch_win_loss()
-    save_profile_csv(profile, wl, current_mmr)
+    save_profile(profile, wl, current_mmr)
 
     # Update MMR history if provided
     if current_mmr:
@@ -571,11 +609,15 @@ def update_all(match_limit=500, current_mmr=None, fetch_items=False):
 
     print(f"\nFetching last {match_limit} matches...")
     matches = fetch_matches(limit=match_limit)
-    save_matches_csv(matches)
+    new_hero_ids = save_matches(matches)
 
-    print("\nFetching hero statistics...")
-    hero_stats = fetch_hero_stats()
-    save_hero_stats_csv(hero_stats)
+    # Only update hero stats for heroes that appeared in new matches
+    if new_hero_ids:
+        print(f"\nFetching hero statistics (updating {len(new_hero_ids)} heroes)...")
+        hero_stats = fetch_hero_stats()
+        save_hero_stats(hero_stats, updated_hero_ids=new_hero_ids)
+    else:
+        print("\nNo new matches, skipping hero stats update")
 
     # Load existing items and find new matches without items
     existing_items = load_existing_items()
@@ -586,30 +628,46 @@ def update_all(match_limit=500, current_mmr=None, fetch_items=False):
     if new_match_ids:
         print(f"\nFetching items for {len(new_match_ids)} new matches...")
         new_items_data = fetch_matches_with_items(new_match_ids, max_matches=min(len(new_match_ids), 20))
-
-        # Merge with existing items
-        for item in new_items_data:
-            existing_items[str(item["match_id"])] = item
-
-        # Save all items
-        all_items = list(existing_items.values())
-        save_match_items_csv(all_items)
+        save_match_items(new_items_data)
 
     # If fetch_items flag is set, refresh all recent items
     if fetch_items:
         print("\nRefreshing items for all recent matches...")
         match_ids = [m.get("match_id") for m in matches[:50]]
         items_data = fetch_matches_with_items(match_ids, max_matches=50)
-        save_match_items_csv(items_data)
+        save_match_items(items_data)
 
-    print("\nDone! CSV files saved to:", DATA_DIR)
+    # Fetch advanced data (lane_role, benchmarks, etc.) for new matches
+    existing_advanced = load_existing_advanced_data()
+    new_adv_ids = [mid for mid in recent_match_ids if mid not in existing_advanced]
+    if new_adv_ids:
+        # Request parsing first so lane_role data is available
+        print(f"\nRequesting OpenDota to parse {len(new_adv_ids)} matches...")
+        request_match_parse(new_adv_ids[:20])
+        print("Waiting 15s for parsing...")
+        time.sleep(15)
+
+        print(f"Fetching advanced data for {len(new_adv_ids)} new matches...")
+        adv_results = []
+        for mid in new_adv_ids[:20]:
+            try:
+                adv = fetch_match_advanced_data(mid)
+                if adv:
+                    adv_results.append(adv)
+                time.sleep(0.5)
+            except Exception as e:
+                print(f"  Error fetching advanced data for {mid}: {e}")
+        if adv_results:
+            save_match_advanced(adv_results)
+
+    print("\nDone! Data saved to Notion")
 
 
 def quick_update():
     """Fetch only recent matches (faster)."""
     print("Fetching recent matches...")
     matches = fetch_recent_matches()
-    save_matches_csv(matches, "recent_matches.csv")
+    save_matches(matches)
     print("Done!")
 
 
@@ -617,22 +675,12 @@ def backfill_items(batch_size=20):
     """Fetch items for all matches that don't have item data yet."""
     import time
 
-    # Load all matches
-    matches_file = DATA_DIR / "matches.csv"
-    if not matches_file.exists():
-        print("No matches.csv found. Run update_all first.")
-        return
-
-    all_match_ids = []
-    with open(matches_file, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            all_match_ids.append(row["match_id"])
-
-    # Load existing items
-    existing_items = load_existing_items()
+    # Load all match IDs from Notion
+    matches = nc.query_matches()
+    all_match_ids = [str(m["match_id"]) for m in matches]
 
     # Find matches without items
+    existing_items = load_existing_items()
     missing_ids = [mid for mid in all_match_ids if mid not in existing_items]
 
     if not missing_ids:
@@ -648,20 +696,11 @@ def backfill_items(batch_size=20):
         print(f"\nBatch {i // batch_size + 1}: Fetching items for {len(batch)} matches...")
 
         items_data = fetch_matches_with_items(batch, max_matches=len(batch))
-
-        # Merge with existing items
-        for item in items_data:
-            existing_items[str(item["match_id"])] = item
-
+        save_match_items(items_data)
         total_fetched += len(items_data)
-
-        # Save after each batch
-        all_items = list(existing_items.values())
-        save_match_items_csv(all_items)
 
         print(f"Progress: {total_fetched}/{len(missing_ids)} matches processed")
 
-        # Rate limiting between batches
         if i + batch_size < len(missing_ids):
             print("Waiting before next batch...")
             time.sleep(2)
@@ -673,22 +712,12 @@ def backfill_advanced_data(batch_size=20):
     """Fetch advanced data for all matches that don't have it yet."""
     import time
 
-    # Load all matches
-    matches_file = DATA_DIR / "matches.csv"
-    if not matches_file.exists():
-        print("No matches.csv found. Run update_all first.")
-        return
-
-    all_match_ids = []
-    with open(matches_file, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            all_match_ids.append(row["match_id"])
-
-    # Load existing advanced data
-    existing_advanced = load_existing_advanced_data()
+    # Load all match IDs from Notion
+    matches = nc.query_matches()
+    all_match_ids = [str(m["match_id"]) for m in matches]
 
     # Find matches without advanced data
+    existing_advanced = load_existing_advanced_data()
     missing_ids = [mid for mid in all_match_ids if mid not in existing_advanced]
 
     if not missing_ids:
@@ -696,36 +725,110 @@ def backfill_advanced_data(batch_size=20):
         return
 
     print(f"Found {len(missing_ids)} matches without advanced data.")
+
+    # Request OpenDota to parse matches first (needed for lane_role)
+    print(f"Requesting OpenDota to parse {len(missing_ids)} matches...")
+    requested = request_match_parse(missing_ids)
+    print(f"Requested parsing for {requested} matches. Waiting 30s for parsing...")
+    time.sleep(30)
+
     print(f"Fetching advanced data in batches of {batch_size}...")
 
-    advanced_data_list = list(existing_advanced.values())
     total_fetched = 0
-
     for i in range(0, len(missing_ids), batch_size):
         batch = missing_ids[i:i + batch_size]
         print(f"\nBatch {i // batch_size + 1}: Fetching advanced data for {len(batch)} matches...")
 
+        batch_results = []
         for j, match_id in enumerate(batch):
             try:
                 print(f"  Fetching match {j+1}/{len(batch)}: {match_id}")
                 advanced_data = fetch_match_advanced_data(match_id)
                 if advanced_data:
-                    advanced_data_list.append(advanced_data)
+                    batch_results.append(advanced_data)
                     total_fetched += 1
-                time.sleep(0.5)  # Rate limiting
+                time.sleep(0.5)
             except Exception as e:
                 print(f"  Error fetching match {match_id}: {e}")
 
-        # Save after each batch
-        save_match_advanced_csv(advanced_data_list)
+        # Save batch to Notion
+        save_match_advanced(batch_results)
         print(f"Progress: {total_fetched}/{len(missing_ids)} matches processed")
 
-        # Rate limiting between batches
         if i + batch_size < len(missing_ids):
             print("Waiting before next batch...")
             time.sleep(2)
 
     print(f"\nDone! Fetched advanced data for {total_fetched} matches.")
+
+
+def backfill_roles(batch_size=20, force=False):
+    """Compute lane+farm based roles for matches.
+
+    Args:
+        batch_size: number of matches per batch
+        force: if True, recompute all matches (not just missing)
+    """
+    import time
+
+    matches = nc.query_matches()
+    if force:
+        targets = matches
+    else:
+        targets = [m for m in matches if m.get("role", 0) == 0]
+
+    if not targets:
+        print("All matches already have role data!")
+        return
+
+    print(f"Found {len(targets)} matches to process (force={force}).")
+    print(f"Fetching match details in batches of {batch_size}...")
+
+    total_updated = 0
+    for i in range(0, len(targets), batch_size):
+        batch = targets[i:i + batch_size]
+        print(f"\nBatch {i // batch_size + 1}: Processing {len(batch)} matches...")
+
+        for j, m in enumerate(batch):
+            mid = str(m["match_id"])
+            try:
+                print(f"  Fetching match {j+1}/{len(batch)}: {mid}")
+                details = fetch_match_details(mid)
+                all_players = details.get("players", [])
+
+                # Find player and their team
+                player_data = None
+                player_team = None
+                for p in all_players:
+                    if p.get("account_id") == STEAM_ID:
+                        player_data = p
+                        player_team = p.get("player_slot", 0) < 128
+                        break
+
+                if not player_data:
+                    print(f"    Player not found in match {mid}")
+                    continue
+
+                # Compute role using lane + farm priority
+                teammates = [p for p in all_players if (p.get("player_slot", 0) < 128) == player_team]
+                role = compute_role(STEAM_ID, teammates)
+
+                if role > 0:
+                    nc.update_match_role(mid, role)
+                    total_updated += 1
+                    print(f"    Set role = Pos {role}")
+
+                time.sleep(0.5)
+            except Exception as e:
+                print(f"    Error processing match {mid}: {e}")
+
+        print(f"Progress: {total_updated}/{len(targets)} matches updated")
+
+        if i + batch_size < len(targets):
+            print("Waiting before next batch...")
+            time.sleep(2)
+
+    print(f"\nDone! Updated roles for {total_updated} matches.")
 
 
 if __name__ == "__main__":
@@ -752,6 +855,10 @@ if __name__ == "__main__":
     elif len(sys.argv) > 1 and sys.argv[1] == "--advanced":
         # Backfill advanced data for all matches: python fetch_dota_stats.py --advanced
         backfill_advanced_data()
+    elif len(sys.argv) > 1 and sys.argv[1] == "--fix-roles":
+        # Backfill lane+farm based roles: python fetch_dota_stats.py --fix-roles [--force]
+        force = "--force" in sys.argv
+        backfill_roles(force=force)
     else:
         limit = 500
         if len(sys.argv) > 1:

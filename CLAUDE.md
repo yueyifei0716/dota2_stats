@@ -4,12 +4,48 @@
 Dota 2 Stats Tracker - A Flask web application that fetches and displays Dota 2 match statistics from OpenDota API.
 
 **Steam ID:** 894447460
-**Tech Stack:** Python, Flask, OpenDota API
+**Tech Stack:** Python, Flask, OpenDota API, Notion API
 **Environment:** Miniconda (dota2 env)
+**Python Path:** `C:\Users\there\miniconda3\envs\dota2\python.exe`
+
+> **Note:** `conda activate` does not work from Claude Code's shell. Always use the full Python path above to run scripts:
+> ```bash
+> C:\Users\there\miniconda3\envs\dota2\python.exe script.py
+> ```
 
 ---
 
 ## Recent Changes
+
+### 2026-02-08: Fixed Position Detection (GPM-based Pos 1-5)
+**Problem:** OpenDota's `lane_role` field only tracks lane position in the first 10 minutes, not actual game role. Supports laning with carries get classified as safe lane (same as carry), and there's no distinction between Pos 4 and Pos 5.
+
+**Solution:** Use GPM rank within the team to infer Pos 1-5. The player with the highest GPM on the team is Pos 1, second highest is Pos 2, etc.
+
+**New Fields:**
+- `role` (number 1-5): GPM-based position, stored in Notion "Role" property
+
+**Display Logic:** Uses `role` field when available, falls back to `lane_role` for older matches.
+
+**Role Labels:**
+- Pos 1: 优势路 (Carry)
+- Pos 2: 中路 (Mid)
+- Pos 3: 劣势路 (Offlane)
+- Pos 4: 辅助 (Soft Support)
+- Pos 5: 纯辅助 (Hard Support)
+
+**CLI Commands:**
+```bash
+python fetch_dota_stats.py --fix-roles  # Backfill GPM-based roles for all matches
+```
+
+**Files Modified:**
+- `fetch_dota_stats.py` - Added GPM rank calculation in `fetch_match_advanced_data()`, added `backfill_roles()` and `--fix-roles` CLI option
+- `notion_db.py` - Added "Role" field to `_build_advanced_properties()`, `_page_to_match()`, and `update_match_role()`
+- `app.py` - Updated `role_short_names` and `role_names` for Pos 1-5, uses `role` with `lane_role` fallback
+- `templates/index.html` - Added Pos 5 CSS styling, updated filter labels
+
+---
 
 ### 2026-02-06: Added Advanced Analytics (Impact Score, Badges, Throw/Comeback)
 **Features Added:**
@@ -233,11 +269,20 @@ stop.bat
 ### Git Commit Rules
 **IMPORTANT:** Do NOT add "Co-Authored-By: Claude" to commit messages. All commits should only show the repository owner (yueyifei0716) as the author. Claude assists with code but should not be listed as a co-author.
 
+### After Code Modifications
+**IMPORTANT:** After modifying any Python files (`app.py`, `fetch_dota_stats.py`, etc.), you MUST restart the Flask server for changes to take effect:
+```bash
+# Kill existing Python processes and restart
+taskkill /F /IM python.exe
+start cmd /c "C:\Users\there\miniconda3\envs\dota2\python.exe app.py"
+```
+
 ### When Adding New Features
 1. Update this file with changes
 2. Document new API endpoints used
 3. Update project structure if files added
 4. Test update functionality still works
+5. **Restart the Flask server to apply changes**
 
 ### When Debugging Update Issues
 1. Check OpenDota API status: https://www.opendota.com/status
@@ -248,5 +293,5 @@ stop.bat
 
 ---
 
-**Last Updated:** 2026-02-06
-**Maintained By:** Claude (Opus 4.5)
+**Last Updated:** 2026-02-08
+**Maintained By:** Claude (Opus 4.6)

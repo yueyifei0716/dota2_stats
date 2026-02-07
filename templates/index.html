@@ -250,6 +250,95 @@
             margin-top: 20px;
         }
 
+        /* Role Performance Grid */
+        .role-performance-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .role-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .role-card:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateY(-3px);
+        }
+
+        .role-card.active {
+            background: rgba(78, 205, 196, 0.15);
+            border: 1px solid #4ecdc4;
+        }
+
+        .role-name {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #ffd700;
+            margin-bottom: 8px;
+        }
+
+        .role-games {
+            font-size: 0.85em;
+            color: #888;
+            margin-bottom: 10px;
+        }
+
+        .role-winrate {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #aaa;
+            margin-bottom: 4px;
+        }
+
+        .role-winrate.win { color: #4ecdc4; }
+        .role-winrate.loss { color: #ff6b6b; }
+
+        .role-record {
+            font-size: 0.85em;
+            color: #888;
+            margin-bottom: 10px;
+        }
+
+        .role-kda {
+            font-size: 1em;
+            margin-bottom: 8px;
+        }
+
+        .role-impact {
+            font-size: 0.85em;
+            color: #888;
+            padding: 4px 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            display: inline-block;
+        }
+
+        .role-tag {
+            font-size: 0.8em;
+            padding: 2px 8px;
+            border-radius: 6px;
+            white-space: nowrap;
+        }
+        .role-tag.role-1 { background: rgba(78, 205, 196, 0.2); color: #4ecdc4; }
+        .role-tag.role-2 { background: rgba(255, 107, 107, 0.2); color: #ff6b6b; }
+        .role-tag.role-3 { background: rgba(255, 209, 102, 0.2); color: #ffd166; }
+        .role-tag.role-4 { background: rgba(168, 130, 255, 0.2); color: #a882ff; }
+        .role-tag.role-5 { background: rgba(100, 149, 237, 0.2); color: #6495ed; }
+
+        .sortable {
+            cursor: pointer;
+            user-select: none;
+        }
+        .sortable:hover {
+            color: #4ecdc4;
+        }
+
         .mmr-form {
             display: flex;
             gap: 10px;
@@ -677,6 +766,45 @@
             </form>
         </div>
 
+        <!-- Rank History -->
+        <div class="section">
+            <h2 class="section-title">🏅 段位历史</h2>
+            {% if rank_history_values %}
+            <div class="mmr-chart-container">
+                <canvas id="rankChart" height="100"></canvas>
+            </div>
+            {% else %}
+            <div class="no-data">暂无段位历史数据</div>
+            {% endif %}
+        </div>
+
+        <!-- Role Performance -->
+        <div class="section">
+            <h2 class="section-title">🎯 位置表现</h2>
+            {% if role_performance %}
+            <div class="role-performance-grid">
+                {% for r in role_performance %}
+                <div class="role-card {% if role_filter == r.lane_role|string %}active{% endif %}" onclick="filterByRole('{{ r.lane_role }}')" style="cursor: pointer;">
+                    <div class="role-name">{{ r.role }}</div>
+                    <div class="role-games">{{ r.games }} 场</div>
+                    <div class="role-winrate {% if r.win_rate >= 55 %}win{% elif r.win_rate < 45 %}loss{% endif %}">
+                        {{ r.win_rate }}%
+                    </div>
+                    <div class="role-record">{{ r.wins }}胜 {{ r.losses }}负</div>
+                    <div class="role-kda">
+                        <span class="win">{{ r.avg_kills }}</span> /
+                        <span class="loss">{{ r.avg_deaths }}</span> /
+                        <span style="color: #4ecdc4;">{{ r.avg_assists }}</span>
+                    </div>
+                    <div class="role-impact">影响力 {{ r.avg_impact }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="no-data">暂无位置数据（需要高级比赛数据）</div>
+            {% endif %}
+        </div>
+
         <!-- Recent Performance -->
         <div class="section">
             <h2 class="section-title">📊 近期表现 (最近20场)</h2>
@@ -835,9 +963,14 @@
                 </form>
             </div>
 
-            {% if hero_filter %}
+            {% if hero_filter or role_filter %}
             <div class="filter-stats" style="margin-bottom: 15px;">
-                <span class="filter-hero">{{ hero_filter }}</span>:
+                {% if hero_filter %}<span class="filter-hero">{{ hero_filter }}</span>{% endif %}
+                {% if hero_filter and role_filter %} + {% endif %}
+                {% if role_filter %}
+                {% set role_names = {'1': '优势路 (Pos 1)', '2': '中路 (Pos 2)', '3': '劣势路 (Pos 3)', '4': '辅助 (Pos 4)', '5': '纯辅助 (Pos 5)'} %}
+                <span class="filter-hero">{{ role_names.get(role_filter, '未知') }}</span>
+                {% endif %}:
                 <span class="win">{{ filtered_wins }}胜</span> /
                 <span class="loss">{{ filtered_losses }}负</span>
                 ({{ ((filtered_wins / (filtered_wins + filtered_losses)) * 100) | round(1) if (filtered_wins + filtered_losses) > 0 else 0 }}%)
@@ -851,6 +984,7 @@
                         <tr>
                             <th>日期</th>
                             <th>英雄</th>
+                            <th class="sortable" onclick="sortByRole()" title="点击排序">位置 ⇅</th>
                             <th>结果</th>
                             <th>K/D/A</th>
                             <th>评分</th>
@@ -864,13 +998,17 @@
                         {% for match in matches %}
                         <tr class="match-row"
                             data-hero="{{ match.hero_cn }}"
-                            data-result="{{ match.win }}">
+                            data-result="{{ match.win }}"
+                            data-role="{{ match.effective_role }}">
                             <td>{{ match.date }}</td>
                             <td>
                                 <div class="match-hero">
                                     <img class="match-hero-icon" src="{{ match.hero_icon }}" alt="">
                                     <strong>{{ match.hero_cn }}</strong>
                                 </div>
+                            </td>
+                            <td class="role-cell" onclick="filterByRole('{{ match.effective_role }}')" style="cursor: pointer;">
+                                <span class="role-tag role-{{ match.effective_role }}">{{ match.role_name }}</span>
                             </td>
                             <td class="{% if match.win == 'Win' %}result-win{% else %}result-loss{% endif %}">
                                 {{ '胜利' if match.win == 'Win' else '失败' }}
@@ -912,7 +1050,7 @@
                             </td>
                         </tr>
                         <tr class="note-row" id="note-row-{{ match.match_id }}">
-                            <td colspan="9" class="note-cell">
+                            <td colspan="10" class="note-cell">
                                 <textarea class="note-textarea" id="note-text-{{ match.match_id }}" placeholder="添加比赛笔记...">{{ match.note }}</textarea>
                                 <div class="note-actions">
                                     <button class="note-save-btn" onclick="saveNote('{{ match.match_id }}')">保存笔记</button>
@@ -932,8 +1070,75 @@
     </div>
 
     <script>
+        // Auto-update on page load
+        (function autoUpdate() {
+            const now = Date.now();
+            const lastUpdate = parseInt(sessionStorage.getItem('lastAutoUpdate') || '0');
+            const cooldown = 60 * 1000; // 60 seconds cooldown between auto-updates
+
+            if (now - lastUpdate < cooldown) return;
+
+            sessionStorage.setItem('lastAutoUpdate', now.toString());
+
+            // Show subtle indicator
+            const banner = document.createElement('div');
+            banner.id = 'autoUpdateBanner';
+            banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:rgba(78,205,196,0.15);color:#4ecdc4;text-align:center;padding:8px;font-size:0.9em;z-index:9999;backdrop-filter:blur(5px);transition:opacity 0.5s;';
+            banner.textContent = '正在自动更新数据...';
+            document.body.prepend(banner);
+
+            fetch('/update_data', { method: 'POST', body: new FormData() })
+                .then(r => r.json())
+                .then(result => {
+                    if (result.success) {
+                        banner.textContent = '数据已更新，正在刷新...';
+                        setTimeout(() => location.reload(), 500);
+                    } else {
+                        banner.style.background = 'rgba(255,107,107,0.15)';
+                        banner.style.color = '#ff6b6b';
+                        banner.textContent = '自动更新失败';
+                        setTimeout(() => { banner.style.opacity = '0'; setTimeout(() => banner.remove(), 500); }, 2000);
+                    }
+                })
+                .catch(() => {
+                    banner.style.opacity = '0';
+                    setTimeout(() => banner.remove(), 500);
+                });
+        })();
+
         function filterByHero(heroName) {
             window.location.href = '/?hero=' + encodeURIComponent(heroName) + '#matches';
+        }
+
+        function filterByRole(laneRole) {
+            if (laneRole == '0') return;
+            window.location.href = '/?role=' + encodeURIComponent(laneRole) + '#matches';
+        }
+
+        // Sort by role column
+        let roleSortAsc = true;
+        function sortByRole() {
+            const tbody = document.querySelector('.matches-table tbody');
+            if (!tbody) return;
+            // Collect match rows and their associated note rows
+            const pairs = [];
+            const rows = Array.from(tbody.children);
+            for (let i = 0; i < rows.length; i++) {
+                if (rows[i].classList.contains('match-row')) {
+                    const noteRow = (i + 1 < rows.length && rows[i + 1].classList.contains('note-row')) ? rows[i + 1] : null;
+                    pairs.push({ match: rows[i], note: noteRow });
+                }
+            }
+            pairs.sort((a, b) => {
+                const ra = parseInt(a.match.dataset.role) || 99;
+                const rb = parseInt(b.match.dataset.role) || 99;
+                return roleSortAsc ? ra - rb : rb - ra;
+            });
+            pairs.forEach(p => {
+                tbody.appendChild(p.match);
+                if (p.note) tbody.appendChild(p.note);
+            });
+            roleSortAsc = !roleSortAsc;
         }
 
         // Toggle scoring legend visibility
@@ -1122,6 +1327,70 @@
                         ticks: { color: '#888' },
                         suggestedMin: Math.min(...{{ mmr_values | tojson }}) - 100,
                         suggestedMax: Math.max(...{{ mmr_values | tojson }}) + 100
+                    }
+                }
+            }
+        });
+    </script>
+    {% endif %}
+
+    {% if rank_history_values %}
+    <script>
+        const rankCtx = document.getElementById('rankChart').getContext('2d');
+        const rankLabels = {{ rank_history_labels | tojson }};
+        new Chart(rankCtx, {
+            type: 'line',
+            data: {
+                labels: {{ rank_history_dates | tojson }},
+                datasets: [{
+                    label: '段位',
+                    data: {{ rank_history_values | tojson }},
+                    borderColor: '#ffd700',
+                    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.3,
+                    pointBackgroundColor: '#ffd700',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    pointHoverRadius: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        titleColor: '#ffd700',
+                        bodyColor: '#fff',
+                        padding: 12,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                return rankLabels[context.dataIndex];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        ticks: { color: '#888' }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        ticks: {
+                            color: '#888',
+                            callback: function(value) {
+                                const idx = {{ rank_history_values | tojson }}.indexOf(value);
+                                if (idx !== -1) return rankLabels[idx];
+                                return '';
+                            }
+                        },
+                        suggestedMin: Math.min(...{{ rank_history_values | tojson }}) - 5,
+                        suggestedMax: Math.max(...{{ rank_history_values | tojson }}) + 5
                     }
                 }
             }

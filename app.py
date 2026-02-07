@@ -4,112 +4,123 @@ Flask web application to view your Dota 2 statistics.
 """
 
 from flask import Flask, render_template, jsonify, request, redirect, url_for
-import csv
 import subprocess
 import sys
+import requests
 from pathlib import Path
 from collections import defaultdict
 from datetime import datetime
+import notion_db as nc
+import notion_cache as cache
+from fetch_dota_stats import fetch_player_rankings
 
 app = Flask(__name__)
-DATA_DIR = Path(__file__).parent / "data"
+
+# Rank tier names (first digit = medal, second digit = stars)
+RANK_TIERS = {
+    0: "未校准",
+    10: "先锋 I", 11: "先锋 I", 12: "先锋 II", 13: "先锋 III", 14: "先锋 IV", 15: "先锋 V",
+    20: "卫士 I", 21: "卫士 I", 22: "卫士 II", 23: "卫士 III", 24: "卫士 IV", 25: "卫士 V",
+    30: "中军 I", 31: "中军 I", 32: "中军 II", 33: "中军 III", 34: "中军 IV", 35: "中军 V",
+    40: "统帅 I", 41: "统帅 I", 42: "统帅 II", 43: "统帅 III", 44: "统帅 IV", 45: "统帅 V",
+    50: "传奇 I", 51: "传奇 I", 52: "传奇 II", 53: "传奇 III", 54: "传奇 IV", 55: "传奇 V",
+    60: "万古流芳 I", 61: "万古流芳 I", 62: "万古流芳 II", 63: "万古流芳 III", 64: "万古流芳 IV", 65: "万古流芳 V",
+    70: "超凡入圣 I", 71: "超凡入圣 I", 72: "超凡入圣 II", 73: "超凡入圣 III", 74: "超凡入圣 IV", 75: "超凡入圣 V",
+    80: "冠绝一世", 81: "冠绝一世", 82: "冠绝一世", 83: "冠绝一世", 84: "冠绝一世", 85: "冠绝一世",
+}
+
+# Rank tier English names for medal images
+RANK_TIERS_EN = {
+    0: "Uncalibrated",
+    10: "Herald", 11: "Herald", 12: "Herald", 13: "Herald", 14: "Herald", 15: "Herald",
+    20: "Guardian", 21: "Guardian", 22: "Guardian", 23: "Guardian", 24: "Guardian", 25: "Guardian",
+    30: "Crusader", 31: "Crusader", 32: "Crusader", 33: "Crusader", 34: "Crusader", 35: "Crusader",
+    40: "Archon", 41: "Archon", 42: "Archon", 43: "Archon", 44: "Archon", 45: "Archon",
+    50: "Legend", 51: "Legend", 52: "Legend", 53: "Legend", 54: "Legend", 55: "Legend",
+    60: "Ancient", 61: "Ancient", 62: "Ancient", 63: "Ancient", 64: "Ancient", 65: "Ancient",
+    70: "Divine", 71: "Divine", 72: "Divine", 73: "Divine", 74: "Divine", 75: "Divine",
+    80: "Immortal", 81: "Immortal", 82: "Immortal", 83: "Immortal", 84: "Immortal", 85: "Immortal",
+}
 
 
-def read_csv(filename):
-    """Read CSV file and return list of dicts."""
-    filepath = DATA_DIR / filename
-    if not filepath.exists():
-        return []
-    with open(filepath, "r", encoding="utf-8") as f:
-        return list(csv.DictReader(f))
+def get_rank_name_simple(rank_tier):
+    """Convert rank tier number to Chinese name (simple version)."""
+    if rank_tier is None:
+        return "未校准"
+    return RANK_TIERS.get(rank_tier, f"未知 ({rank_tier})")
+
+
+def read_matches():
+    """Read matches from Notion (cached)."""
+    cached = cache.get("matches")
+    if cached is not None:
+        return cached
+    try:
+        matches = nc.query_matches()
+        cache.set("matches", matches)
+        return matches
+    except Exception as e:
+        print(f"Notion error (matches): {e}")
+        return cache.get_stale("matches") or []
 
 
 def read_profile():
-    """Read profile CSV (key-value format)."""
-    filepath = DATA_DIR / "profile.csv"
-    if not filepath.exists():
-        return {}
-    with open(filepath, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        return {row["field"]: row["value"] for row in reader}
+    """Read profile from Notion (cached)."""
+    cached = cache.get("profile")
+    if cached is not None:
+        return cached
+    try:
+        profile = nc.get_profile()
+        cache.set("profile", profile)
+        return profile
+    except Exception as e:
+        print(f"Notion error (profile): {e}")
+        return cache.get_stale("profile") or {}
+
+
+def read_hero_stats():
+    """Read hero stats from Notion (cached)."""
+    cached = cache.get("hero_stats")
+    if cached is not None:
+        return cached
+    try:
+        stats = nc.query_hero_stats()
+        cache.set("hero_stats", stats)
+        return stats
+    except Exception as e:
+        print(f"Notion error (hero_stats): {e}")
+        return cache.get_stale("hero_stats") or []
 
 
 def read_mmr_history():
-    """Read MMR history for trend chart."""
-    filepath = DATA_DIR / "mmr_history.csv"
-    if not filepath.exists():
-        return []
-    with open(filepath, "r", encoding="utf-8") as f:
-        return list(csv.DictReader(f))
+    """Read MMR history from Notion (cached)."""
+    cached = cache.get("mmr_history")
+    if cached is not None:
+        return cached
+    try:
+        history = nc.query_mmr_history()
+        cache.set("mmr_history", history)
+        return history
+    except Exception as e:
+        print(f"Notion error (mmr_history): {e}")
+        return cache.get_stale("mmr_history") or []
 
 
-def save_mmr_history(mmr, result="", change=""):
-    """Append MMR to history file."""
-    filepath = DATA_DIR / "mmr_history.csv"
-    file_exists = filepath.exists()
-
-    with open(filepath, "a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        if not file_exists:
-            writer.writerow(["date", "mmr", "result", "change"])
-        writer.writerow([
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            mmr,
-            result,
-            change
-        ])
-
-
-def read_match_items():
-    """Read match items data."""
-    filepath = DATA_DIR / "match_items.csv"
-    if not filepath.exists():
-        return {}
-    items = {}
-    with open(filepath, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            items[row["match_id"]] = row
-    return items
-
-
-def read_match_advanced():
-    """Read advanced match data (lane, benchmarks, throw/comeback)."""
-    filepath = DATA_DIR / "match_advanced.csv"
-    if not filepath.exists():
-        return {}
-    data = {}
-    with open(filepath, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            data[row["match_id"]] = row
-    return data
-
-
-def read_match_notes():
-    """Read match notes data."""
-    filepath = DATA_DIR / "match_notes.csv"
-    if not filepath.exists():
-        return {}
-    notes = {}
-    with open(filepath, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            notes[row["match_id"]] = row.get("note", "")
-    return notes
-
-
-def save_match_note(match_id, note):
-    """Save or update a match note."""
-    filepath = DATA_DIR / "match_notes.csv"
-    notes = read_match_notes()
-    notes[match_id] = note
-
-    with open(filepath, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow(["match_id", "note", "updated_at"])
-        for mid, n in notes.items():
-            writer.writerow([mid, n, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+def fetch_player_ratings():
+    """Fetch rank tier history from OpenDota API (cached)."""
+    cached = cache.get("ratings")
+    if cached is not None:
+        return cached
+    try:
+        url = "https://api.opendota.com/api/players/894447460/ratings"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        cache.set("ratings", data)
+        return data
+    except Exception as e:
+        print(f"OpenDota ratings error: {e}")
+        return cache.get_stale("ratings") or []
 
 
 # Item ID to name mapping for icons (from OpenDota API)
@@ -245,158 +256,105 @@ def get_rank_name(rank_tier):
     return name, rank_icon
 
 
-def calculate_impact_score(match, advanced_data=None):
+def calculate_impact_score(match):
     """Calculate impact score for a match (0-100)."""
     try:
-        # Prefer advanced_data for accurate values (from detailed match API)
-        if advanced_data:
-            kills = float(advanced_data.get("kills", 0)) or float(match.get("kills", 0))
-            assists = float(advanced_data.get("assists", 0)) or float(match.get("assists", 0))
-            deaths = float(advanced_data.get("deaths", 0)) or float(match.get("deaths", 0))
-            hero_damage = float(advanced_data.get("hero_damage", 0))
-            tower_damage = float(advanced_data.get("tower_damage", 0))
-        else:
-            kills = float(match.get("kills", 0))
-            assists = float(match.get("assists", 0))
-            deaths = float(match.get("deaths", 0))
-            hero_damage = float(match.get("hero_damage", 0))
-            tower_damage = float(match.get("tower_damage", 0))
+        # Use advanced data fields (adv_*) if available, fall back to base fields
+        kills = float(match.get("adv_kills") or match.get("kills", 0))
+        assists = float(match.get("adv_assists") or match.get("assists", 0))
+        deaths = float(match.get("adv_deaths") or match.get("deaths", 0))
+        hero_damage = float(match.get("adv_hero_damage") or match.get("hero_damage", 0))
+        tower_damage = float(match.get("adv_tower_damage") or match.get("tower_damage", 0))
 
-        # Base formula: (kills * 1.0 + assists * 0.7 + (hero_damage / 1000) * 0.5 + (tower_damage / 1000) * 1.0) / (deaths + 1)
         base_score = (kills * 1.0 + assists * 0.7 + (hero_damage / 1000) * 0.5 + (tower_damage / 1000) * 1.0) / (deaths + 1)
-
-        # Normalize to 0-100 scale (cap at 15 for base, multiply by 5)
         normalized_score = min(base_score * 5, 75)
 
-        # Win bonus: +20% if won
         if match.get("win") == "Win":
             normalized_score *= 1.2
 
-        # Benchmark bonus: +10% if above 75th percentile in key metrics
-        if advanced_data:
-            benchmark_avg = (
-                float(advanced_data.get("benchmark_gpm_pct", 0)) +
-                float(advanced_data.get("benchmark_xpm_pct", 0)) +
-                float(advanced_data.get("benchmark_damage_pct", 0))
-            ) / 3
-            if benchmark_avg > 75:
-                normalized_score *= 1.1
+        benchmark_avg = (
+            float(match.get("benchmark_gpm_pct", 0)) +
+            float(match.get("benchmark_xpm_pct", 0)) +
+            float(match.get("benchmark_damage_pct", 0))
+        ) / 3
+        if benchmark_avg > 75:
+            normalized_score *= 1.1
 
         return min(int(normalized_score), 100)
     except (ValueError, ZeroDivisionError):
         return 0
 
 
-def get_match_badges(match, advanced_data=None, impact_score=0):
+def get_match_badges(match, impact_score=0):
     """Determine badges for a match."""
     badges = []
-
     try:
-        # High Impact - Impact score > 80
         if impact_score > 80:
             badges.append({"icon": "🔥", "text": "High Impact", "class": "badge-high-impact"})
 
-        # Hard Carry - High damage + win (use advanced_data for accurate hero_damage)
-        hero_damage = float(advanced_data.get("hero_damage", 0)) if advanced_data else float(match.get("hero_damage", 0))
+        hero_damage = float(match.get("adv_hero_damage") or match.get("hero_damage", 0))
         if match.get("win") == "Win" and hero_damage > 20000:
             badges.append({"icon": "⭐", "text": "Carry", "class": "badge-carry"})
 
-        # Support MVP - High assists, low deaths (use advanced_data for accurate stats)
-        if advanced_data:
-            kills = float(advanced_data.get("kills", 0))
-            assists = float(advanced_data.get("assists", 0))
-            deaths = float(advanced_data.get("deaths", 0))
-        else:
-            kills = float(match.get("kills", 0))
-            assists = float(match.get("assists", 0))
-            deaths = float(match.get("deaths", 0))
+        kills = float(match.get("adv_kills") or match.get("kills", 0))
+        assists = float(match.get("adv_assists") or match.get("assists", 0))
+        deaths = float(match.get("adv_deaths") or match.get("deaths", 0))
         if assists > 15 and deaths < 5 and assists > kills:
             badges.append({"icon": "🛡️", "text": "Support", "class": "badge-support"})
-
     except (ValueError, TypeError):
         pass
-
     return badges
-
-
-def get_rank_name(rank_tier):
-    """Convert rank tier to Chinese name."""
-    if not rank_tier:
-        return "未校准", None
-    try:
-        tier = int(rank_tier)
-    except ValueError:
-        return "未知", None
-
-    medals = {
-        1: "先锋", 2: "卫士", 3: "中军", 4: "统帅",
-        5: "传奇", 6: "万古流芳", 7: "超凡入圣", 8: "冠绝一世"
-    }
-    medal_icons = {
-        1: "herald", 2: "guardian", 3: "crusader", 4: "archon",
-        5: "legend", 6: "ancient", 7: "divine", 8: "immortal"
-    }
-    medal_num = tier // 10
-    medal = medals.get(medal_num, "未知")
-    stars = tier % 10
-    icon_name = medal_icons.get(medal_num, "")
-    rank_icon = f"https://www.opendota.com/assets/images/dota2/rank_icons/rank_icon_{medal_num}.png" if icon_name else None
-    name = f"{medal} {stars}" if stars else medal
-    return name, rank_icon
 
 
 @app.route("/")
 def index():
     profile = read_profile()
-    matches = read_csv("matches.csv")
-    hero_stats = read_csv("hero_stats.csv")
+    matches = read_matches()
+    hero_stats = read_hero_stats()
     mmr_history = read_mmr_history()
-    match_items = read_match_items()
-    match_advanced = read_match_advanced()
-    match_notes = read_match_notes()
 
     # Get hero filter from query param
     hero_filter = request.args.get("hero", "")
+    role_filter = request.args.get("role", "")
 
     # Get unique heroes for filter dropdown
     all_heroes = sorted(set((m.get("hero_cn", ""), m.get("hero_icon", "")) for m in matches), key=lambda x: x[0])
 
-    # Filter matches by hero if specified
+    # Filter matches by hero and/or role if specified
+    filtered_matches = matches
     if hero_filter:
-        filtered_matches = [m for m in matches if m.get("hero_cn") == hero_filter]
-    else:
-        filtered_matches = matches
+        filtered_matches = [m for m in filtered_matches if m.get("hero_cn") == hero_filter]
+    if role_filter:
+        try:
+            role_filter_int = int(role_filter)
+            filtered_matches = [m for m in filtered_matches if (m.get("role") or m.get("lane_role", 0)) == role_filter_int]
+        except ValueError:
+            pass
 
-    # Add items, impact scores, and badges to matches
+    # Short role names for match table display
+    role_short_names = {1: "Pos 1", 2: "Pos 2", 3: "Pos 3", 4: "Pos 4", 5: "Pos 5"}
+
+    # Add computed fields (items, impact scores, badges) to matches
     for m in filtered_matches:
-        match_id = m.get("match_id")
+        # Build item icons from consolidated match data
+        m["item_icons"] = [
+            get_item_icon_url(m.get("item_0", 0)),
+            get_item_icon_url(m.get("item_1", 0)),
+            get_item_icon_url(m.get("item_2", 0)),
+            get_item_icon_url(m.get("item_3", 0)),
+            get_item_icon_url(m.get("item_4", 0)),
+            get_item_icon_url(m.get("item_5", 0)),
+        ]
+        m["item_neutral_icon"] = get_item_icon_url(m.get("item_neutral", 0))
 
-        # Add items
-        if match_id in match_items:
-            item_data = match_items[match_id]
-            m["item_icons"] = [
-                get_item_icon_url(item_data.get("item_0", "0")),
-                get_item_icon_url(item_data.get("item_1", "0")),
-                get_item_icon_url(item_data.get("item_2", "0")),
-                get_item_icon_url(item_data.get("item_3", "0")),
-                get_item_icon_url(item_data.get("item_4", "0")),
-                get_item_icon_url(item_data.get("item_5", "0")),
-            ]
-            m["item_neutral_icon"] = get_item_icon_url(item_data.get("item_neutral", "0"))
-        else:
-            m["item_icons"] = []
-            m["item_neutral_icon"] = ""
+        # Impact score and badges (advanced fields already on match)
+        m["impact_score"] = calculate_impact_score(m)
+        m["badges"] = get_match_badges(m, m["impact_score"])
 
-        # Add advanced data, impact score, and badges
-        advanced_data = match_advanced.get(match_id, {})
-        m["impact_score"] = calculate_impact_score(m, advanced_data)
-        m["badges"] = get_match_badges(m, advanced_data, m["impact_score"])
-        m["lane_role"] = advanced_data.get("lane_role", "0")
-        m["is_comeback"] = advanced_data.get("is_comeback", "False") == "True"
-        m["is_throw"] = advanced_data.get("is_throw", "False") == "True"
-        m["benchmark_gpm_pct"] = advanced_data.get("benchmark_gpm_pct", "0")
-        m["benchmark_damage_pct"] = advanced_data.get("benchmark_damage_pct", "0")
-        m["note"] = match_notes.get(match_id, "")
+        # Role name for display (prefer GPM-based role, fall back to lane_role)
+        effective_role = m.get("role", 0) or m.get("lane_role", 0)
+        m["effective_role"] = effective_role
+        m["role_name"] = role_short_names.get(effective_role, "-")
 
     # Calculate recent stats (last 20 games)
     recent = matches[:20]
@@ -440,6 +398,77 @@ def index():
     mmr_dates = [h.get("date", "")[:10] for h in mmr_history]
     mmr_values = [int(h.get("mmr", 0)) for h in mmr_history]
 
+    # Fetch rank history from OpenDota
+    ratings = fetch_player_ratings()
+    rank_history_dates = []
+    rank_history_values = []
+    rank_history_labels = []
+    for r in ratings:
+        date_str = r.get("time", "")[:10]
+        tier = r.get("rank_tier", 0)
+        rank_history_dates.append(date_str)
+        rank_history_values.append(tier)
+        rank_history_labels.append(get_rank_name_simple(tier))
+
+    # Fetch hero rankings from OpenDota
+    rankings = fetch_player_rankings()
+    # Build hero_id to name mapping from hero_stats
+    hero_id_to_name = {}
+    hero_id_to_icon = {}
+    for h in hero_stats:
+        hid = h.get("hero_id")
+        if hid:
+            hero_id_to_name[int(hid)] = h.get("hero_cn", "未知")
+            hero_id_to_icon[int(hid)] = h.get("hero_icon", "")
+
+    # Process rankings - top 10 heroes by percentile
+    top_rankings = []
+    for r in rankings[:10]:
+        hero_id = r.get("hero_id")
+        percent = r.get("percent_rank", 0) * 100  # Convert to percentage
+        top_rankings.append({
+            "hero_id": hero_id,
+            "hero_cn": hero_id_to_name.get(hero_id, f"英雄 {hero_id}"),
+            "hero_icon": hero_id_to_icon.get(hero_id, ""),
+            "percent_rank": percent,
+            "top_percent": 100 - percent,  # Top X%
+        })
+
+    # Role performance stats (GPM-based role 1-5, fallback to lane_role)
+    role_names = {1: "优势路 (Pos 1)", 2: "中路 (Pos 2)", 3: "劣势路 (Pos 3)", 4: "辅助 (Pos 4)", 5: "纯辅助 (Pos 5)"}
+    role_stats = {}
+    for m in matches:
+        lr = m.get("role", 0) or m.get("lane_role", 0)
+        if lr not in role_names:
+            continue
+        if lr not in role_stats:
+            role_stats[lr] = {"games": 0, "wins": 0, "kills": 0, "deaths": 0, "assists": 0, "impact_total": 0}
+        rs = role_stats[lr]
+        rs["games"] += 1
+        if m.get("win") == "Win":
+            rs["wins"] += 1
+        rs["kills"] += int(m.get("adv_kills") or m.get("kills", 0))
+        rs["deaths"] += int(m.get("adv_deaths") or m.get("deaths", 0))
+        rs["assists"] += int(m.get("adv_assists") or m.get("assists", 0))
+        rs["impact_total"] += calculate_impact_score(m)
+
+    role_performance = []
+    for lr in sorted(role_stats.keys()):
+        rs = role_stats[lr]
+        g = rs["games"]
+        role_performance.append({
+            "role": role_names[lr],
+            "lane_role": lr,
+            "games": g,
+            "wins": rs["wins"],
+            "losses": g - rs["wins"],
+            "win_rate": round(rs["wins"] / g * 100, 1) if g else 0,
+            "avg_kills": round(rs["kills"] / g, 1) if g else 0,
+            "avg_deaths": round(rs["deaths"] / g, 1) if g else 0,
+            "avg_assists": round(rs["assists"] / g, 1) if g else 0,
+            "avg_impact": round(rs["impact_total"] / g, 1) if g else 0,
+        })
+
     rank_name, rank_icon = get_rank_name(profile.get("rank_tier"))
 
     return render_template("index.html",
@@ -449,6 +478,7 @@ def index():
         matches=filtered_matches[:100],
         all_heroes=all_heroes,
         hero_filter=hero_filter,
+        role_filter=role_filter,
         filtered_wins=filtered_wins,
         filtered_losses=filtered_losses,
         recent_wins=recent_wins,
@@ -461,7 +491,11 @@ def index():
         worst_heroes=worst_heroes,
         mmr_history=mmr_history,
         mmr_dates=mmr_dates,
-        mmr_values=mmr_values
+        mmr_values=mmr_values,
+        rank_history_dates=rank_history_dates,
+        rank_history_values=rank_history_values,
+        rank_history_labels=rank_history_labels,
+        role_performance=role_performance
     )
 
 
@@ -470,11 +504,11 @@ def update_mmr():
     """Update MMR via web form."""
     mmr = request.form.get("mmr")
     result = request.form.get("result", "")
-    change = request.form.get("change", "")
     if mmr:
         try:
             mmr_int = int(mmr)
-            save_mmr_history(mmr_int, result, change)
+            nc.append_mmr_history(mmr_int, result)
+            cache.invalidate("mmr_history")
         except ValueError:
             pass
     return redirect(url_for("index"))
@@ -482,12 +516,12 @@ def update_mmr():
 
 @app.route("/api/matches")
 def api_matches():
-    return jsonify(read_csv("matches.csv"))
+    return jsonify(read_matches())
 
 
 @app.route("/api/heroes")
 def api_heroes():
-    return jsonify(read_csv("hero_stats.csv"))
+    return jsonify(read_hero_stats())
 
 
 @app.route("/api/mmr_history")
@@ -503,15 +537,21 @@ def api_match_notes():
         if data and "match_id" in data:
             match_id = str(data["match_id"])
             note = data.get("note", "")
-            save_match_note(match_id, note)
+            nc.update_match_note(match_id, note)
+            cache.invalidate("matches")
             return jsonify({"success": True, "message": "笔记已保存"})
         return jsonify({"success": False, "message": "缺少match_id"})
     else:
         match_id = request.args.get("match_id")
         if match_id:
-            notes = read_match_notes()
-            return jsonify({"note": notes.get(match_id, "")})
-        return jsonify(read_match_notes())
+            matches = read_matches()
+            for m in matches:
+                if m.get("match_id") == match_id:
+                    return jsonify({"note": m.get("note", "")})
+            return jsonify({"note": ""})
+        # Return all notes as dict
+        matches = read_matches()
+        return jsonify({m["match_id"]: m.get("note", "") for m in matches})
 
 
 @app.route("/update_data", methods=["POST"])
@@ -533,6 +573,9 @@ def update_data():
             text=True,
             timeout=300  # 5 minute timeout
         )
+
+        # Invalidate cache after update
+        cache.invalidate()
 
         if result.returncode == 0:
             return jsonify({"success": True, "message": "数据更新成功!"})
