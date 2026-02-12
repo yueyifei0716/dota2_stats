@@ -514,6 +514,26 @@ def update_mmr():
     return redirect(url_for("index"))
 
 
+@app.route("/calibrate_mmr", methods=["POST"])
+def calibrate_mmr():
+    """Calibrate MMR to actual value via web form."""
+    mmr = request.form.get("mmr")
+    if mmr:
+        try:
+            mmr_int = int(mmr)
+            # Update profile with calibrated MMR
+            nc.update_profile({"current_mmr": mmr_int, "estimated_mmr": mmr_int})
+            # Add calibration record to history
+            nc.append_mmr_history(mmr_int, "Calibrate")
+            # Invalidate cache
+            cache.invalidate("profile")
+            cache.invalidate("mmr_history")
+            print(f"MMR calibrated to {mmr_int} via web")
+        except ValueError:
+            pass
+    return redirect(url_for("index"))
+
+
 @app.route("/api/matches")
 def api_matches():
     return jsonify(read_matches())

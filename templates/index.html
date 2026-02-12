@@ -754,16 +754,13 @@
             <div class="no-data">暂无MMR记录，请在下方添加你的当前MMR</div>
             {% endif %}
 
-            <form class="mmr-form" action="/update_mmr" method="POST">
-                <input type="number" name="mmr" placeholder="当前MMR" required min="0" max="15000">
-                <select name="result">
-                    <option value="">--比赛结果--</option>
-                    <option value="Win">胜利</option>
-                    <option value="Loss">失败</option>
-                </select>
-                <input type="number" name="change" placeholder="分数变化 (如25)" min="-100" max="100" style="width: 140px;">
-                <button type="submit">记录MMR</button>
+            <form class="mmr-form" action="/calibrate_mmr" method="POST">
+                <input type="number" name="mmr" placeholder="校准MMR (真实分数)" required min="0" max="15000" style="width: 180px;">
+                <button type="submit" style="background: linear-gradient(135deg, #ffd700, #ff8c00);">校准MMR</button>
             </form>
+            <p style="color: #888; font-size: 0.9em; margin-top: 10px;">
+                💡 MMR 会自动根据排位赛结果 ±25 更新，偶尔在此处校准真实分数即可
+            </p>
         </div>
 
         <!-- Rank History -->
