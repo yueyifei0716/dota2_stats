@@ -17,10 +17,10 @@ MATCHES_DB_ID = os.getenv("NOTION_MATCHES_DB_ID")
 HERO_STATS_DB_ID = os.getenv("NOTION_HERO_STATS_DB_ID")
 MMR_HISTORY_DB_ID = os.getenv("NOTION_MMR_HISTORY_DB_ID")
 PROFILE_DB_ID = os.getenv("NOTION_PROFILE_DB_ID")
-MATCHES_DS_ID = os.getenv("NOTION_MATCHES_DS_ID")
-HERO_STATS_DS_ID = os.getenv("NOTION_HERO_STATS_DS_ID")
-MMR_HISTORY_DS_ID = os.getenv("NOTION_MMR_HISTORY_DS_ID")
-PROFILE_DS_ID = os.getenv("NOTION_PROFILE_DS_ID")
+MATCHES_DB_ID = os.getenv("NOTION_MATCHES_DB_ID")
+HERO_STATS_DB_ID = os.getenv("NOTION_HERO_STATS_DB_ID")
+MMR_HISTORY_DB_ID = os.getenv("NOTION_MMR_HISTORY_DB_ID")
+PROFILE_DB_ID = os.getenv("NOTION_PROFILE_DB_ID")
 
 notion = Client(auth=NOTION_TOKEN)
 
@@ -298,19 +298,30 @@ def _page_to_match(page):
 
 # --- Query helpers ---
 
-def _query_all_pages(data_source_id, sorts=None, filter_obj=None):
-    """Query all pages from a data source, handling pagination."""
+def _query_all_pages(database_id, sorts=None, filter_obj=None):
+    """Query all pages from a database, handling pagination."""
     pages = []
     start_cursor = None
+    headers = {
+        "Authorization": f"Bearer {NOTION_TOKEN}",
+        "Notion-Version": "2022-06-28",
+        "Content-Type": "application/json"
+    }
     while True:
-        kwargs = {"data_source_id": data_source_id, "page_size": 100}
+        payload = {"page_size": 100}
         if sorts:
-            kwargs["sorts"] = sorts
+            payload["sorts"] = sorts
         if filter_obj:
-            kwargs["filter"] = filter_obj
+            payload["filter"] = filter_obj
         if start_cursor:
-            kwargs["start_cursor"] = start_cursor
-        result = _retry(lambda: notion.data_sources.query(**kwargs))
+            payload["start_cursor"] = start_cursor
+        
+        import requests
+        url = f"https://api.notion.com/v1/databases/{database_id}/query"
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        result = response.json()
+        
         pages.extend(result["results"])
         if not result.get("has_more"):
             break
@@ -323,7 +334,7 @@ def _query_all_pages(data_source_id, sorts=None, filter_obj=None):
 def query_matches():
     """Query all matches, sorted by timestamp descending (newest first)."""
     pages = _query_all_pages(
-        MATCHES_DS_ID,
+        MATCHES_DB_ID,
         sorts=[{"property": "Timestamp", "direction": "descending"}]
     )
     return [_page_to_match(p) for p in pages]
@@ -331,7 +342,7 @@ def query_matches():
 
 def get_existing_match_ids():
     """Get set of match IDs already in Notion (fast, title-only query)."""
-    pages = _query_all_pages(MATCHES_DS_ID)
+    pages = _query_all_pages(MATCHES_DB_ID)
     ids = set()
     for p in pages:
         mid = _get_title(p["properties"], "Match ID")
@@ -342,12 +353,19 @@ def get_existing_match_ids():
 
 def find_match_page_id(match_id):
     """Find the Notion page ID for a given match_id."""
-    result = _retry(lambda: notion.data_sources.query(
-        data_source_id=MATCHES_DS_ID,
-        filter={"property": "Match ID", "title": {"equals": str(match_id)}}
-    ))
-    if result["results"]:
-        return result["results"][0]["id"]
+    headers = {
+        "Authorization": f"Bearer {NOTION_TOKEN}",
+        "Notion-Version": "2022-06-28",
+        "Content-Type": "application/json"
+    }
+    import requests
+    url = f"https://api.notion.com/v1/databases/{MATCHES_DB_ID}/query"
+    payload = {"filter": {"property": "Match ID", "title": {"equals": str(match_id)}}}
+    response = requests.post(url, headers=headers, json=payload)
+    if response.status_code == 200:
+        result = response.json()
+        if result["results"]:
+            return result["results"][0]["id"]
     return None
 
 
@@ -427,7 +445,7 @@ def _page_to_hero_stat(page):
 
 def query_hero_stats():
     """Query all hero stats."""
-    pages = _query_all_pages(HERO_STATS_DS_ID)
+    pages = _query_all_pages(HERO_STATS_DB_ID)
     return [_page_to_hero_stat(p) for p in pages]
 
 
@@ -435,10 +453,16 @@ def upsert_hero_stat(hero_data):
     """Create or update a hero stat row by Hero ID."""
     hero_id = hero_data.get("hero_id")
     # Search for existing
-    result = _retry(lambda: notion.data_sources.query(
-        data_source_id=HERO_STATS_DS_ID,
-        filter={"property": "Hero ID", "number": {"equals": int(hero_id)}}
-    ))
+    headers = {
+        "Authorization": f"Bearer {NOTION_TOKEN}",
+        "Notion-Version": "2022-06-28",
+        "Content-Type": "application/json"
+    }
+    import requests
+    url = f"https://api.notion.com/v1/databases/{HERO_STATS_DB_ID}/query"
+    payload = {"filter": {"property": "Hero ID", "number": {"equals": int(hero_id)}}}
+    response = requests.post(url, headers=headers, json=payload)
+    result = response.json() if response.status_code == 200 else {"results": []}
     props = {
         "Hero CN": _title(hero_data.get("hero_cn", "")),
         "Hero": _rich_text(hero_data.get("hero", "")),
@@ -470,7 +494,7 @@ def _page_to_mmr_entry(page):
 
 def query_mmr_history():
     """Query all MMR history entries, sorted by date ascending."""
-    pages = _query_all_pages(MMR_HISTORY_DS_ID)
+    pages = _query_all_pages(MMR_HISTORY_DB_ID)
     entries = [_page_to_mmr_entry(p) for p in pages]
     # Sort by date ascending for chronological chart display
     entries.sort(key=lambda x: x.get("date", ""))
@@ -511,7 +535,7 @@ def _page_to_profile(page):
 
 def get_profile():
     """Get the single profile row."""
-    pages = _query_all_pages(PROFILE_DS_ID)
+    pages = _query_all_pages(PROFILE_DB_ID)
     if pages:
         return _page_to_profile(pages[0])
     return {}
@@ -519,7 +543,7 @@ def get_profile():
 
 def update_profile(profile_data):
     """Create or update the single profile row."""
-    pages = _query_all_pages(PROFILE_DS_ID)
+    pages = _query_all_pages(PROFILE_DB_ID)
     props = {
         "Username": _title(profile_data.get("username", "")),
         "Steam ID": _number(profile_data.get("steam_id")),
@@ -541,3 +565,9 @@ def update_profile(profile_data):
         return _retry(lambda: notion.pages.create(
             parent={"database_id": PROFILE_DB_ID}, properties=props
         ))
+
+# Compatibility aliases for app.py
+read_profile = get_profile
+read_matches = query_matches
+read_hero_stats = query_hero_stats
+read_mmr_history = query_mmr_history

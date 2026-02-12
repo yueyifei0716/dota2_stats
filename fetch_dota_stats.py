@@ -472,6 +472,7 @@ def save_match_advanced(advanced_data_list):
 
 def save_matches(matches):
     """Save match data to Notion (skip existing match IDs).
+    Also auto-updates MMR based on win/loss (±25 per game).
 
     Returns:
         set: Hero IDs from newly saved matches (for incremental hero stats update)
@@ -479,6 +480,7 @@ def save_matches(matches):
     existing_ids = nc.get_existing_match_ids()
     new_count = 0
     new_hero_ids = set()
+    new_matches_for_mmr = []  # Track new matches for MMR auto-update
 
     for m in matches:
         match_id = str(m.get("match_id"))
@@ -520,6 +522,19 @@ def save_matches(matches):
         new_count += 1
         new_hero_ids.add(hero_id)
 
+        # Only track ranked matches for MMR (lobby_type 7 = ranked)
+        lobby_type = m.get("lobby_type", 0)
+        if lobby_type == 7:
+            new_matches_for_mmr.append({
+                "timestamp": m.get("start_time", 0),
+                "win": win,
+                "match_id": match_id,
+            })
+
+    # Auto-update MMR for new ranked matches
+    if new_matches_for_mmr:
+        auto_update_mmr(new_matches_for_mmr)
+
     print(f"Saved {new_count} new matches to Notion (skipped {len(matches) - new_count} existing)")
     return new_hero_ids
 
@@ -554,6 +569,39 @@ def save_hero_stats(hero_stats, updated_hero_ids=None):
         })
         count += 1
     print(f"Saved {count} hero stats to Notion")
+
+
+def auto_update_mmr(new_ranked_matches):
+    """Auto-update MMR based on new ranked match results.
+    Uses ±25 as default MMR change per game.
+    Only processes ranked matches (lobby_type 7).
+    """
+    MMR_CHANGE = 25  # Default MMR change per ranked game
+
+    # Get current MMR from profile
+    profile_data = nc.get_profile()
+    current_mmr = profile_data.get("current_mmr", 0)
+    if not current_mmr:
+        print("No current MMR found, skipping auto MMR update")
+        return
+
+    # Sort by timestamp ascending (oldest first) to process in order
+    new_ranked_matches.sort(key=lambda x: x["timestamp"])
+
+    mmr = current_mmr
+    for match in new_ranked_matches:
+        if match["win"]:
+            mmr += MMR_CHANGE
+            result = "Win"
+        else:
+            mmr -= MMR_CHANGE
+            result = "Loss"
+        update_mmr_history(mmr, result)
+        print(f"  Auto MMR: {result} → {mmr} (match {match['match_id']})")
+
+    # Update profile with new estimated MMR
+    nc.update_profile({"current_mmr": mmr, "estimated_mmr": mmr})
+    print(f"Auto MMR updated: {current_mmr} → {mmr} ({len(new_ranked_matches)} ranked games)")
 
 
 def save_profile(profile, wl, current_mmr=None):
@@ -859,6 +907,18 @@ if __name__ == "__main__":
         # Backfill lane+farm based roles: python fetch_dota_stats.py --fix-roles [--force]
         force = "--force" in sys.argv
         backfill_roles(force=force)
+    elif len(sys.argv) > 1 and sys.argv[1] == "--calibrate":
+        # Calibrate MMR to actual value: python fetch_dota_stats.py --calibrate 3900
+        if len(sys.argv) > 2:
+            try:
+                mmr = int(sys.argv[2])
+                nc.update_profile({"current_mmr": mmr, "estimated_mmr": mmr})
+                update_mmr_history(mmr, "Calibrate")
+                print(f"MMR calibrated to {mmr}")
+            except ValueError:
+                print("Invalid MMR value")
+        else:
+            print("Usage: python fetch_dota_stats.py --calibrate <mmr_value>")
     else:
         limit = 500
         if len(sys.argv) > 1:
