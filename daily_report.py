@@ -12,18 +12,18 @@ from collections import Counter
 import notion_db as nc
 
 def get_today_matches():
-    """Get matches from today (since midnight)."""
+    """Get matches from the last 24 hours (since yesterday midnight)."""
     all_matches = nc.query_matches()
     
-    # Get today's date at midnight
+    # Get yesterday's date at midnight (00:00)
     now = datetime.now()
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    today_timestamp = today_start.timestamp()
+    yesterday_start = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    yesterday_timestamp = yesterday_start.timestamp()
     
-    # Filter matches from today
+    # Filter matches from yesterday 00:00 onwards
     today_matches = [
         m for m in all_matches 
-        if m.get('timestamp', 0) >= today_timestamp
+        if m.get('timestamp', 0) >= yesterday_timestamp
     ]
     
     return today_matches
