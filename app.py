@@ -6,13 +6,14 @@ Flask web application to view your Dota 2 statistics.
 from flask import Flask, render_template, jsonify, request, redirect, url_for
 import subprocess
 import sys
+import json
 import requests
 from pathlib import Path
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 import notion_db as nc
 import notion_cache as cache
-from fetch_dota_stats import fetch_player_rankings
+from fetch_dota_stats import fetch_player_rankings, HEROES_CN, HEROES_EN
 
 app = Flask(__name__)
 
@@ -306,6 +307,179 @@ def get_match_badges(match, impact_score=0):
     return badges
 
 
+def calc_rolling_winrate(matches, window=10):
+    """Calculate rolling win rate over a sliding window. Returns list of {index, winrate}."""
+    # matches are newest-first, reverse for chronological order
+    chronological = list(reversed(matches[:100]))
+    if len(chronological) < window:
+        return []
+    results = []
+    for i in range(window, len(chronological) + 1):
+        chunk = chronological[i - window:i]
+        wins = sum(1 for m in chunk if m.get("win") == "Win")
+        results.append({"index": i, "winrate": round(wins / window * 100, 1)})
+    return results
+
+
+def calc_time_analysis(matches):
+    """Analyze win rates by time of day and day of week (UTC+8)."""
+    time_slots = {
+        "凌晨 (0-6)": {"wins": 0, "games": 0},
+        "上午 (6-12)": {"wins": 0, "games": 0},
+        "下午 (12-18)": {"wins": 0, "games": 0},
+        "晚上 (18-24)": {"wins": 0, "games": 0},
+    }
+    slot_keys = ["凌晨 (0-6)", "上午 (6-12)", "下午 (12-18)", "晚上 (18-24)"]
+
+    weekdays = {}
+    day_names = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    for d in day_names:
+        weekdays[d] = {"wins": 0, "games": 0}
+
+    for m in matches:
+        ts = m.get("timestamp")
+        if not ts:
+            continue
+        try:
+            if isinstance(ts, str):
+                dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            elif isinstance(ts, (int, float)):
+                dt = datetime.utcfromtimestamp(ts)
+            else:
+                continue
+            # Convert to UTC+8
+            dt_cn = dt + timedelta(hours=8)
+            hour = dt_cn.hour
+            if hour < 6:
+                slot = slot_keys[0]
+            elif hour < 12:
+                slot = slot_keys[1]
+            elif hour < 18:
+                slot = slot_keys[2]
+            else:
+                slot = slot_keys[3]
+            time_slots[slot]["games"] += 1
+            if m.get("win") == "Win":
+                time_slots[slot]["wins"] += 1
+
+            weekday = dt_cn.weekday()  # 0=Monday
+            day_name = day_names[weekday]
+            weekdays[day_name]["games"] += 1
+            if m.get("win") == "Win":
+                weekdays[day_name]["wins"] += 1
+        except (ValueError, TypeError, OSError):
+            continue
+
+    time_result = []
+    for slot in slot_keys:
+        s = time_slots[slot]
+        time_result.append({
+            "label": slot,
+            "games": s["games"],
+            "wins": s["wins"],
+            "winrate": round(s["wins"] / s["games"] * 100, 1) if s["games"] else 0,
+        })
+
+    weekday_result = []
+    for d in day_names:
+        w = weekdays[d]
+        weekday_result.append({
+            "label": d,
+            "games": w["games"],
+            "wins": w["wins"],
+            "winrate": round(w["wins"] / w["games"] * 100, 1) if w["games"] else 0,
+        })
+
+    return time_result, weekday_result
+
+
+def calc_recent_trend(matches):
+    """Compare last 7 days vs previous 7 days stats."""
+    now = datetime.utcnow() + timedelta(hours=8)
+    seven_days_ago = now - timedelta(days=7)
+    fourteen_days_ago = now - timedelta(days=14)
+
+    recent = []
+    previous = []
+
+    for m in matches:
+        ts = m.get("timestamp")
+        if not ts:
+            continue
+        try:
+            if isinstance(ts, str):
+                dt = datetime.fromisoformat(ts.replace("Z", "+00:00")) + timedelta(hours=8)
+            elif isinstance(ts, (int, float)):
+                dt = datetime.utcfromtimestamp(ts) + timedelta(hours=8)
+            else:
+                continue
+            if dt >= seven_days_ago:
+                recent.append(m)
+            elif dt >= fourteen_days_ago:
+                previous.append(m)
+        except (ValueError, TypeError, OSError):
+            continue
+
+    def calc_stats(game_list):
+        if not game_list:
+            return {"winrate": 0, "avg_kda": 0, "avg_impact": 0, "games": 0}
+        wins = sum(1 for m in game_list if m.get("win") == "Win")
+        total_kda = 0
+        total_impact = 0
+        for m in game_list:
+            k = float(m.get("adv_kills") or m.get("kills", 0))
+            d = float(m.get("adv_deaths") or m.get("deaths", 0))
+            a = float(m.get("adv_assists") or m.get("assists", 0))
+            total_kda += (k + a) / max(d, 1)
+            total_impact += calculate_impact_score(m)
+        n = len(game_list)
+        return {
+            "winrate": round(wins / n * 100, 1),
+            "avg_kda": round(total_kda / n, 2),
+            "avg_impact": round(total_impact / n, 1),
+            "games": n,
+        }
+
+    recent_stats = calc_stats(recent)
+    prev_stats = calc_stats(previous)
+
+    return {
+        "recent": recent_stats,
+        "previous": prev_stats,
+        "winrate_diff": round(recent_stats["winrate"] - prev_stats["winrate"], 1),
+        "kda_diff": round(recent_stats["avg_kda"] - prev_stats["avg_kda"], 2),
+        "impact_diff": round(recent_stats["avg_impact"] - prev_stats["avg_impact"], 1),
+    }
+
+
+def read_peers_cache():
+    """Read peers data from cache file."""
+    cache_file = Path(__file__).parent / "cache" / "peers.json"
+    if cache_file.exists():
+        try:
+            with open(cache_file, "r", encoding="utf-8") as f:
+                peers = json.load(f)
+            # Filter to peers with >= 3 games, sort by games desc, top 10
+            peers = [p for p in peers if p.get("with_games", 0) >= 3]
+            peers.sort(key=lambda x: -x.get("with_games", 0))
+            return peers[:10]
+        except (json.JSONDecodeError, IOError):
+            pass
+    return []
+
+
+def read_hero_matchups_cache():
+    """Read hero matchups data from cache file."""
+    cache_file = Path(__file__).parent / "cache" / "hero_matchups.json"
+    if cache_file.exists():
+        try:
+            with open(cache_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+    return {}
+
+
 @app.route("/")
 def index():
     profile = read_profile()
@@ -471,6 +645,23 @@ def index():
 
     rank_name, rank_icon = get_rank_name(profile.get("rank_tier"))
 
+    # New panels data
+    rolling_winrate = calc_rolling_winrate(matches)
+    time_analysis, weekday_analysis = calc_time_analysis(matches)
+    recent_trend = calc_recent_trend(matches)
+    peers = read_peers_cache()
+    hero_matchups = read_hero_matchups_cache()
+
+    # Build matchup hero list for dropdown (heroes we have matchup data for)
+    matchup_heroes = []
+    for hid, data in hero_matchups.items():
+        matchup_heroes.append({
+            "hero_id": int(hid),
+            "hero_cn": data.get("hero_cn", ""),
+            "hero_en": data.get("hero_name", ""),
+        })
+    matchup_heroes.sort(key=lambda x: x["hero_cn"])
+
     return render_template("index.html",
         profile=profile,
         rank_name=rank_name,
@@ -495,7 +686,14 @@ def index():
         rank_history_dates=rank_history_dates,
         rank_history_values=rank_history_values,
         rank_history_labels=rank_history_labels,
-        role_performance=role_performance
+        role_performance=role_performance,
+        rolling_winrate=rolling_winrate,
+        time_analysis=time_analysis,
+        weekday_analysis=weekday_analysis,
+        recent_trend=recent_trend,
+        peers=peers,
+        hero_matchups=hero_matchups,
+        matchup_heroes=matchup_heroes,
     )
 
 
@@ -547,6 +745,34 @@ def api_heroes():
 @app.route("/api/mmr_history")
 def api_mmr_history():
     return jsonify(read_mmr_history())
+
+
+@app.route("/api/hero_matchups/<int:hero_id>")
+def api_hero_matchups(hero_id):
+    """Get matchup data for a specific hero."""
+    matchups = read_hero_matchups_cache()
+    data = matchups.get(str(hero_id), {})
+    if not data:
+        return jsonify({"best": [], "worst": []})
+    raw = data.get("matchups", [])
+    # Filter to matchups with >= 10 games for statistical significance
+    filtered = [m for m in raw if m.get("games_played", 0) >= 10]
+    filtered_with_wr = []
+    for m in filtered:
+        games = m["games_played"]
+        wins = m.get("wins", 0)
+        wr = round(wins / games * 100, 1) if games else 0
+        hero_name = HEROES_CN.get(m.get("hero_id"), f"英雄 {m.get('hero_id')}")
+        filtered_with_wr.append({
+            "hero_id": m.get("hero_id"),
+            "hero_cn": hero_name,
+            "games": games,
+            "wins": wins,
+            "winrate": wr,
+        })
+    best = sorted(filtered_with_wr, key=lambda x: -x["winrate"])[:5]
+    worst = sorted(filtered_with_wr, key=lambda x: x["winrate"])[:5]
+    return jsonify({"best": best, "worst": worst})
 
 
 @app.route("/api/match_notes", methods=["GET", "POST"])

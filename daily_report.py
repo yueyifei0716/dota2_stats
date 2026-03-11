@@ -2,34 +2,76 @@
 """
 Daily Dota 2 Stats Report - Runs at midnight to summarize today's games
 Enhanced version with detailed KDA analysis and personalized suggestions
+
+Usage:
+    python3 daily_report.py              # Today's report
+    python3 daily_report.py 2026-02-17   # Specific date's report
 """
 import os
 import sys
+import argparse
+import requests
 sys.path.insert(0, '/Users/vinceybb/github/dota2_stats')
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from collections import Counter
+from dotenv import load_dotenv
+
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 import notion_db as nc
+import obsidian_sync as obs
 
-def get_recent_matches():
-    """Get matches from yesterday midnight to now."""
+# Shanghai timezone (UTC+8)
+SHANGHAI_TZ = timezone(timedelta(hours=8))
+
+def get_matches_for_date(date_str=None):
+    """Get matches from a specific date (midnight to midnight China timezone UTC+8)."""
     all_matches = nc.query_matches()
     
-    # Get yesterday's date at midnight
-    now = datetime.now()
-    yesterday_start = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-    yesterday_timestamp = yesterday_start.timestamp()
+    if date_str:
+        target_date = datetime.strptime(date_str, '%Y-%m-%d')
+    else:
+        target_date = datetime.now(SHANGHAI_TZ)
     
-    # Filter matches from yesterday onwards
-    recent_matches = [
+    # Calculate target date's start and end in Shanghai timezone
+    day_start_sh = target_date.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=SHANGHAI_TZ)
+    day_end_sh = day_start_sh + timedelta(days=1)
+    
+    # Convert to UTC timestamps (what's stored in Notion)
+    day_start_utc_ts = day_start_sh.timestamp()
+    day_end_utc_ts = day_end_sh.timestamp()
+    
+    # Filter matches from this date 00:00 to 24:00 (Shanghai time)
+    day_matches = [
         m for m in all_matches 
-        if m.get('timestamp', 0) >= yesterday_timestamp
+        if day_start_utc_ts <= m.get('timestamp', 0) < day_end_utc_ts
     ]
     
     # Sort by timestamp descending (newest first)
-    recent_matches.sort(key=lambda x: x.get('timestamp', 0), reverse=True)
-    return recent_matches
+    day_matches.sort(key=lambda x: x.get('timestamp', 0), reverse=True)
+    return day_matches
+
+def get_today_matches():
+    """Get matches from today midnight (China timezone UTC+8) to now."""
+    all_matches = nc.query_matches()
+    
+    # Calculate today's start in local time
+    now_local = datetime.now()
+    today_start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # Convert to timestamp
+    today_start_ts = today_start_local.timestamp()
+    
+    # Filter matches from today 00:00 to now
+    today_matches = [
+        m for m in all_matches 
+        if m.get('timestamp', 0) >= today_start_ts
+    ]
+    
+    # Sort by timestamp descending (newest first)
+    today_matches.sort(key=lambda x: x.get('timestamp', 0), reverse=True)
+    return today_matches
 
 def analyze_performance(matches):
     """Analyze detailed performance metrics."""
@@ -61,13 +103,19 @@ def analyze_performance(matches):
         'performance': performance
     }
 
-def generate_daily_report():
-    """Generate enhanced daily battle report."""
-    matches = get_recent_matches()
+def generate_daily_report(date_str=None):
+    """Generate enhanced daily battle report for a specific date."""
+    matches = get_matches_for_date(date_str)
+    
+    if date_str:
+        target_date = datetime.strptime(date_str, '%Y-%m-%d')
+    else:
+        target_date = datetime.now()
     
     if not matches:
-        return "🐱 **每日 Dota 2 战报** — {date}\n\n📊 今日战况\n\n今天没有打Dota，休息一天也挺好！".format(
-            date=datetime.now().strftime('%Y/%m/%d')
+        date_display = target_date.strftime('%Y/%m/%d')
+        return "🐱 **每日 Dota 2 战报** — {date}\n\n📊 今日战况\n\n今天还没有打Dota，期待今晚的表现！".format(
+            date=date_display
         )
     
     # Basic stats
@@ -109,9 +157,10 @@ def generate_daily_report():
             if m.get('win') == 'Win':
                 role_stats[role_name]['wins'] += 1
     
-    # Build detailed report
+    # Build detailed report - show the target date
+    date_display = target_date.strftime('%Y/%m/%d')
     lines = [
-        f"🐱 **每日 Dota 2 战报** — {datetime.now().strftime('%Y/%m/%d')}",
+        f"🐱 **每日 Dota 2 战报** — {date_display}",
         "",
         "## 📊 总览",
         f"• 场次: **{total_games}** 局 | 胜 **{wins}** | 负 **{losses}** | 胜率 **{win_rate:.1f}%**",
@@ -219,6 +268,133 @@ def generate_daily_report():
     
     return '\n'.join(lines)
 
+
+def format_wechat_report(date_str=None):
+    """Generate a concise Markdown report suitable for Server酱 push."""
+    matches = get_matches_for_date(date_str)
+
+    if date_str:
+        target_date = datetime.strptime(date_str, '%Y-%m-%d')
+    else:
+        target_date = datetime.now(SHANGHAI_TZ)
+
+    date_display = target_date.strftime('%Y/%m/%d')
+
+    if not matches:
+        return f"Dota2 战报 {date_display}", "今天还没有打 Dota，期待今晚的表现！"
+
+    total = len(matches)
+    wins = sum(1 for m in matches if m.get('win') == 'Win')
+    losses = total - wins
+    wr = wins / total * 100 if total else 0
+    mmr_change = (wins - losses) * 25
+
+    perf = analyze_performance(matches)
+
+    # Streaks
+    streak = 0
+    streak_type = None
+    for m in matches:
+        w = m.get('win')
+        if streak_type is None:
+            streak_type = w
+            streak = 1
+        elif w == streak_type:
+            streak += 1
+        else:
+            break
+
+    streak_text = f"{'连胜' if streak_type == 'Win' else '连败'} {streak}" if streak >= 2 else ""
+
+    # Best game
+    best = max(matches, key=lambda m: (m.get('kills', 0) + m.get('assists', 0)) / max(m.get('deaths', 1), 1))
+    best_hero = best.get('hero_cn', '?')
+    best_kda = f"{best.get('kills',0)}/{best.get('deaths',0)}/{best.get('assists',0)}"
+
+    title = f"Dota2 战报 {date_display} | {wins}胜{losses}负 {'📈' if wins > losses else '📉' if losses > wins else '⚖️'}"
+
+    lines = [
+        f"## 📊 {date_display} 战报",
+        "",
+        f"**{total}** 局 | **{wins}** 胜 **{losses}** 负 | 胜率 **{wr:.0f}%**",
+        f"MMR: **{'+' if mmr_change >= 0 else ''}{mmr_change}**",
+        f"场均 KDA: **{perf['avg_kda']:.2f}**",
+        "",
+    ]
+
+    if streak_text:
+        lines.append(f"🔥 当前 {streak_text}")
+        lines.append("")
+
+    lines.append(f"⭐ 最佳: {best_hero} ({best_kda})")
+    lines.append("")
+
+    # Per-game summary
+    lines.append("### 逐局")
+    for i, m in enumerate(matches, 1):
+        result = "✅" if m.get('win') == 'Win' else "❌"
+        hero = m.get('hero_cn', '?')
+        k, d, a = m.get('kills', 0), m.get('deaths', 0), m.get('assists', 0)
+        lines.append(f"{i}. {result} {hero} {k}/{d}/{a}")
+
+    # Suggestions
+    if perf['avg_deaths'] > 6:
+        lines.extend(["", "💡 死亡偏高，注意地图意识"])
+    if wr < 40 and total >= 3:
+        lines.extend(["", "💡 胜率较低，建议休息调整心态"])
+
+    return title, '\n'.join(lines)
+
+
+def send_to_wechat(title, content):
+    """Send report via Server酱 (https://sct.ftqq.com/)."""
+    key = os.environ.get('SERVERCHAN_KEY', '')
+    if not key:
+        print("SERVERCHAN_KEY not set in .env, skipping WeChat push")
+        return False
+
+    url = f"https://sctapi.ftqq.com/{key}.send"
+    resp = requests.post(url, data={"title": title, "desp": content}, timeout=15)
+    result = resp.json()
+    if result.get("code") == 0:
+        print("WeChat push sent successfully!")
+        return True
+    else:
+        print(f"WeChat push failed: {result.get('message', 'unknown error')}")
+        return False
+
+
 if __name__ == "__main__":
-    report = generate_daily_report()
+    parser = argparse.ArgumentParser(description='Generate Dota 2 daily report')
+    parser.add_argument('date', nargs='?', help='Date in YYYY-MM-DD format (default: today)')
+    parser.add_argument('--no-sync', action='store_true', help='Skip Obsidian sync')
+    parser.add_argument('--wechat', action='store_true', help='Send report to WeChat via Server酱')
+    args = parser.parse_args()
+
+    report = generate_daily_report(args.date)
     print(report)
+
+    # WeChat push
+    if args.wechat:
+        print("\nSending to WeChat...")
+        title, content = format_wechat_report(args.date)
+        send_to_wechat(title, content)
+    
+    if args.no_sync:
+        sys.exit(0)
+    
+    # Sync to Obsidian
+    print("\nSyncing to Obsidian...")
+    if args.date:
+        target_date = datetime.strptime(args.date, '%Y-%m-%d')
+        save_date = target_date.strftime("%Y-%m-%d")
+    else:
+        # No date provided = generate today's report, save with today's date
+        save_date = datetime.now(SHANGHAI_TZ).strftime("%Y-%m-%d")
+    
+    obs.save_daily_report_to_obsidian(report, save_date)
+    
+    # Also sync ALL matches to history
+    all_matches = nc.query_matches()
+    print(f"Syncing {len(all_matches)} matches to history...")
+    obs.sync_matches_batch(all_matches)

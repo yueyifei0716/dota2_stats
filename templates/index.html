@@ -339,6 +339,159 @@
             color: #4ecdc4;
         }
 
+        /* New panels styles */
+
+        .charts-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 15px;
+        }
+
+        @media (max-width: 900px) {
+            .charts-row { grid-template-columns: 1fr; }
+        }
+
+        .chart-box {
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        /* Trend cards */
+        .trend-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .trend-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .trend-label { font-size: 0.85em; color: #888; margin-bottom: 8px; }
+        .trend-values { display: flex; justify-content: center; gap: 20px; margin-bottom: 8px; }
+        .trend-val { font-size: 1.1em; }
+        .trend-val small { font-size: 0.75em; color: #888; display: block; }
+        .trend-diff { font-size: 1.4em; font-weight: bold; }
+        .trend-diff.up { color: #4ecdc4; }
+        .trend-diff.down { color: #ff6b6b; }
+        .trend-diff.neutral { color: #888; }
+
+        /* Peers grid */
+        .peers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .peer-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 18px;
+            transition: all 0.3s ease;
+        }
+
+        .peer-card:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateY(-2px);
+        }
+
+        .peer-name { font-size: 1.1em; font-weight: bold; color: #fff; margin-bottom: 6px; }
+        .peer-meta { font-size: 0.85em; color: #888; margin-bottom: 10px; }
+
+        .peer-bar-bg {
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 6px;
+        }
+
+        .peer-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .peer-winrate { font-size: 0.9em; font-weight: bold; }
+        .peer-winrate.high { color: #4ecdc4; }
+        .peer-winrate.mid { color: #ffd166; }
+        .peer-winrate.low { color: #ff6b6b; }
+
+        /* Matchup panel */
+        .matchup-select {
+            background: rgba(0,0,0,0.3);
+            color: #e8e8e8;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 10px 15px;
+            font-size: 1em;
+            margin-top: 10px;
+            width: 100%;
+            max-width: 300px;
+        }
+
+        .matchup-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 15px;
+        }
+
+        @media (max-width: 700px) {
+            .matchup-container { grid-template-columns: 1fr; }
+            .trend-row { grid-template-columns: 1fr; }
+        }
+
+        .matchup-list h3 {
+            font-size: 1em;
+            margin-bottom: 10px;
+            color: #ffd700;
+        }
+
+        .matchup-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .matchup-name { width: 100px; font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .matchup-bar-bg {
+            flex: 1;
+            height: 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .matchup-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 6px;
+            font-size: 0.75em;
+            font-weight: bold;
+            color: #fff;
+            min-width: 40px;
+        }
+
+        .matchup-bar-fill.good { background: linear-gradient(90deg, rgba(78,205,196,0.3), rgba(78,205,196,0.7)); }
+        .matchup-bar-fill.bad { background: linear-gradient(90deg, rgba(255,107,107,0.3), rgba(255,107,107,0.7)); }
+
+        .matchup-games { font-size: 0.75em; color: #888; width: 50px; text-align: right; }
+        }
+
         .mmr-form {
             display: flex;
             gap: 10px;
@@ -892,6 +1045,134 @@
             </div>
         </div>
 
+        <!-- Rolling Win Rate + Time Analysis -->
+        <div class="section">
+            <h2 class="section-title">📈 胜率趋势 & 时段分析</h2>
+            <div class="charts-row">
+                <div class="chart-box">
+                    <h3 style="color:#ffd700;margin-bottom:10px;">滚动胜率 (每10场)</h3>
+                    {% if rolling_winrate %}
+                    <canvas id="rollingWinrateChart" height="200"></canvas>
+                    {% else %}
+                    <div class="no-data">数据不足，至少需要10场比赛</div>
+                    {% endif %}
+                </div>
+                <div class="chart-box">
+                    <h3 style="color:#ffd700;margin-bottom:10px;">时段胜率</h3>
+                    <canvas id="timeSlotChart" height="200"></canvas>
+                </div>
+            </div>
+            <div class="charts-row" style="margin-top:15px;">
+                <div class="chart-box">
+                    <h3 style="color:#ffd700;margin-bottom:10px;">星期胜率</h3>
+                    <canvas id="weekdayChart" height="200"></canvas>
+                </div>
+                <div class="chart-box" style="display:flex;align-items:center;justify-content:center;">
+                    <div style="text-align:center;">
+                        <div style="font-size:0.9em;color:#888;margin-bottom:8px;">最近100场滚动趋势</div>
+                        {% if rolling_winrate %}
+                        <div style="font-size:2.5em;font-weight:bold;color:{% if rolling_winrate[-1].winrate >= 50 %}#4ecdc4{% else %}#ff6b6b{% endif %};">
+                            {{ rolling_winrate[-1].winrate }}%
+                        </div>
+                        <div style="font-size:0.85em;color:#888;">当前滚动胜率</div>
+                        {% else %}
+                        <div style="color:#888;">暂无数据</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Trend Comparison -->
+        <div class="section">
+            <h2 class="section-title">🔄 近期趋势对比 (最近7天 vs 上一个7天)</h2>
+            <div class="trend-row">
+                <div class="trend-card">
+                    <div class="trend-label">胜率</div>
+                    <div class="trend-values">
+                        <div class="trend-val">{{ recent_trend.previous.winrate }}%<small>上周</small></div>
+                        <div class="trend-val">{{ recent_trend.recent.winrate }}%<small>本周</small></div>
+                    </div>
+                    <div class="trend-diff {% if recent_trend.winrate_diff > 0 %}up{% elif recent_trend.winrate_diff < 0 %}down{% else %}neutral{% endif %}">
+                        {% if recent_trend.winrate_diff > 0 %}↑{% elif recent_trend.winrate_diff < 0 %}↓{% else %}→{% endif %}
+                        {{ recent_trend.winrate_diff|abs }}%
+                    </div>
+                    <div class="trend-label">{{ recent_trend.recent.games }}场 vs {{ recent_trend.previous.games }}场</div>
+                </div>
+                <div class="trend-card">
+                    <div class="trend-label">平均 KDA</div>
+                    <div class="trend-values">
+                        <div class="trend-val">{{ recent_trend.previous.avg_kda }}<small>上周</small></div>
+                        <div class="trend-val">{{ recent_trend.recent.avg_kda }}<small>本周</small></div>
+                    </div>
+                    <div class="trend-diff {% if recent_trend.kda_diff > 0 %}up{% elif recent_trend.kda_diff < 0 %}down{% else %}neutral{% endif %}">
+                        {% if recent_trend.kda_diff > 0 %}↑{% elif recent_trend.kda_diff < 0 %}↓{% else %}→{% endif %}
+                        {{ recent_trend.kda_diff|abs }}
+                    </div>
+                </div>
+                <div class="trend-card">
+                    <div class="trend-label">场均影响力</div>
+                    <div class="trend-values">
+                        <div class="trend-val">{{ recent_trend.previous.avg_impact }}<small>上周</small></div>
+                        <div class="trend-val">{{ recent_trend.recent.avg_impact }}<small>本周</small></div>
+                    </div>
+                    <div class="trend-diff {% if recent_trend.impact_diff > 0 %}up{% elif recent_trend.impact_diff < 0 %}down{% else %}neutral{% endif %}">
+                        {% if recent_trend.impact_diff > 0 %}↑{% elif recent_trend.impact_diff < 0 %}↓{% else %}→{% endif %}
+                        {{ recent_trend.impact_diff|abs }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Peers (Best Teammates) -->
+        <div class="section">
+            <h2 class="section-title">👥 最佳队友 (≥3场)</h2>
+            {% if peers %}
+            <div class="peers-grid">
+                {% for p in peers %}
+                <div class="peer-card">
+                    <div class="peer-name">{{ p.personaname or ('玩家 ' ~ p.account_id) }}</div>
+                    <div class="peer-meta">{{ p.with_games }} 场 | 最近: {{ p.last_played|default('N/A') }}</div>
+                    <div class="peer-bar-bg">
+                        {% set wr = (p.with_win / p.with_games * 100)|round(1) if p.with_games else 0 %}
+                        <div class="peer-bar-fill" style="width:{{ wr }}%;background:{% if wr >= 55 %}#4ecdc4{% elif wr >= 45 %}#ffd166{% else %}#ff6b6b{% endif %};"></div>
+                    </div>
+                    <div class="peer-winrate {% if wr >= 55 %}high{% elif wr >= 45 %}mid{% else %}low{% endif %}">
+                        {{ wr }}% 胜率 ({{ p.with_win }}胜 {{ p.with_games - p.with_win }}负)
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="no-data">暂无队友数据，请运行 <code>python fetch_dota_stats.py --extra</code> 抓取</div>
+            {% endif %}
+        </div>
+
+        <!-- Hero Matchups -->
+        <div class="section">
+            <h2 class="section-title">⚔️ 英雄克制分析</h2>
+            {% if matchup_heroes %}
+            <select class="matchup-select" id="matchupHeroSelect" onchange="loadMatchups(this.value)">
+                <option value="">选择一个常用英雄...</option>
+                {% for h in matchup_heroes %}
+                <option value="{{ h.hero_id }}">{{ h.hero_cn }}</option>
+                {% endfor %}
+            </select>
+            <div class="matchup-container" id="matchupContainer" style="display:none;">
+                <div class="matchup-list">
+                    <h3>✅ 最克制 (胜率最高)</h3>
+                    <div id="matchupBest"></div>
+                </div>
+                <div class="matchup-list">
+                    <h3>❌ 最被克制 (胜率最低)</h3>
+                    <div id="matchupWorst"></div>
+                </div>
+            </div>
+            {% else %}
+            <div class="no-data">暂无克制数据，请运行 <code>python fetch_dota_stats.py --extra</code> 抓取</div>
+            {% endif %}
+        </div>
+
         <!-- Match History -->
         <div class="section" id="matches">
             <h2 class="section-title">📜 比赛记录</h2>
@@ -1394,5 +1675,162 @@
         });
     </script>
     {% endif %}
+
+    <!-- Rolling Winrate Chart -->
+    {% if rolling_winrate %}
+    <script>
+        new Chart(document.getElementById('rollingWinrateChart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: {{ rolling_winrate | map(attribute='index') | list | tojson }},
+                datasets: [{
+                    label: '滚动胜率 (%)',
+                    data: {{ rolling_winrate | map(attribute='winrate') | list | tojson }},
+                    borderColor: '#4ecdc4',
+                    backgroundColor: 'rgba(78, 205, 196, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 1,
+                    pointHoverRadius: 5,
+                }, {
+                    label: '50%线',
+                    data: Array({{ rolling_winrate|length }}).fill(50),
+                    borderColor: 'rgba(255,255,255,0.3)',
+                    borderWidth: 1,
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    fill: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        callbacks: {
+                            title: ctx => '第 ' + ctx[0].label + ' 场',
+                            label: ctx => '胜率: ' + ctx.parsed.y + '%'
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888', maxTicksLimit: 10 }, title: { display: true, text: '比赛场次', color: '#888' } },
+                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888', callback: v => v + '%' }, min: 0, max: 100 }
+                }
+            }
+        });
+    </script>
+    {% endif %}
+
+    <!-- Time Slot Chart -->
+    <script>
+        const timeLabels = {{ time_analysis | map(attribute='label') | list | tojson }};
+        const timeGames = {{ time_analysis | map(attribute='games') | list | tojson }};
+        const timeWinrates = {{ time_analysis | map(attribute='winrate') | list | tojson }};
+
+        new Chart(document.getElementById('timeSlotChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: timeLabels,
+                datasets: [{
+                    label: '胜率 (%)',
+                    data: timeWinrates,
+                    backgroundColor: timeWinrates.map(w => w >= 50 ? 'rgba(78,205,196,0.7)' : 'rgba(255,107,107,0.7)'),
+                    borderRadius: 6,
+                    yAxisID: 'y',
+                }, {
+                    label: '场次',
+                    data: timeGames,
+                    type: 'line',
+                    borderColor: '#ffd700',
+                    backgroundColor: 'rgba(255,215,0,0.1)',
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    yAxisID: 'y1',
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { labels: { color: '#888' } } },
+                scales: {
+                    x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888' } },
+                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888', callback: v => v + '%' }, min: 0, max: 100, position: 'left' },
+                    y1: { grid: { display: false }, ticks: { color: '#ffd700' }, position: 'right' }
+                }
+            }
+        });
+
+        // Weekday Chart
+        const wdLabels = {{ weekday_analysis | map(attribute='label') | list | tojson }};
+        const wdGames = {{ weekday_analysis | map(attribute='games') | list | tojson }};
+        const wdWinrates = {{ weekday_analysis | map(attribute='winrate') | list | tojson }};
+
+        new Chart(document.getElementById('weekdayChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: wdLabels,
+                datasets: [{
+                    label: '胜率 (%)',
+                    data: wdWinrates,
+                    backgroundColor: wdWinrates.map(w => w >= 50 ? 'rgba(78,205,196,0.7)' : 'rgba(255,107,107,0.7)'),
+                    borderRadius: 6,
+                    yAxisID: 'y',
+                }, {
+                    label: '场次',
+                    data: wdGames,
+                    type: 'line',
+                    borderColor: '#ffd700',
+                    backgroundColor: 'rgba(255,215,0,0.1)',
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    yAxisID: 'y1',
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { labels: { color: '#888' } } },
+                scales: {
+                    x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888' } },
+                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888', callback: v => v + '%' }, min: 0, max: 100, position: 'left' },
+                    y1: { grid: { display: false }, ticks: { color: '#ffd700' }, position: 'right' }
+                }
+            }
+        });
+    </script>
+
+    <!-- Hero Matchup Loader -->
+    <script>
+        function loadMatchups(heroId) {
+            const container = document.getElementById('matchupContainer');
+            if (!heroId) { container.style.display = 'none'; return; }
+            fetch('/api/hero_matchups/' + heroId)
+                .then(r => r.json())
+                .then(data => {
+                    container.style.display = 'grid';
+                    renderMatchupList('matchupBest', data.best, 'good');
+                    renderMatchupList('matchupWorst', data.worst, 'bad');
+                })
+                .catch(() => { container.style.display = 'none'; });
+        }
+
+        function renderMatchupList(elementId, items, type) {
+            const el = document.getElementById(elementId);
+            if (!items || !items.length) {
+                el.innerHTML = '<div style="color:#888;font-size:0.9em;">数据不足</div>';
+                return;
+            }
+            el.innerHTML = items.map(m => `
+                <div class="matchup-item">
+                    <div class="matchup-name">${m.hero_cn}</div>
+                    <div class="matchup-bar-bg">
+                        <div class="matchup-bar-fill ${type}" style="width:${m.winrate}%;">${m.winrate}%</div>
+                    </div>
+                    <div class="matchup-games">${m.games}场</div>
+                </div>
+            `).join('');
+        }
+    </script>
 </body>
 </html>

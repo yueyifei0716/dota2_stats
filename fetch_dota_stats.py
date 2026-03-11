@@ -14,6 +14,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 import notion_db as nc
+import obsidian_sync as obs
+
+# Default timeout for all API requests
+REQUEST_TIMEOUT = 10
 
 STEAM_ID = 894447460
 BASE_URL = "https://api.opendota.com/api"
@@ -103,7 +107,7 @@ def refresh_player_data():
     """Request OpenDota to refresh/parse new matches for the player."""
     url = f"{BASE_URL}/players/{STEAM_ID}/refresh"
     try:
-        response = requests.post(url)
+        response = requests.post(url, timeout=REQUEST_TIMEOUT)
         if response.status_code == 200:
             print("Requested match refresh from OpenDota")
             return True
@@ -128,7 +132,7 @@ def request_match_parse(match_ids):
     for mid in match_ids:
         try:
             url = f"{BASE_URL}/request/{mid}"
-            response = requests.post(url)
+            response = requests.post(url, timeout=REQUEST_TIMEOUT)
             if response.status_code == 200:
                 requested += 1
             time.sleep(0.5)
@@ -140,7 +144,7 @@ def request_match_parse(match_ids):
 def fetch_player_profile():
     """Fetch player profile information."""
     url = f"{BASE_URL}/players/{STEAM_ID}"
-    response = requests.get(url)
+    response = requests.get(url, timeout=REQUEST_TIMEOUT)
     response.raise_for_status()
     return response.json()
 
@@ -148,7 +152,7 @@ def fetch_player_profile():
 def fetch_player_ratings():
     """Fetch player rank tier history over time."""
     url = f"{BASE_URL}/players/{STEAM_ID}/ratings"
-    response = requests.get(url)
+    response = requests.get(url, timeout=REQUEST_TIMEOUT)
     response.raise_for_status()
     return response.json()
 
@@ -156,7 +160,7 @@ def fetch_player_ratings():
 def fetch_player_rankings():
     """Fetch player hero rankings (percentile vs all players)."""
     url = f"{BASE_URL}/players/{STEAM_ID}/rankings"
-    response = requests.get(url)
+    response = requests.get(url, timeout=REQUEST_TIMEOUT)
     response.raise_for_status()
     return response.json()
 
@@ -165,7 +169,7 @@ def fetch_matches(limit=100):
     """Fetch match history. Use limit=None for all matches (slower)."""
     url = f"{BASE_URL}/players/{STEAM_ID}/matches"
     params = {"limit": limit} if limit else {}
-    response = requests.get(url, params=params)
+    response = requests.get(url, params=params, timeout=REQUEST_TIMEOUT)
     response.raise_for_status()
     return response.json()
 
@@ -173,7 +177,7 @@ def fetch_matches(limit=100):
 def fetch_recent_matches():
     """Fetch last 20 recent matches with more detail."""
     url = f"{BASE_URL}/players/{STEAM_ID}/recentMatches"
-    response = requests.get(url)
+    response = requests.get(url, timeout=REQUEST_TIMEOUT)
     response.raise_for_status()
     return response.json()
 
@@ -181,7 +185,7 @@ def fetch_recent_matches():
 def fetch_match_details(match_id):
     """Fetch detailed match data including items."""
     url = f"{BASE_URL}/matches/{match_id}"
-    response = requests.get(url)
+    response = requests.get(url, timeout=REQUEST_TIMEOUT)
     response.raise_for_status()
     return response.json()
 
@@ -347,7 +351,7 @@ def fetch_match_advanced_data(match_id):
 def fetch_items():
     """Fetch item constants."""
     url = f"{BASE_URL}/constants/items"
-    response = requests.get(url)
+    response = requests.get(url, timeout=REQUEST_TIMEOUT)
     response.raise_for_status()
     return response.json()
 
@@ -355,7 +359,7 @@ def fetch_items():
 def fetch_hero_stats():
     """Fetch per-hero statistics."""
     url = f"{BASE_URL}/players/{STEAM_ID}/heroes"
-    response = requests.get(url)
+    response = requests.get(url, timeout=REQUEST_TIMEOUT)
     response.raise_for_status()
     return response.json()
 
@@ -363,7 +367,7 @@ def fetch_hero_stats():
 def fetch_totals():
     """Fetch aggregated totals (kills, deaths, assists, etc.)."""
     url = f"{BASE_URL}/players/{STEAM_ID}/totals"
-    response = requests.get(url)
+    response = requests.get(url, timeout=REQUEST_TIMEOUT)
     response.raise_for_status()
     return response.json()
 
@@ -371,7 +375,23 @@ def fetch_totals():
 def fetch_win_loss():
     """Fetch win/loss record."""
     url = f"{BASE_URL}/players/{STEAM_ID}/wl"
-    response = requests.get(url)
+    response = requests.get(url, timeout=REQUEST_TIMEOUT)
+    response.raise_for_status()
+    return response.json()
+
+
+def fetch_peers():
+    """Fetch peers (teammates) data."""
+    url = f"{BASE_URL}/players/{STEAM_ID}/peers"
+    response = requests.get(url, timeout=REQUEST_TIMEOUT)
+    response.raise_for_status()
+    return response.json()
+
+
+def fetch_hero_matchups(hero_id):
+    """Fetch hero matchups (counters and advantages) for a specific hero."""
+    url = f"{BASE_URL}/heroes/{hero_id}/matchups"
+    response = requests.get(url, timeout=30)
     response.raise_for_status()
     return response.json()
 
@@ -536,6 +556,13 @@ def save_matches(matches):
         auto_update_mmr(new_matches_for_mmr)
 
     print(f"Saved {new_count} new matches to Notion (skipped {len(matches) - new_count} existing)")
+    
+    # Sync new matches to Obsidian
+    new_matches_for_obsidian = [m for m in matches if str(m.get("match_id")) not in existing_ids]
+    if new_matches_for_obsidian:
+        print("\nSyncing to Obsidian...")
+        obs.sync_matches_batch(new_matches_for_obsidian)
+    
     return new_hero_ids
 
 
@@ -810,6 +837,79 @@ def backfill_advanced_data(batch_size=20):
     print(f"\nDone! Fetched advanced data for {total_fetched} matches.")
 
 
+def fetch_and_save_extra_data():
+    """Fetch peers, totals, and hero matchups data and save to cache."""
+    import json
+    from pathlib import Path
+
+    cache_dir = Path(__file__).parent / "cache"
+    cache_dir.mkdir(exist_ok=True)
+
+    # Fetch peers
+    print("Fetching peers data...")
+    peers = fetch_peers()
+    with open(cache_dir / "peers.json", "w", encoding="utf-8") as f:
+        json.dump(peers, f, ensure_ascii=False, indent=2)
+    print(f"Saved {len(peers)} peers to cache/peers.json")
+
+    # Fetch totals
+    print("\nFetching totals data...")
+    totals = fetch_totals()
+    with open(cache_dir / "totals.json", "w", encoding="utf-8") as f:
+        json.dump(totals, f, ensure_ascii=False, indent=2)
+    print(f"Saved {len(totals)} totals to cache/totals.json")
+
+    # Fetch hero matchups for frequently played heroes (games >= 5)
+    print("\nFetching hero stats to identify frequently played heroes...")
+    hero_stats = fetch_hero_stats()
+    frequent_heroes = [h for h in hero_stats if h.get("games", 0) >= 5]
+
+    print(f"Found {len(frequent_heroes)} heroes with >= 5 games")
+    print("Fetching hero matchups...")
+
+    matchups = {}
+    # Load existing matchups to support incremental fetching
+    matchups_file = cache_dir / "hero_matchups.json"
+    if matchups_file.exists():
+        try:
+            with open(matchups_file, "r", encoding="utf-8") as f:
+                matchups = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+
+    import time
+    for i, hero in enumerate(frequent_heroes):
+        hero_id = hero.get("hero_id")
+        hero_name = HEROES_CN.get(hero_id, "Unknown")
+        if str(hero_id) in matchups:
+            print(f"  [{i+1}/{len(frequent_heroes)}] Skipping {hero_name} (already cached)")
+            continue
+        try:
+            print(f"  [{i+1}/{len(frequent_heroes)}] Fetching matchups for {hero_name} (ID: {hero_id})...")
+            matchup_data = fetch_hero_matchups(hero_id)
+            matchups[str(hero_id)] = {
+                "hero_id": hero_id,
+                "hero_name": HEROES_EN.get(hero_id, "unknown"),
+                "hero_cn": hero_name,
+                "matchups": matchup_data
+            }
+            # Save incrementally after each hero
+            with open(matchups_file, "w", encoding="utf-8") as f:
+                json.dump(matchups, f, ensure_ascii=False, indent=2)
+            time.sleep(0.5)  # Rate limiting
+        except Exception as e:
+            print(f"    Error fetching matchups for {hero_name}: {e}")
+            # Save what we have so far
+            with open(matchups_file, "w", encoding="utf-8") as f:
+                json.dump(matchups, f, ensure_ascii=False, indent=2)
+
+    with open(cache_dir / "hero_matchups.json", "w", encoding="utf-8") as f:
+        json.dump(matchups, f, ensure_ascii=False, indent=2)
+    print(f"\nSaved matchups for {len(matchups)} heroes to cache/hero_matchups.json")
+
+    print("\nDone! All extra data saved to cache/")
+
+
 def backfill_roles(batch_size=20, force=False):
     """Compute lane+farm based roles for matches.
 
@@ -919,6 +1019,9 @@ if __name__ == "__main__":
                 print("Invalid MMR value")
         else:
             print("Usage: python fetch_dota_stats.py --calibrate <mmr_value>")
+    elif len(sys.argv) > 1 and sys.argv[1] == "--extra":
+        # Fetch extra data (peers, totals, matchups): python fetch_dota_stats.py --extra
+        fetch_and_save_extra_data()
     else:
         limit = 500
         if len(sys.argv) > 1:

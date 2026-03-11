@@ -1,297 +1,164 @@
-# CLAUDE.md - Project Maintenance Log
+# Dota 2 Stats Tracker
 
-## Project Overview
-Dota 2 Stats Tracker - A Flask web application that fetches and displays Dota 2 match statistics from OpenDota API.
+个人 Dota 2 战绩追踪系统，从 OpenDota API 抓取数据存入 Notion，通过 Flask Web 界面展示。
 
-**Steam ID:** 894447460
-**Tech Stack:** Python, Flask, OpenDota API, Notion API
-**Environment:** Miniconda (dota2 env)
-**Python Path:** `C:\Users\there\miniconda3\envs\dota2\python.exe`
+## 技术栈
 
-> **Note:** `conda activate` does not work from Claude Code's shell. Always use the full Python path above to run scripts:
-> ```bash
-> C:\Users\there\miniconda3\envs\dota2\python.exe script.py
-> ```
+- Python 3.10+ / Flask / Notion API / OpenDota API
+- 数据存储: Notion Databases (4 个)
+- 缓存: 内存 + 文件双层缓存（5 分钟 TTL）
+- 环境: Miniconda (dota2 env)
 
----
-
-## Recent Changes
-
-### 2026-02-08: Fixed Position Detection (GPM-based Pos 1-5)
-**Problem:** OpenDota's `lane_role` field only tracks lane position in the first 10 minutes, not actual game role. Supports laning with carries get classified as safe lane (same as carry), and there's no distinction between Pos 4 and Pos 5.
-
-**Solution:** Use GPM rank within the team to infer Pos 1-5. The player with the highest GPM on the team is Pos 1, second highest is Pos 2, etc.
-
-**New Fields:**
-- `role` (number 1-5): GPM-based position, stored in Notion "Role" property
-
-**Display Logic:** Uses `role` field when available, falls back to `lane_role` for older matches.
-
-**Role Labels:**
-- Pos 1: 优势路 (Carry)
-- Pos 2: 中路 (Mid)
-- Pos 3: 劣势路 (Offlane)
-- Pos 4: 辅助 (Soft Support)
-- Pos 5: 纯辅助 (Hard Support)
-
-**CLI Commands:**
-```bash
-python fetch_dota_stats.py --fix-roles  # Backfill GPM-based roles for all matches
-```
-
-**Files Modified:**
-- `fetch_dota_stats.py` - Added GPM rank calculation in `fetch_match_advanced_data()`, added `backfill_roles()` and `--fix-roles` CLI option
-- `notion_db.py` - Added "Role" field to `_build_advanced_properties()`, `_page_to_match()`, and `update_match_role()`
-- `app.py` - Updated `role_short_names` and `role_names` for Pos 1-5, uses `role` with `lane_role` fallback
-- `templates/index.html` - Added Pos 5 CSS styling, updated filter labels
-
----
-
-### 2026-02-06: Added Advanced Analytics (Impact Score, Badges, Throw/Comeback)
-**Features Added:**
-
-1. **Advanced Match Data Fetching:**
-   - Lane role (Pos 1-5)
-   - Net worth, level, gold spent
-   - Max gold lead/deficit for throw/comeback detection
-   - Benchmark percentiles (GPM, XPM, damage, tower damage)
-   - Ally/enemy hero IDs for matchup analysis
-
-2. **Impact Score System:**
-   - Formula: `(kills * 1.0 + assists * 0.7 + (hero_damage / 1000) * 0.5 + (tower_damage / 1000) * 1.0) / (deaths + 1)`
-   - Normalized to 0-100 scale
-   - Win bonus: +20%
-   - Benchmark bonus: +10% if above 75th percentile
-
-3. **Badge System:**
-   - 🔥 **High Impact** - Impact score > 80
-   - 📈 **Comeback** - Won after >5k gold deficit
-   - 💀 **Throw** - Lost after >5k gold lead
-   - ⭐ **Carry** - High damage + win
-   - 🛡️ **Support** - High assists, low deaths
-
-**New Files:**
-- `data/match_advanced.csv` - Advanced match metrics
-
-**CLI Commands:**
-```bash
-python fetch_dota_stats.py --advanced  # Backfill advanced data for all matches
-```
-
-**Files Modified:**
-- `fetch_dota_stats.py` - Added `fetch_match_advanced_data()`, `backfill_advanced_data()`
-- `app.py` - Added `calculate_impact_score()`, `get_match_badges()`, `read_match_advanced()`
-- `templates/index.html` - Added impact score and badges columns to match table
-
----
-
-### 2026-02-06: Added Item Backfill Feature
-**Problem:** Previously fetched matches were missing item data because items were only fetched for new matches.
-
-**Solution:** Added `backfill_items()` function to fetch items for all matches that don't have item data.
-
-**Usage:**
-```bash
-python fetch_dota_stats.py --backfill
-```
-
-**Files Modified:**
-- `fetch_dota_stats.py` - Added `backfill_items()` function and `--backfill` CLI option
-
----
-
-### 2026-02-06: Added Clickable Hero Cards
-**Feature:** Clicking on any hero card now filters the match history to show only that hero's matches.
-
-**Works on:**
-- Hero Statistics section (英雄数据)
-- Best Heroes section (最佳英雄)
-- Worst Heroes section (需要练习)
-- Recent Heroes tags (最近常用英雄)
-
-**Files Modified:**
-- `templates/index.html` - Added `filterByHero()` function and onclick handlers
-
----
-
-### 2026-02-06: Fixed Match Update Issue
-**Problem:** Update button wasn't fetching recent matches - OpenDota API was returning cached data.
-
-**Root Cause:** OpenDota doesn't automatically parse new matches. The API needs a refresh request to trigger parsing of new matches from Valve's servers.
-
-**Solution:** Added OpenDota refresh endpoint call before fetching matches.
-
-**Files Modified:**
-- `fetch_dota_stats.py:103-116` - Added `refresh_player_data()` function
-- `fetch_dota_stats.py:437-446` - Updated `update_all()` to call refresh endpoint first with 3-second wait
-
-**Changes:**
-```python
-def refresh_player_data():
-    """Request OpenDota to refresh/parse new matches for the player."""
-    url = f"{BASE_URL}/players/{STEAM_ID}/refresh"
-    try:
-        response = requests.post(url)
-        if response.status_code == 200:
-            print("Requested match refresh from OpenDota")
-            return True
-        else:
-            print(f"Refresh request returned status {response.status_code}")
-            return False
-    except Exception as e:
-        print(f"Failed to request refresh: {e}")
-        return False
-```
-
-**Note:** Even with this fix, very recent matches may take 1-2 minutes to appear as OpenDota needs time to fetch and parse data from Valve's servers.
-
----
-
-## Project Structure
+## 目录结构
 
 ```
 dota2_stats/
-├── app.py                  # Flask web server
-├── fetch_dota_stats.py     # OpenDota API client & data fetcher
-├── templates/
-│   └── index.html          # Web UI
-├── data/                   # CSV data files
-│   ├── matches.csv
-│   ├── hero_stats.csv
-│   ├── profile.csv
-│   ├── match_items.csv
-│   └── mmr_history.csv
-├── start.bat               # Windows startup script
-├── start.sh                # Unix/Mac startup script
-├── stop.bat                # Windows shutdown script
-├── stop.sh                 # Unix/Mac shutdown script
-└── CLAUDE.md               # This file
+├── app.py                  # Flask 服务器 (端口 5001)
+├── fetch_dota_stats.py     # OpenDota 数据抓取 + 高级指标计算
+├── notion_db.py            # Notion CRUD 封装 (限流 3req/s)
+├── notion_cache.py         # 双层缓存 (内存 + 文件)
+├── daily_report.py         # 每日战报生成 (UTC+8)
+├── obsidian_sync.py        # Obsidian 同步
+├── migrate_to_notion.py    # CSV → Notion 迁移工具
+├── templates/index.html    # Web UI
+├── cache/                  # JSON 缓存文件
+├── .env                    # Notion API 凭证
+└── start.sh / stop.sh      # 启动/停止脚本
 ```
 
----
+## 常用命令
 
-## How to Run
-
-### Quick Start (Windows)
 ```bash
-start.bat
+# 启动服务
+./start.sh                  # macOS/Linux
+start.bat                   # Windows
+# 或手动: conda activate dota2 && python app.py
+
+# 停止服务
+./stop.sh                   # macOS/Linux
+stop.bat                    # Windows
+
+# 数据抓取
+python fetch_dota_stats.py                # 抓取最近 200 场比赛
+python fetch_dota_stats.py --items        # 抓取物品数据 (慢，仅 20 场)
+python fetch_dota_stats.py --advanced     # 回填高级数据 (金钱优势、Benchmark)
+python fetch_dota_stats.py --fix-roles    # 修复历史比赛的位置检测
+python fetch_dota_stats.py --backfill     # 回填历史比赛的物品数据
+
+# 每日战报
+python daily_report.py                    # 生成昨日战报
 ```
 
-### Quick Start (Unix/Mac/Git Bash)
+访问地址: http://127.0.0.1:5001
+
+## 验证变更
+
+修改代码后必须重启 Flask 服务器才能生效：
+
 ```bash
-./start.sh
+# macOS/Linux
+./stop.sh && ./start.sh
+
+# 或手动
+pkill -f "python app.py" && python app.py
 ```
 
-### Manual Start
+## 数据架构
+
+### Notion 数据库 (4 个)
+
+1. **Matches** - 比赛记录 (40+ 字段)
+   - 基础: KDA, 英雄, 结果, 时长, 日期
+   - 物品: 6 格物品 + 背包 3 格
+   - 高级: 位置 (Pos 1-5), 影响力评分, 徽章, 金钱优势, Benchmark
+   - 笔记: 用户自定义笔记
+
+2. **Hero Stats** - 英雄统计
+   - 胜率, 场次, KDA, 表现
+
+3. **MMR History** - MMR 历史
+   - 时间戳, MMR 值
+
+4. **Profile** - 玩家档案
+   - 用户名, 段位, MMR, 胜率
+
+### 缓存策略
+
+- **内存缓存**: 5 分钟 TTL，快速访问
+- **文件缓存**: 持久化到 `cache/*.json`，故障降级
+- **限流**: Notion API 3 请求/秒，指数退避重试
+
+### 核心算法
+
+**位置检测 (Pos 1-5)**:
+- 基于队内 GPM 排名（最高 GPM = Pos 1，最低 = Pos 5）
+- 回退到 `lane_role` 字段（仅前 10 分钟数据）
+
+**影响力评分**:
+```
+(击杀*1.0 + 助攻*0.7 + 英雄伤害/1000*0.5 + 推塔伤害/1000*1.0) / (死亡+1)
+归一化到 0-100，胜利 +20%，Benchmark 超 75% +10%
+```
+
+**徽章系统**:
+- 🔥 高影响力 (评分 > 80)
+- 📈 翻盘 (落后 >5k 金钱差后获胜)
+- 💀 送分 (领先 >5k 金钱差后失败)
+- ⭐ Carry (高伤害 + 胜利)
+- 🛡️ Support (高助攻 + 低死亡)
+
+## 重要约定
+
+### OpenDota API
+
+- **Steam ID**: 894447460
+- **Base URL**: https://api.opendota.com/api
+- **限流**: 比赛详情请求间隔 0.5 秒
+- **刷新机制**: 更新前先调用 `/players/{STEAM_ID}/refresh` 触发解析，等待 3 秒
+- **延迟**: 最新比赛需 1-2 分钟才能出现
+
+### Flask 路由
+
+- `GET /` - 主仪表盘 (支持英雄/位置/结果筛选)
+- `POST /update_data` - 触发后台数据更新 (子进程)
+- `POST /update_mmr` - 手动更新 MMR
+- `POST /calibrate_mmr` - 校准 MMR
+- `GET /api/matches` - JSON 比赛数据
+- `GET /api/heroes` - JSON 英雄统计
+- `GET /api/mmr_history` - JSON MMR 历史
+- `GET/POST /api/match_notes` - 比赛笔记 CRUD
+
+### Git 提交规则
+
+**重要**: 不要在 commit message 中添加 "Co-Authored-By: Claude"。所有提交仅显示仓库所有者 (yueyifei0716) 为作者。
+
+### 已知限制
+
+1. **比赛延迟**: 最新比赛需 1-2 分钟才能出现（OpenDota 解析延迟）
+2. **物品抓取**: 慢操作，默认仅抓 20 场新比赛
+3. **翻盘/送分检测**: 仅适用于有 `radiant_gold_adv` 数据的比赛
+4. **影响力评分**: 需要高级数据（`hero_damage`, `tower_damage`）
+5. **更新超时**: 5 分钟超时限制
+
+## 环境配置
+
+### .env 文件
+
+```
+NOTION_TOKEN=ntn_***
+NOTION_MATCHES_DB_ID=8626ca1a-2b3f-4ae6-95de-8d2dc1a6c2fc
+NOTION_HERO_STATS_DB_ID=2ebf2e92-cf3a-4f77-821a-dee211961baf
+NOTION_MMR_HISTORY_DB_ID=98bebcf0-9cf7-4c3d-83a5-0f429bfb6e5a
+NOTION_PROFILE_DB_ID=d6888e4d-53a6-48a1-97d4-c273627cf704
+```
+
+### Conda 环境
+
 ```bash
-# Activate conda environment
 conda activate dota2
-
-# Run Flask app
-python app.py
 ```
 
-Access at: http://127.0.0.1:5000
-
-### Shutdown
+如果 `conda activate` 不工作，使用完整 Python 路径：
 ```bash
-# Windows
-stop.bat
-
-# Unix/Mac/Git Bash
-./stop.sh
+/path/to/miniconda3/envs/dota2/bin/python script.py
 ```
-
----
-
-## API Endpoints
-
-### OpenDota API Endpoints Used
-- `GET /players/{STEAM_ID}` - Player profile
-- `GET /players/{STEAM_ID}/matches?limit={n}` - Match history
-- `GET /players/{STEAM_ID}/recentMatches` - Recent 20 matches
-- `GET /players/{STEAM_ID}/heroes` - Hero statistics
-- `GET /players/{STEAM_ID}/wl` - Win/Loss record
-- `GET /matches/{match_id}` - Detailed match data
-- `POST /players/{STEAM_ID}/refresh` - **NEW** Trigger match parsing
-
-### Flask Routes
-- `GET /` - Main dashboard
-- `POST /update_data` - Trigger data refresh
-- `GET /api/matches` - JSON match data
-- `GET /api/hero_stats` - JSON hero statistics
-- `GET /api/profile` - JSON player profile
-- `GET /api/mmr_history` - JSON MMR history
-
----
-
-## Key Functions
-
-### fetch_dota_stats.py
-- `refresh_player_data()` - Request OpenDota to parse new matches
-- `fetch_matches(limit)` - Fetch match history
-- `fetch_match_details(match_id)` - Get detailed match data with items
-- `update_all(match_limit, current_mmr, fetch_items)` - Main update function
-- `save_matches_csv()` - Save matches to CSV
-- `save_hero_stats_csv()` - Save hero stats to CSV
-
-### app.py
-- `@app.route("/update_data")` - Handles update button clicks
-- Spawns subprocess to run `fetch_dota_stats.py`
-- Default limit: 200 matches (or 500 with --items flag)
-
----
-
-## Known Issues & Limitations
-
-1. **Match Delay:** Very recent matches may take 1-2 minutes to appear even after refresh
-2. **Rate Limiting:** OpenDota API has rate limits (0.5s delay between match detail requests)
-3. **Item Fetching:** Fetching items for all matches is slow (only fetches 20 new matches by default)
-4. **Timeout:** Update operation has 5-minute timeout
-5. **Throw/Comeback Detection:** Only works for matches that have been fully parsed by OpenDota. Many matches don't have `radiant_gold_adv` data available, so throw/comeback badges won't appear for those matches.
-6. **Impact Score Data:** Uses `hero_damage` and `tower_damage` from `match_advanced.csv` (detailed match API). If advanced data is missing, scores will be inaccurate.
-
----
-
-## Future Improvements
-
-- [ ] Add loading indicator with progress updates
-- [ ] Cache OpenDota responses to reduce API calls
-- [ ] Add error handling for network failures
-- [ ] Implement retry logic for failed API calls
-- [ ] Add match notifications for new games
-- [ ] Store data in SQLite instead of CSV files
-
----
-
-## Maintenance Notes
-
-### Git Commit Rules
-**IMPORTANT:** Do NOT add "Co-Authored-By: Claude" to commit messages. All commits should only show the repository owner (yueyifei0716) as the author. Claude assists with code but should not be listed as a co-author.
-
-### After Code Modifications
-**IMPORTANT:** After modifying any Python files (`app.py`, `fetch_dota_stats.py`, etc.), you MUST restart the Flask server for changes to take effect:
-```bash
-# Kill existing Python processes and restart
-taskkill /F /IM python.exe
-start cmd /c "C:\Users\there\miniconda3\envs\dota2\python.exe app.py"
-```
-
-### When Adding New Features
-1. Update this file with changes
-2. Document new API endpoints used
-3. Update project structure if files added
-4. Test update functionality still works
-5. **Restart the Flask server to apply changes**
-
-### When Debugging Update Issues
-1. Check OpenDota API status: https://www.opendota.com/status
-2. Verify Steam ID is correct (894447460)
-3. Check Flask logs in terminal
-4. Verify CSV files are being updated in `data/` directory
-5. Test refresh endpoint manually: `POST https://api.opendota.com/api/players/894447460/refresh`
-
----
-
-**Last Updated:** 2026-02-08
-**Maintained By:** Claude (Opus 4.6)
