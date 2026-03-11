@@ -35,3 +35,4 @@ Thumbs.db
 # Cache
 cache/
 *.bak
+api.json
