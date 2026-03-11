@@ -110,7 +110,7 @@ export default function MatchTable({ allHeroes }: { allHeroes: HeroFilter[] }) {
                         {m.impact_score}
                       </span>
                     </td>
-                    <td className="text-center py-2 px-2 text-xs text-gray-400">{formatDuration(m.duration)}</td>
+                    <td className="text-center py-2 px-2 text-xs text-gray-400">{m.duration}</td>
                     <td className="py-2 px-2">
                       <div className="flex gap-0.5 justify-center">
                         {m.item_icons.filter(Boolean).map((url, i) => (

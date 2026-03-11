@@ -11,9 +11,15 @@ import TimeAnalysis from "@/components/TimeAnalysis";
 import RolePerformance from "@/components/RolePerformance";
 import HeroStats from "@/components/HeroStats";
 import HeroMatchups from "@/components/HeroMatchups";
+import HeroItemPopularity from "@/components/HeroItemPopularity";
+import HeroDurations from "@/components/HeroDurations";
 import PeersSection from "@/components/PeersSection";
 import RecentTrend from "@/components/RecentTrend";
 import MatchTable from "@/components/MatchTable";
+import WardMap from "@/components/WardMap";
+import Histograms from "@/components/Histograms";
+import GameCounts from "@/components/GameCounts";
+import ProEncounters from "@/components/ProEncounters";
 import UpdateButton from "@/components/UpdateButton";
 
 export default function Home() {
@@ -54,7 +60,24 @@ export default function Home() {
         <TimeAnalysis timeData={data.time_analysis} weekdayData={data.weekday_analysis} />
         <RolePerformance data={data.role_performance} />
         <HeroStats heroStats={data.hero_stats} bestHeroes={data.best_heroes} worstHeroes={data.worst_heroes} />
-        <HeroMatchups heroes={data.matchup_heroes} />
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <HeroMatchups heroes={data.matchup_heroes} />
+          <HeroItemPopularity />
+        </div>
+
+        <HeroDurations />
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Histograms />
+          <GameCounts />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <WardMap />
+          <ProEncounters />
+        </div>
+
         <PeersSection peers={data.peers} />
         <RecentTrend data={data.recent_trend} />
         <MatchTable allHeroes={data.all_heroes} />

@@ -149,6 +149,105 @@ export interface Ranking {
   top_percent: number;
 }
 
+// ── New feature types ──
+
+export interface WardDot {
+  x: number;
+  y: number;
+  count: number;
+}
+
+export interface WardMapData {
+  obs: WardDot[];
+  sen: WardDot[];
+}
+
+export interface HistogramBucket {
+  x: number;
+  games: number;
+}
+
+export interface HistogramData {
+  field: string;
+  buckets: HistogramBucket[];
+}
+
+export interface CountItem {
+  label: string;
+  games: number;
+  wins: number;
+  winrate: number;
+}
+
+export interface CountsData {
+  game_mode?: CountItem[];
+  lobby_type?: CountItem[];
+  side?: CountItem[];
+  lane_role?: CountItem[];
+  patch?: CountItem[];
+}
+
+export interface HeroItem {
+  item_id: number;
+  name: string;
+  icon: string;
+  count: number;
+}
+
+export interface RoleItems {
+  role: number;
+  role_name: string;
+  games: number;
+  items: HeroItem[];
+}
+
+export interface GlobalItems {
+  start_game: HeroItem[];
+  early_game: HeroItem[];
+  mid_game: HeroItem[];
+  late_game: HeroItem[];
+}
+
+export interface HeroItemsData {
+  by_role: RoleItems[];
+  global: GlobalItems;
+}
+
+export interface DurationBucket {
+  duration_min: number;
+  label: string;
+  games: number;
+  wins: number;
+  winrate: number;
+}
+
+export interface HeroDurationsData {
+  durations: DurationBucket[];
+}
+
+export interface ProEncounter {
+  name: string;
+  team: string;
+  avatar: string;
+  with_games: number;
+  with_wins: number;
+  against_games: number;
+  against_wins: number;
+  total_games: number;
+  last_played?: number;
+}
+
+export interface ProEncountersData {
+  encounters: ProEncounter[];
+}
+
+export interface AllHero {
+  hero_id: number;
+  hero_cn: string;
+  hero_en: string;
+  hero_icon: string;
+}
+
 export interface DashboardData {
   profile: Profile;
   stats: {

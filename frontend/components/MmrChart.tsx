@@ -1,6 +1,6 @@
 "use client";
 
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
 
 interface Props {
   dates: string[];
@@ -17,8 +17,8 @@ export default function MmrChart({ dates, values }: Props) {
   return (
     <div className="card">
       <h3 className="section-title">MMR 历史</h3>
-      <div className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
+      <div>
+        <ResponsiveContainer width="100%" height={256}>
           <AreaChart data={chartData}>
             <defs>
               <linearGradient id="mmrGrad" x1="0" y1="0" x2="0" y2="1">

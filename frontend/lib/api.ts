@@ -53,3 +53,33 @@ export async function calibrateMmr(mmr: number) {
     body: JSON.stringify({ mmr }),
   });
 }
+
+// ── New feature APIs ──
+
+export async function getAllHeroes() {
+  return fetchApi<import("./types").AllHero[]>("/all_heroes");
+}
+
+export async function getWardMap() {
+  return fetchApi<import("./types").WardMapData>("/wardmap");
+}
+
+export async function getHistogram(field: string) {
+  return fetchApi<import("./types").HistogramData>(`/histograms/${field}`);
+}
+
+export async function getCounts() {
+  return fetchApi<import("./types").CountsData>("/counts");
+}
+
+export async function getHeroItems(heroId: number) {
+  return fetchApi<import("./types").HeroItemsData>(`/hero_items/${heroId}`);
+}
+
+export async function getHeroDurations(heroId: number) {
+  return fetchApi<import("./types").HeroDurationsData>(`/hero_durations/${heroId}`);
+}
+
+export async function getProEncounters() {
+  return fetchApi<import("./types").ProEncountersData>("/pro_encounters");
+}

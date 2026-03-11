@@ -3,7 +3,7 @@
 from fastapi import APIRouter
 
 from services.cache import read_hero_stats, read_hero_matchups_cache
-from fetch_dota_stats import HEROES_CN
+from fetch_dota_stats import HEROES_CN, HEROES_EN, get_hero_icon_url
 
 router = APIRouter()
 
@@ -11,6 +11,20 @@ router = APIRouter()
 @router.get("/heroes")
 def get_heroes():
     return read_hero_stats()
+
+
+@router.get("/all_heroes")
+def get_all_heroes():
+    """Return all 127 Dota 2 heroes (not just played ones)."""
+    heroes = []
+    for hero_id, cn_name in HEROES_CN.items():
+        heroes.append({
+            "hero_id": hero_id,
+            "hero_cn": cn_name,
+            "hero_en": HEROES_EN.get(hero_id, ""),
+            "hero_icon": get_hero_icon_url(hero_id),
+        })
+    return sorted(heroes, key=lambda x: x["hero_cn"])
 
 
 @router.get("/hero_matchups/{hero_id}")

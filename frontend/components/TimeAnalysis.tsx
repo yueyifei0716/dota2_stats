@@ -9,8 +9,8 @@ function AnalysisChart({ data, title }: { data: TimeEntry[]; title: string }) {
   return (
     <div className="card">
       <h3 className="section-title">{title}</h3>
-      <div className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
+      <div>
+        <ResponsiveContainer width="100%" height={256}>
           <ComposedChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#333" />
             <XAxis dataKey="label" stroke="#888" tick={{ fontSize: 11 }} />
