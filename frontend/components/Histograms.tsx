@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { HistogramData } from "@/lib/types";
 import { getHistogram } from "@/lib/api";
 
@@ -21,11 +21,7 @@ export default function Histograms() {
   const [loading, setLoading] = useState(true);
   const [selectedField, setSelectedField] = useState("gold_per_min");
 
-  useEffect(() => {
-    loadData("gold_per_min");
-  }, []);
-
-  const loadData = async (field: string) => {
+  const loadData = useCallback(async (field: string) => {
     setSelectedField(field);
     setLoading(true);
     try {
@@ -35,7 +31,14 @@ export default function Histograms() {
       setData(null);
     }
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      void loadData("gold_per_min");
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [loadData]);
 
   const maxGames = data ? Math.max(...data.buckets.map((b) => b.games), 1) : 1;
 

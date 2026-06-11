@@ -2,6 +2,11 @@
 # Start Dota 2 Stats — FastAPI + Next.js
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PYTHON_BIN="$SCRIPT_DIR/.venv/bin/python"
+
+if [ ! -x "$PYTHON_BIN" ]; then
+    PYTHON_BIN="python3"
+fi
 
 echo "Starting Dota 2 Stats..."
 echo ""
@@ -9,7 +14,7 @@ echo ""
 # Start FastAPI backend
 echo "Starting FastAPI (port 8000)..."
 cd "$SCRIPT_DIR/api"
-python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 &
+"$PYTHON_BIN" -m uvicorn main:app --host 0.0.0.0 --port 8000 &
 FASTAPI_PID=$!
 echo "  FastAPI PID: $FASTAPI_PID"
 

@@ -83,3 +83,11 @@ export async function getHeroDurations(heroId: number) {
 export async function getProEncounters() {
   return fetchApi<import("./types").ProEncountersData>("/pro_encounters");
 }
+
+export async function searchPlayers(q: string) {
+  return fetchApi<import("./types").PlayerSearchResponse>(`/players/search?q=${encodeURIComponent(q)}`);
+}
+
+export async function getPlayerDashboard(accountId: string | number, limit = 50) {
+  return fetchApi<import("./types").PlayerDashboardData>(`/players/${accountId}/dashboard?limit=${limit}`);
+}

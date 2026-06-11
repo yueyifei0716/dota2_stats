@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Match, HeroFilter } from "@/lib/types";
 import { getMatches, saveMatchNote } from "@/lib/api";
-import { formatDuration, ROLE_NAMES } from "@/lib/constants";
+import { ROLE_NAMES } from "@/lib/constants";
 
 export default function MatchTable({ allHeroes }: { allHeroes: HeroFilter[] }) {
   const [matches, setMatches] = useState<Match[]>([]);
@@ -13,7 +13,7 @@ export default function MatchTable({ allHeroes }: { allHeroes: HeroFilter[] }) {
   const [editingNote, setEditingNote] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
 
-  const fetchMatches = async () => {
+  const fetchMatches = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getMatches({ hero: heroFilter || undefined, role: roleFilter });
@@ -22,11 +22,14 @@ export default function MatchTable({ allHeroes }: { allHeroes: HeroFilter[] }) {
       /* ignore */
     }
     setLoading(false);
-  };
+  }, [heroFilter, roleFilter]);
 
   useEffect(() => {
-    fetchMatches();
-  }, [heroFilter, roleFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+    const timeout = window.setTimeout(() => {
+      void fetchMatches();
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [fetchMatches]);
 
   const handleSaveNote = async (matchId: string) => {
     await saveMatchNote(matchId, noteText);

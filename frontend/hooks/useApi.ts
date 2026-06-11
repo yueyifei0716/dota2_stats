@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 
-export function useApi<T>(fetcher: () => Promise<T>, deps: unknown[] = []) {
+export function useApi<T>(fetcher: () => Promise<T>) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -14,10 +14,11 @@ export function useApi<T>(fetcher: () => Promise<T>, deps: unknown[] = []) {
       .then(setData)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, deps); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetcher]);
 
   useEffect(() => {
-    refetch();
+    const timeout = window.setTimeout(refetch, 0);
+    return () => window.clearTimeout(timeout);
   }, [refetch]);
 
   return { data, loading, error, refetch };

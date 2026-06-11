@@ -248,6 +248,179 @@ export interface AllHero {
   hero_icon: string;
 }
 
+export interface PlayerSearchResult {
+  account_id: number;
+  username: string;
+  avatar: string;
+  last_match_time?: string;
+  similarity?: number;
+}
+
+export interface PlayerSearchResponse {
+  results: PlayerSearchResult[];
+  warnings: string[];
+}
+
+export interface PlayerProfile {
+  account_id: number;
+  username: string;
+  avatar: string;
+  profile_url: string;
+  country: string;
+  rank_tier: number;
+  rank_name: string;
+  rank_icon: string | null;
+  leaderboard_rank?: number | null;
+  total_wins: number;
+  total_losses: number;
+  total_games: number;
+  lifetime_win_rate: number;
+}
+
+export interface PlayerTrendBucket {
+  games: number;
+  win_rate: number;
+  kda: number;
+  form_score: number;
+}
+
+export interface PlayerSummary {
+  games: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
+  avg_kills: number;
+  avg_deaths: number;
+  avg_assists: number;
+  avg_kda: number;
+  avg_duration_min: number;
+  avg_form_score: number;
+  streak: { count: number; label: string };
+  last_played: string;
+  trend: {
+    recent: PlayerTrendBucket;
+    previous: PlayerTrendBucket;
+    win_rate_diff: number;
+    kda_diff: number;
+    form_diff: number;
+  };
+}
+
+export interface PlayerMatch {
+  match_id: string;
+  hero_id: number;
+  hero_name: string;
+  hero_icon: string;
+  win: boolean;
+  kills: number;
+  deaths: number;
+  assists: number;
+  kda: number;
+  duration: number;
+  duration_text: string;
+  start_time: number;
+  played_at: string;
+  game_mode: string;
+  lobby_type: string;
+  party_size: number;
+  lane_role: number;
+  lane_role_name: string;
+  position_rank: number;
+  position_name: string;
+  role_name: string;
+  role_source: "parsed" | "estimated" | "parsed+estimated" | "unknown";
+  form_score: number;
+  detail_available: boolean;
+  level: number;
+  gold_per_min: number;
+  xp_per_min: number;
+  last_hits: number;
+  denies: number;
+  net_worth: number;
+  hero_damage: number;
+  tower_damage: number;
+  hero_healing: number;
+  items: { item_id: number; icon: string }[];
+  item_icons: string[];
+  neutral_item: { item_id: number; icon: string };
+  item_neutral_icon: string;
+  opendota_url: string;
+}
+
+export interface PlayerHeroStat {
+  hero_id: number;
+  hero_name: string;
+  hero_icon: string;
+  games: number;
+  wins: number;
+  win_rate: number;
+  avg_kda?: number;
+  last_played?: string;
+}
+
+export interface PlayerCountItem {
+  label: string;
+  games: number;
+  wins: number;
+  winrate: number;
+}
+
+export interface PlayerCoachReadiness {
+  label: string;
+  score: number;
+  tone: "green" | "red" | "gold" | "cyan";
+  reason: string;
+}
+
+export interface PlayerCoachInsight {
+  title: string;
+  metric: string;
+  body: string;
+  action: string;
+  tone: "green" | "red" | "gold" | "cyan";
+}
+
+export interface PlayerTrainingStep {
+  label: string;
+  focus: string;
+  drill: string;
+  success_metric: string;
+}
+
+export interface PlayerProPreview {
+  title: string;
+  detail: string;
+}
+
+export interface PlayerCoachPack {
+  readiness: PlayerCoachReadiness;
+  insights: PlayerCoachInsight[];
+  training_plan: PlayerTrainingStep[];
+  signature_hero?: PlayerHeroStat;
+  recent_deaths: number;
+  pro_preview: PlayerProPreview[];
+}
+
+export interface PlayerDashboardData {
+  profile: PlayerProfile;
+  summary: PlayerSummary;
+  recent_matches: PlayerMatch[];
+  hero_pool: PlayerHeroStat[];
+  lifetime_heroes: PlayerHeroStat[];
+  rank_history: RankHistoryEntry[];
+  rolling_winrate: RollingWinrateEntry[];
+  time_analysis: TimeEntry[];
+  weekday_analysis: TimeEntry[];
+  counts: {
+    game_mode?: PlayerCountItem[];
+    lobby_type?: PlayerCountItem[];
+    lane_role?: PlayerCountItem[];
+  };
+  coach: PlayerCoachPack;
+  warnings: string[];
+  updated_at: string;
+}
+
 export interface DashboardData {
   profile: Profile;
   stats: {

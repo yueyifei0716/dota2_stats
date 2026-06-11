@@ -1,58 +1,82 @@
-# 🎮 Dota 2 Stats Tracker v2.0
+# DotaSense
 
-个人 Dota 2 战绩追踪系统 - Next.js + FastAPI 全栈重写版
+面向普通天梯玩家的 Dota 2 个人教练 Dashboard。当前 MVP 支持输入任意 OpenDota `account_id` 或玩家名搜索，查看最近表现，并把数据转成可执行的训练建议。
 
-## ✨ 特性
+## 功能
 
-- 📊 **完整数据面板**: MMR 趋势、段位历史、位置表现、英雄统计
-- 📈 **数据可视化**: Recharts 图表、胜率分析、时段统计
-- 🎯 **智能分析**: 影响力评分、徽章系统、英雄克制
-- 🔄 **实时更新**: 一键更新数据、自动缓存
-- 📝 **比赛笔记**: 记录每场比赛的心得
-- 🎨 **精美设计**: "Arcane Command Center" 主题
+- 任意玩家 Dashboard：基于 OpenDota 公共 API，不依赖 Notion。
+- Coach 指挥台：状态评分、近期洞察、三步训练计划。
+- 最近表现：最近 30/50/80 场胜率、KDA、状态评分、连胜/连败、平均时长。
+- 英雄分析：近期英雄池、生涯常用英雄、胜率和 KDA。
+- 趋势图表：滚动胜率、段位轨迹、时段表现、星期表现。
+- 长期分布：常打位置、常见游戏模式。
+- 商业化雏形：公开玩家页、Pro 功能预览、候补名单入口。
+- 保留旧数据能力：Notion 数据抓取、MMR 记录、比赛笔记和旧接口仍在项目中。
 
-## 🚀 快速启动
+## 技术栈
 
-### 一键启动 (推荐)
+- 后端：FastAPI + OpenDota API + Notion API
+- 前端：Next.js 16 + React 19 + TypeScript + Tailwind CSS + Recharts
+- 缓存：后端内存缓存，OpenDota 聚合接口默认 180 秒 TTL
 
-```bash
-./start_all.sh
-```
-
-访问: http://localhost:3000
-
-### 分别启动
+## 快速启动
 
 ```bash
-# 终端 1: 启动后端
-./start_api.sh
+# 后端依赖
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r api/requirements.txt
 
-# 终端 2: 启动前端
-./start_frontend.sh
+# 前端依赖
+cd frontend
+npm ci
+cd ..
+
+# 同时启动 FastAPI 和 Next.js
+./start.sh
 ```
 
-## 📦 技术栈
+访问：
 
-- **后端**: FastAPI + Notion API + OpenDota API
-- **前端**: Next.js 15 + TypeScript + Tailwind CSS + SWR + Recharts
-- **缓存**: 内存 + 文件双层缓存 (5分钟 TTL)
+- Dashboard: http://localhost:3000
+- Public profile: http://localhost:3000/p/894447460
+- API health: http://localhost:8000/api/health
 
-## 📊 功能模块 (12个核心面板)
+## 环境变量
 
-1. 玩家资料 | 2. MMR 趋势 | 3. 段位历史 | 4. 位置表现
-5. 近期常用 | 6. 英雄排名 | 7. 英雄统计 | 8. 胜率分析
-9. 近期趋势 | 10. 常见队友 | 11. 英雄克制 | 12. 比赛记录
+复制 `.env.example` 到 `.env` 后按需填写。
 
-## 📚 文档
+```bash
+cp .env.example .env
+```
 
-- `GUIDE_V2.md` - 完整实施指南
-- `COMPLETION_SUMMARY.md` - 完成总结
-- `README_V2.md` - 详细说明
+`OPENDOTA_API_KEY` 是可选项；不填也能用公共 OpenDota API，但限流更低。Notion 变量只影响旧的数据抓取、MMR 和比赛笔记能力。
 
-## 🎯 版本
+## 主要 API
 
-**v2.0.0** (2026-03-12) - ✅ 全部完成，可投入使用
+- `GET /api/players/search?q=<name>`：搜索玩家。
+- `GET /api/players/{account_id}/dashboard?limit=50`：聚合玩家 Dashboard 和 Coach 数据。
+- `GET /api/health`：健康检查。
+- 旧接口仍保留：`/api/dashboard`、`/api/matches`、`/api/update_data`、`/api/match_notes` 等。
 
----
+## 常用命令
 
-**Steam ID**: 894447460 | **作者**: yueyifei0716
+```bash
+# 前端检查
+cd frontend && npm run lint
+cd frontend && npm run build
+cd frontend && npx tsc --noEmit
+
+# 后端语法检查
+PYTHONPYCACHEPREFIX=/private/tmp/dota2_stats_pycache python3 -m compileall -q api
+
+# 单独启动
+cd api && python3 -m uvicorn main:app --host 0.0.0.0 --port 8000
+cd frontend && npm run dev
+```
+
+## 数据来源
+
+OpenDota API 文档：https://docs.opendota.com/
+
+默认账号：`894447460`

@@ -1,7 +1,7 @@
 """OpenDota API proxy endpoints — wardmap, histograms, counts, item popularity, hero durations, pro encounters."""
 
 import time
-from typing import Optional
+from typing import DefaultDict, Dict, Optional
 
 import requests
 from fastapi import APIRouter
@@ -17,7 +17,7 @@ _opendota_cache_ts: dict = {}
 CACHE_TTL = 600  # 10 minutes
 
 
-def _cached_get(key: str, url: str, params: dict | None = None, timeout: int = 15):
+def _cached_get(key: str, url: str, params: Optional[dict] = None, timeout: int = 15):
     """GET with simple in-memory caching."""
     now = time.time()
     if key in _opendota_cache and (now - _opendota_cache_ts.get(key, 0)) < CACHE_TTL:
@@ -123,7 +123,7 @@ def get_counts():
         "7": "Bot", "9": "Battle Cup",
     }
 
-    def format_counts(raw: dict, name_map: dict | None = None):
+    def format_counts(raw: dict, name_map: Optional[dict] = None):
         """Convert {id: {games, win}} to sorted list."""
         items = []
         for key, val in raw.items():
@@ -178,8 +178,8 @@ def get_hero_items(hero_id: int):
 
     # ── Player's own data: items grouped by role ──
     matches = read_matches()
-    role_items: dict[int, dict[int, int]] = defaultdict(lambda: defaultdict(int))
-    role_games: dict[int, int] = defaultdict(int)
+    role_items: DefaultDict[int, Dict[int, int]] = defaultdict(lambda: defaultdict(int))
+    role_games: DefaultDict[int, int] = defaultdict(int)
 
     for m in matches:
         if int(m.get("hero_id", 0)) != hero_id:
