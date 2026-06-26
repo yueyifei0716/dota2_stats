@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 import { Match, HeroFilter } from "@/lib/types";
 import { getMatches, saveMatchNote } from "@/lib/api";
 import { ROLE_NAMES } from "@/lib/constants";
@@ -97,7 +98,7 @@ export default function MatchTable({ allHeroes }: { allHeroes: HeroFilter[] }) {
                   <tr key={m.match_id} className="border-b border-white/5 hover:bg-white/5">
                     <td className="py-2 px-2">
                       <div className="flex items-center gap-2">
-                        {m.hero_icon && <img src={m.hero_icon} alt="" className="w-8 h-8 rounded" />}
+                        {m.hero_icon && <Image src={m.hero_icon} alt="" width={32} height={32} className="w-8 h-8 rounded" unoptimized />}
                         <span className="text-xs">{m.hero_cn}</span>
                       </div>
                     </td>
@@ -117,9 +118,9 @@ export default function MatchTable({ allHeroes }: { allHeroes: HeroFilter[] }) {
                     <td className="py-2 px-2">
                       <div className="flex gap-0.5 justify-center">
                         {m.item_icons.filter(Boolean).map((url, i) => (
-                          <img key={i} src={url} alt="" className="w-6 h-6 rounded" />
+                          <Image key={i} src={url} alt="" width={24} height={24} className="w-6 h-6 rounded" unoptimized />
                         ))}
-                        {m.item_neutral_icon && <img src={m.item_neutral_icon} alt="" className="w-6 h-6 rounded ring-1 ring-yellow-500/50" />}
+                        {m.item_neutral_icon && <Image src={m.item_neutral_icon} alt="" width={24} height={24} className="w-6 h-6 rounded ring-1 ring-yellow-500/50" unoptimized />}
                       </div>
                     </td>
                     <td className="text-center py-2 px-2">

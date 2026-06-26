@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { WardMapData, WardDot } from "@/lib/types";
 import { getWardMap } from "@/lib/api";
 
@@ -21,10 +22,12 @@ function WardCanvas({
 
   return (
     <div className="relative mx-auto aspect-square w-full max-w-[360px] overflow-hidden rounded-lg border border-white/10 bg-black/30">
-      <img
+      <Image
         src="/minimap.jpg"
         alt="Dota 2 Map"
-        className="absolute inset-0 w-full h-full object-cover"
+        fill
+        sizes="(max-width: 640px) calc(100vw - 32px), 360px"
+        className="object-cover"
         draggable={false}
       />
       <div className="absolute inset-0 bg-black/20" />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { HeroItemsData, HeroItem, AllHero } from "@/lib/types";
 import { getHeroItems, getAllHeroes } from "@/lib/api";
 
@@ -12,10 +13,13 @@ function ItemRow({ items, title }: { items: HeroItem[]; title: string }) {
       <div className="flex flex-wrap gap-2">
         {items.map((item) => (
           <div key={item.item_id} className="group relative">
-            <img
+            <Image
               src={item.icon}
               alt={item.name}
+              width={36}
+              height={28}
               className="w-9 h-7 rounded border border-white/10 hover:border-yellow-400/50 transition"
+              unoptimized
             />
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-black/90 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
               {item.name.replace(/_/g, " ")} ({item.count})
@@ -111,10 +115,13 @@ export default function HeroItemPopularity() {
                   <div className="flex flex-wrap gap-2">
                     {r.items.map((item) => (
                       <div key={item.item_id} className="group relative">
-                        <img
+                        <Image
                           src={item.icon}
                           alt={item.name}
+                          width={36}
+                          height={28}
                           className="w-9 h-7 rounded border border-white/10 hover:border-yellow-400/50 transition"
+                          unoptimized
                         />
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-black/90 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
                           {item.name.replace(/_/g, " ")} ({item.count}次)

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { DashboardData } from "@/lib/types";
 
 export default function StatsOverview({ data }: { data: DashboardData }) {
@@ -31,7 +32,7 @@ export default function StatsOverview({ data }: { data: DashboardData }) {
           <div className="flex gap-3 flex-wrap">
             {stats.most_played_recent.map((h) => (
               <div key={h.name} className="flex items-center gap-1.5 bg-white/5 rounded px-2 py-1">
-                {h.icon && <img src={h.icon} alt="" className="w-6 h-6 rounded" />}
+                {h.icon && <Image src={h.icon} alt="" width={24} height={24} className="w-6 h-6 rounded" unoptimized />}
                 <span className="text-sm">{h.name}</span>
                 <span className="text-xs text-gray-400">×{h.count}</span>
               </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { HeroStat } from "@/lib/types";
 
 function HeroList({ heroes, title, color }: { heroes: HeroStat[]; title: string; color: string }) {
@@ -9,7 +10,7 @@ function HeroList({ heroes, title, color }: { heroes: HeroStat[]; title: string;
       <div className="space-y-1.5">
         {heroes.map((h) => (
           <div key={h.hero_cn} className="flex items-center gap-2 bg-white/5 rounded px-3 py-1.5">
-            {h.hero_icon && <img src={h.hero_icon} alt="" className="w-7 h-7 rounded" />}
+            {h.hero_icon && <Image src={h.hero_icon} alt="" width={28} height={28} className="w-7 h-7 rounded" unoptimized />}
             <span className="text-sm flex-1">{h.hero_cn}</span>
             <span className="text-xs text-gray-400">{h.games}场</span>
             <span className={`text-xs font-bold ${Number(h.win_rate) >= 50 ? "text-green-400" : "text-red-400"}`}>

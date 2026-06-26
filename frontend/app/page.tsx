@@ -2,6 +2,7 @@
 
 import type { FormEvent, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import {
   Area,
   AreaChart,
@@ -71,6 +72,20 @@ function toneClasses(tone: "gold" | "green" | "red" | "cyan") {
     red: "border-red-300/25 bg-red-300/10 text-red-200",
     cyan: "border-cyan-300/25 bg-cyan-300/10 text-cyan-200",
   }[tone];
+}
+
+function DataImage({
+  src,
+  alt = "",
+  className,
+  size = 40,
+}: {
+  src: string;
+  alt?: string;
+  className?: string;
+  size?: number;
+}) {
+  return <Image src={src} alt={alt} width={size} height={size} className={className} unoptimized />;
 }
 
 function ProductNav({
@@ -186,7 +201,7 @@ function ProfileHeader({
       <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex items-center gap-4">
           {profile?.avatar ? (
-            <img src={profile.avatar} alt="" className="h-16 w-16 rounded-lg border border-white/10 object-cover" />
+            <DataImage src={profile.avatar} className="h-16 w-16 rounded-lg border border-white/10 object-cover" size={64} />
           ) : (
             <div className="h-16 w-16 rounded-lg border border-white/10 bg-white/10" />
           )}
@@ -295,7 +310,7 @@ function SearchResults({ results, onPick }: { results: PlayerSearchResult[]; onP
             onClick={() => onPick(player.account_id)}
             className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/5 p-3 text-left transition hover:border-yellow-300/50 hover:bg-yellow-300/10"
           >
-            {player.avatar ? <img src={player.avatar} alt="" className="h-10 w-10 rounded object-cover" /> : <div className="h-10 w-10 rounded bg-white/10" />}
+            {player.avatar ? <DataImage src={player.avatar} className="h-10 w-10 rounded object-cover" size={40} /> : <div className="h-10 w-10 rounded bg-white/10" />}
             <span className="min-w-0">
               <span className="block truncate text-sm font-bold text-stone-100">{player.username}</span>
               <span className="block text-xs text-stone-500 tabular-nums">{player.account_id}</span>
@@ -312,7 +327,7 @@ function GlobalHeroRow({ hero, rank }: { hero: PlayerMetaHero; rank: number }) {
     <tr className="border-b border-white/5 transition hover:bg-white/[0.035]">
       <td className="py-3 pr-4">
         <div className="flex items-center gap-2">
-          {hero.hero_icon && <img src={hero.hero_icon} alt="" className="h-8 w-8 rounded object-cover" />}
+          {hero.hero_icon && <DataImage src={hero.hero_icon} className="h-8 w-8 rounded object-cover" size={32} />}
           <span>
             <span className="block font-black text-stone-100">{hero.hero_name}</span>
             <span className="text-xs text-stone-500">#{rank}</span>
@@ -618,7 +633,7 @@ function HeroStrip({ title, heroes }: { title: string; heroes: PlayerHeroStat[] 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {heroes.slice(0, 9).map((hero) => (
           <div key={hero.hero_id} className="flex items-center gap-3 rounded-lg border border-white/10 bg-black/20 p-3">
-            {hero.hero_icon && <img src={hero.hero_icon} alt="" className="h-10 w-10 rounded object-cover" />}
+            {hero.hero_icon && <DataImage src={hero.hero_icon} className="h-10 w-10 rounded object-cover" size={40} />}
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-bold text-stone-100">{hero.hero_name}</div>
               <div className="mt-1 flex items-center gap-2 text-xs text-stone-400">
@@ -747,7 +762,7 @@ function PersonalMetaLab({ data }: { data: PlayerDashboardData }) {
               <div key={fit.hero_id} className="rounded-lg border border-white/10 bg-white/[0.035] p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-2">
-                    {fit.hero_icon && <img src={fit.hero_icon} alt="" className="h-8 w-8 rounded object-cover" />}
+                    {fit.hero_icon && <DataImage src={fit.hero_icon} className="h-8 w-8 rounded object-cover" size={32} />}
                     <div className="min-w-0">
                       <div className="truncate text-sm font-black text-stone-100">{fit.hero_name}</div>
                       <div className="text-xs text-stone-500">{fit.meta_role} · {compactNumber(fit.meta_matches)} global games</div>
@@ -811,7 +826,7 @@ function PersonalMetaLab({ data }: { data: PlayerDashboardData }) {
               <div key={`${build.hero_id}-${build.lane_role}`} className="rounded-lg border border-white/10 bg-white/[0.035] p-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex min-w-0 items-center gap-2">
-                    {build.hero_icon && <img src={build.hero_icon} alt="" className="h-9 w-9 rounded object-cover" />}
+                    {build.hero_icon && <DataImage src={build.hero_icon} className="h-9 w-9 rounded object-cover" size={36} />}
                     <div className="min-w-0">
                       <div className="truncate text-sm font-black text-stone-100">{build.hero_name}</div>
                       <div className="text-xs text-stone-500">{build.role_name} · {build.games}场</div>
@@ -824,7 +839,7 @@ function PersonalMetaLab({ data }: { data: PlayerDashboardData }) {
                 <div className="mt-3 flex flex-wrap gap-1">
                   {build.items.map((item) => (
                     <span key={item.item_id} className="relative">
-                      <img src={item.icon} alt="" className="h-7 w-7 rounded border border-white/10 bg-black/30 object-cover" />
+                      <DataImage src={item.icon} className="h-7 w-7 rounded border border-white/10 bg-black/30 object-cover" size={28} />
                       {item.count > 1 && (
                         <span className="absolute -right-1 -top-1 rounded bg-yellow-300 px-1 text-[10px] font-black text-stone-950">{item.count}</span>
                       )}
@@ -882,7 +897,7 @@ function MatchHistoryList({
               className="grid grid-cols-1 gap-3 rounded-lg border border-white/10 bg-black/20 p-3 transition hover:border-cyan-300/30 hover:bg-white/[0.035] lg:grid-cols-[minmax(220px,1.2fr)_120px_160px_minmax(160px,0.8fr)_90px]"
             >
               <div className="flex min-w-0 items-center gap-3">
-                {match.hero_icon && <img src={match.hero_icon} alt="" className="h-10 w-10 rounded object-cover" />}
+                {match.hero_icon && <DataImage src={match.hero_icon} className="h-10 w-10 rounded object-cover" size={40} />}
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="truncate text-sm font-black text-stone-100">{match.hero_name}</span>
@@ -903,18 +918,18 @@ function MatchHistoryList({
               </div>
               <div className="flex flex-wrap items-center gap-1">
                 {itemIcons.map((url, index) => (
-                  <img
+                  <DataImage
                     key={`${match.match_id}-history-${index}`}
                     src={url}
-                    alt=""
                     className="h-7 w-7 rounded border border-white/10 bg-black/30 object-cover"
+                    size={28}
                   />
                 ))}
                 {match.item_neutral_icon && (
-                  <img
+                  <DataImage
                     src={match.item_neutral_icon}
-                    alt=""
                     className="h-7 w-7 rounded border border-yellow-300/40 bg-yellow-300/10 object-cover"
+                    size={28}
                   />
                 )}
                 {!itemIcons.length && !match.item_neutral_icon && <span className="text-xs text-stone-500">未解析出装</span>}
@@ -987,7 +1002,7 @@ function MatchTable({ matches }: { matches: PlayerMatch[] }) {
                 <tr key={match.match_id} className="border-b border-white/5 transition hover:bg-white/[0.035]">
                   <td className="py-3 pr-4">
                     <div className="flex items-center gap-2">
-                      {match.hero_icon && <img src={match.hero_icon} alt="" className="h-8 w-8 rounded object-cover" />}
+                      {match.hero_icon && <DataImage src={match.hero_icon} className="h-8 w-8 rounded object-cover" size={32} />}
                       <span>
                         <span className="block font-bold text-stone-100">{match.hero_name}</span>
                         <span className="text-xs text-stone-500">Lv {match.level || "-"}</span>
@@ -1021,18 +1036,18 @@ function MatchTable({ matches }: { matches: PlayerMatch[] }) {
                   <td className="py-3 pr-4">
                     <div className="flex min-w-[190px] flex-wrap gap-1">
                       {itemIcons.map((url, index) => (
-                        <img
+                        <DataImage
                           key={`${match.match_id}-${index}`}
                           src={url}
-                          alt=""
                           className="h-7 w-7 rounded border border-white/10 bg-black/30 object-cover"
+                          size={28}
                         />
                       ))}
                       {match.item_neutral_icon && (
-                        <img
+                        <DataImage
                           src={match.item_neutral_icon}
-                          alt=""
                           className="h-7 w-7 rounded border border-yellow-300/40 bg-yellow-300/10 object-cover"
+                          size={28}
                         />
                       )}
                       {!itemIcons.length && !match.item_neutral_icon && (

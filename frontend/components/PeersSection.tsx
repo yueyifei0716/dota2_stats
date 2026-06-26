@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Peer } from "@/lib/types";
 
 export default function PeersSection({ peers }: { peers: Peer[] }) {
@@ -13,7 +14,7 @@ export default function PeersSection({ peers }: { peers: Peer[] }) {
           const wr = p.with_games > 0 ? ((p.with_win / p.with_games) * 100).toFixed(1) : "0.0";
           return (
             <div key={i} className="stat-box flex items-center gap-3">
-              {p.avatarfull && <img src={p.avatarfull} alt="" className="w-8 h-8 rounded-full" />}
+              {p.avatarfull && <Image src={p.avatarfull} alt="" width={32} height={32} className="w-8 h-8 rounded-full" unoptimized />}
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate">{p.personaname}</div>
                 <div className="text-xs text-gray-400">

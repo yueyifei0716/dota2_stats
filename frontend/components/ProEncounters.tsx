@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { ProEncountersData } from "@/lib/types";
 import { getProEncounters } from "@/lib/api";
 
@@ -41,7 +42,7 @@ export default function ProEncounters() {
                 <tr key={i} className="border-b border-white/5 hover:bg-white/5 transition">
                   <td className="py-2">
                     <div className="flex items-center gap-2">
-                      {p.avatar && <img src={p.avatar} alt="" className="w-6 h-6 rounded-full" />}
+                      {p.avatar && <Image src={p.avatar} alt="" width={24} height={24} className="w-6 h-6 rounded-full" unoptimized />}
                       <span className="font-medium">{p.name}</span>
                     </div>
                   </td>
