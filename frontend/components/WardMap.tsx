@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { WardMapData, WardDot } from "@/lib/types";
 import { getWardMap } from "@/lib/api";
 
-const MAP_SIZE = 300;
+const MAP_SIZE = 320;
 
 function WardCanvas({
   dots,
@@ -20,7 +20,7 @@ function WardCanvas({
   if (!dots.length) return <div className="text-gray-500 text-sm">暂无数据</div>;
 
   return (
-    <div className="relative rounded-lg overflow-hidden" style={{ width: MAP_SIZE, height: MAP_SIZE }}>
+    <div className="relative mx-auto aspect-square w-full max-w-[360px] overflow-hidden rounded-lg border border-white/10 bg-black/30">
       <img
         src="/minimap.jpg"
         alt="Dota 2 Map"
@@ -28,7 +28,7 @@ function WardCanvas({
         draggable={false}
       />
       <div className="absolute inset-0 bg-black/20" />
-      <svg width={MAP_SIZE} height={MAP_SIZE} className="absolute inset-0">
+      <svg viewBox={`0 0 ${MAP_SIZE} ${MAP_SIZE}`} className="absolute inset-0 h-full w-full">
         <defs>
           <filter id="ward-glow" x="-100%" y="-100%" width="300%" height="300%">
             <feGaussianBlur stdDeviation="4" result="blur" />
@@ -56,17 +56,17 @@ function WardCanvas({
   );
 }
 
-export default function WardMap() {
+export default function WardMap({ accountId }: { accountId?: string | number }) {
   const [data, setData] = useState<WardMapData | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"obs" | "sen">("obs");
 
   useEffect(() => {
-    getWardMap()
+    getWardMap(accountId)
       .then(setData)
       .catch(() => setData(null))
       .finally(() => setLoading(false));
-  }, []);
+  }, [accountId]);
 
   const obsDots = Array.isArray(data?.obs) ? data.obs : [];
   const senDots = Array.isArray(data?.sen) ? data.sen : [];
@@ -76,7 +76,13 @@ export default function WardMap() {
 
   return (
     <div className="card">
-      <h3 className="section-title">眼位热力图</h3>
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="text-xs font-black uppercase text-cyan-300">Vision Map</div>
+          <h3 className="section-title mb-0 mt-2">眼位热力图</h3>
+        </div>
+        <div className="text-xs text-stone-500">OpenDota wardmap</div>
+      </div>
       {loading ? (
         <div className="text-gray-400 text-sm">加载中...</div>
       ) : (
@@ -84,24 +90,37 @@ export default function WardMap() {
           <div className="flex gap-2 mb-4">
             <button
               onClick={() => setTab("obs")}
-              className={`px-3 py-1 rounded text-sm transition ${tab === "obs" ? "bg-yellow-500/30 text-yellow-400" : "bg-white/5 text-gray-400 hover:bg-white/10"}`}
+              className={`rounded-lg border px-3 py-2 text-xs font-black transition ${tab === "obs" ? "border-yellow-300/35 bg-yellow-300/15 text-yellow-200" : "border-white/10 bg-white/5 text-stone-400 hover:bg-white/10"}`}
             >
               侦查守卫 ({obsDots.length})
             </button>
             <button
               onClick={() => setTab("sen")}
-              className={`px-3 py-1 rounded text-sm transition ${tab === "sen" ? "bg-blue-500/30 text-blue-400" : "bg-white/5 text-gray-400 hover:bg-white/10"}`}
+              className={`rounded-lg border px-3 py-2 text-xs font-black transition ${tab === "sen" ? "border-cyan-300/35 bg-cyan-300/15 text-cyan-200" : "border-white/10 bg-white/5 text-stone-400 hover:bg-white/10"}`}
             >
               岗哨守卫 ({senDots.length})
             </button>
           </div>
-          <div className="flex justify-center">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,360px)_1fr] lg:items-center">
             <WardCanvas
               dots={activeDots}
-              color={tab === "obs" ? "#facc15" : "#60a5fa"}
-              glowColor={tab === "obs" ? "#fbbf24" : "#3b82f6"}
+              color={tab === "obs" ? "#f0c85a" : "#63c7c9"}
+              glowColor={tab === "obs" ? "#fbbf24" : "#22d3ee"}
               maxCount={maxCount}
             />
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="rounded-lg border border-white/10 bg-white/[0.035] p-3">
+                <div className="text-stone-500">侦查守卫点位</div>
+                <div className="mt-2 text-2xl font-black text-yellow-200">{obsDots.length}</div>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-white/[0.035] p-3">
+                <div className="text-stone-500">岗哨守卫点位</div>
+                <div className="mt-2 text-2xl font-black text-cyan-200">{senDots.length}</div>
+              </div>
+              <div className="col-span-2 rounded-lg border border-white/10 bg-black/20 p-3 leading-5 text-stone-400">
+                数据来自 OpenDota 玩家 wardmap；如果账号或比赛没有公开解析记录，这里会为空。
+              </div>
+            </div>
           </div>
         </>
       )}

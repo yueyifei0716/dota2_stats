@@ -31,8 +31,8 @@ RANK_TIERS_EN = {
     80: "Immortal", 81: "Immortal", 82: "Immortal", 83: "Immortal", 84: "Immortal", 85: "Immortal",
 }
 
-ROLE_NAMES = {1: "优势路 (Pos 1)", 2: "中路 (Pos 2)", 3: "劣势路 (Pos 3)", 4: "辅助 (Pos 4)", 5: "纯辅助 (Pos 5)"}
-ROLE_SHORT = {1: "Pos 1", 2: "Pos 2", 3: "Pos 3", 4: "Pos 4", 5: "Pos 5"}
+ROLE_NAMES = {1: "优势路", 2: "中路", 3: "劣势路", 4: "辅助/游走", 5: "纯辅助"}
+ROLE_SHORT = {1: "优势路", 2: "中路", 3: "劣势路", 4: "辅助", 5: "纯辅助"}
 
 # Item ID → slug for CDN icon URL
 ITEM_NAMES = {

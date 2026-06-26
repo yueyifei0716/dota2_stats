@@ -1,11 +1,24 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname)
+    ? "http://localhost:8000/api"
+    : "/api");
 
 async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: { "Content-Type": "application/json", ...options?.headers },
   });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const body = await res.json();
+      detail = typeof body.detail === "string" ? body.detail : "";
+    } catch {
+      detail = "";
+    }
+    throw new Error(detail || `API error: ${res.status}`);
+  }
   return res.json();
 }
 
@@ -60,8 +73,9 @@ export async function getAllHeroes() {
   return fetchApi<import("./types").AllHero[]>("/all_heroes");
 }
 
-export async function getWardMap() {
-  return fetchApi<import("./types").WardMapData>("/wardmap");
+export async function getWardMap(accountId?: string | number) {
+  const query = accountId ? `?account_id=${encodeURIComponent(String(accountId))}` : "";
+  return fetchApi<import("./types").WardMapData>(`/wardmap${query}`);
 }
 
 export async function getHistogram(field: string) {
@@ -86,6 +100,10 @@ export async function getProEncounters() {
 
 export async function searchPlayers(q: string) {
   return fetchApi<import("./types").PlayerSearchResponse>(`/players/search?q=${encodeURIComponent(q)}`);
+}
+
+export async function getMetaOverview() {
+  return fetchApi<import("./types").GlobalMetaOverview>("/meta/overview");
 }
 
 export async function getPlayerDashboard(accountId: string | number, limit = 50) {
