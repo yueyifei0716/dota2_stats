@@ -9,8 +9,9 @@
 - 最近表现：最近 30/50/80 场胜率、KDA、状态评分、连胜/连败、平均时长。
 - 英雄分析：近期英雄池、生涯常用英雄、胜率和 KDA。
 - 趋势图表：滚动胜率、段位轨迹、时段表现、星期表现。
-- 长期分布：常打位置、常见游戏模式。
-- 商业化雏形：公开玩家页、Pro 功能预览、候补名单入口。
+- 长期分布：OpenDota 分路样本、常见游戏模式。
+- 眼位热图：基于 OpenDota wardmap 展示侦查守卫/岗哨守卫点位。
+- 全局 Meta：基于 OpenDota heroStats 展示英雄热度、胜率、职业样本和个人英雄池对照。
 - 保留旧数据能力：Notion 数据抓取、MMR 记录、比赛笔记和旧接口仍在项目中。
 
 ## 技术栈
@@ -56,6 +57,8 @@ cp .env.example .env
 
 - `GET /api/players/search?q=<name>`：搜索玩家。
 - `GET /api/players/{account_id}/dashboard?limit=50`：聚合玩家 Dashboard 和 Coach 数据。
+- `GET /api/meta/overview`：获取全局英雄 Meta 样本。
+- `GET /api/wardmap?account_id=<id>`：获取玩家眼位热图数据。
 - `GET /api/health`：健康检查。
 - 旧接口仍保留：`/api/dashboard`、`/api/matches`、`/api/update_data`、`/api/match_notes` 等。
 

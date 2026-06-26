@@ -15,11 +15,31 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { getPlayerDashboard, searchPlayers } from "@/lib/api";
-import type { PlayerDashboardData, PlayerHeroStat, PlayerMatch, PlayerSearchResult } from "@/lib/types";
+import {
+  getMetaOverview,
+  getPlayerDashboard,
+  searchPlayers,
+} from "@/lib/api";
+import type {
+  GlobalMetaOverview,
+  PlayerDashboardData,
+  PlayerHeroStat,
+  PlayerMatch,
+  PlayerMetaHero,
+  PlayerSearchResult,
+} from "@/lib/types";
+import WardMap from "@/components/WardMap";
 
 const DEFAULT_ACCOUNT_ID = "894447460";
 const STORAGE_KEY = "dota2-dashboard-account-id";
+
+type AppTab = "meta" | "player" | "matches";
+
+const APP_TABS: { key: AppTab; label: string; detail: string }[] = [
+  { key: "player", label: "Home", detail: "我的面板" },
+  { key: "meta", label: "Meta", detail: "全局大盘" },
+  { key: "matches", label: "Matches", detail: "比赛与趋势" },
+];
 
 function initialAccountId() {
   if (typeof window === "undefined") return DEFAULT_ACCOUNT_ID;
@@ -36,6 +56,12 @@ function numberClass(value: number) {
 function signed(value: number, suffix = "") {
   const prefix = value > 0 ? "+" : "";
   return `${prefix}${value}${suffix}`;
+}
+
+function compactNumber(value: number) {
+  if (!value) return "-";
+  if (value >= 1000) return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}k`;
+  return String(value);
 }
 
 function toneClasses(tone: "gold" | "green" | "red" | "cyan") {
@@ -59,11 +85,10 @@ function ProductNav({
   return (
     <header className="product-nav">
       <div>
-        <div className="text-xs font-black uppercase tracking-[0.28em] text-yellow-300">DotaSense</div>
-        <div className="mt-1 text-sm text-stone-400">Personal ranked intelligence</div>
+        <div className="text-xs font-black uppercase text-yellow-300">DotaSense</div>
+        <div className="mt-1 text-sm text-stone-400">Global meta intelligence + personal performance dashboard</div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-stone-400">Free Scout</span>
         <button
           type="button"
           onClick={onCopyProfile}
@@ -72,11 +97,40 @@ function ProductNav({
         >
           {copied ? "已复制公开页" : "分享公开页"}
         </button>
-        <button type="button" className="rounded-lg border border-yellow-300/40 bg-yellow-300 px-3 py-2 text-xs font-black text-stone-950">
-          Pro
-        </button>
       </div>
     </header>
+  );
+}
+
+function WorkspaceTabs({
+  activeTab,
+  onChange,
+  data,
+}: {
+  activeTab: AppTab;
+  onChange: (tab: AppTab) => void;
+  data: PlayerDashboardData | null;
+}) {
+  return (
+    <nav className="workspace-tabs" aria-label="DotaSense sections">
+      {APP_TABS.map((tab) => {
+        const active = activeTab === tab.key;
+        const disabled = !data && tab.key === "matches";
+        return (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => onChange(tab.key)}
+            disabled={disabled}
+            className={`workspace-tab ${active ? "workspace-tab-active" : ""}`}
+            aria-current={active ? "page" : undefined}
+          >
+            <span className="text-sm font-black">{tab.label}</span>
+            <span className="text-[11px] text-stone-500">{tab.detail}</span>
+          </button>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -115,6 +169,7 @@ function ProfileHeader({
   setLimit,
   loading,
   onSubmit,
+  showSearch = true,
 }: {
   data: PlayerDashboardData | null;
   query: string;
@@ -123,6 +178,7 @@ function ProfileHeader({
   setLimit: (value: number) => void;
   loading: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  showSearch?: boolean;
 }) {
   const profile = data?.profile;
   return (
@@ -149,31 +205,80 @@ function ProfileHeader({
           </div>
         </div>
 
-        <form onSubmit={onSubmit} className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
-          <input
-            className="h-11 min-w-0 rounded-lg border border-white/15 bg-black/25 px-3 text-sm text-stone-100 outline-none transition focus:border-yellow-300/70"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="account_id 或玩家名"
-          />
-          <select
-            className="h-11 rounded-lg border border-white/15 bg-black/25 px-3 text-sm text-stone-100 outline-none"
-            value={limit}
-            onChange={(event) => setLimit(Number(event.target.value))}
-          >
-            <option value={30}>最近 30 场</option>
-            <option value={50}>最近 50 场</option>
-            <option value={80}>最近 80 场</option>
-          </select>
-          <button
-            className="h-11 rounded-lg border border-yellow-300/30 bg-yellow-300 px-4 text-sm font-black text-stone-950 transition hover:bg-yellow-200 disabled:opacity-60"
-            disabled={loading}
-          >
-            {loading ? "加载中" : "查看"}
-          </button>
-        </form>
+        {showSearch && (
+          <form onSubmit={onSubmit} className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+            <input
+              className="h-11 min-w-0 rounded-lg border border-white/15 bg-black/25 px-3 text-sm text-stone-100 outline-none transition focus:border-yellow-300/70"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="account_id 或玩家名"
+            />
+            <select
+              className="h-11 rounded-lg border border-white/15 bg-black/25 px-3 text-sm text-stone-100 outline-none"
+              value={limit}
+              onChange={(event) => setLimit(Number(event.target.value))}
+            >
+              <option value={30}>最近 30 场</option>
+              <option value={50}>最近 50 场</option>
+              <option value={80}>最近 80 场</option>
+            </select>
+            <button
+              className="h-11 rounded-lg border border-yellow-300/30 bg-yellow-300 px-4 text-sm font-black text-stone-950 transition hover:bg-yellow-200 disabled:opacity-60"
+              disabled={loading}
+            >
+              {loading ? "加载中" : "查看"}
+            </button>
+          </form>
+        )}
       </div>
     </div>
+  );
+}
+
+function CommandSearch({
+  query,
+  setQuery,
+  limit,
+  setLimit,
+  loading,
+  onSubmit,
+}: {
+  query: string;
+  setQuery: (value: string) => void;
+  limit: number;
+  setLimit: (value: number) => void;
+  loading: boolean;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <form onSubmit={onSubmit} className="command-search">
+      <div className="command-search-input">
+        <span className="text-xl text-stone-500">⌕</span>
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search players or account id"
+          className="min-w-0 flex-1 bg-transparent text-base font-bold text-stone-100 outline-none placeholder:text-stone-500"
+        />
+      </div>
+      <select
+        className="command-select"
+        value={limit}
+        onChange={(event) => setLimit(Number(event.target.value))}
+        aria-label="Match sample size"
+      >
+        <option value={30}>30</option>
+        <option value={50}>50</option>
+        <option value={80}>80</option>
+      </select>
+      <button className="command-submit" disabled={loading}>
+        {loading ? "Loading" : "Enter"}
+      </button>
+      <div className="command-keys" aria-hidden="true">
+        <span>ctrl</span>
+        <span>K</span>
+      </div>
+    </form>
   );
 }
 
@@ -199,6 +304,186 @@ function SearchResults({ results, onPick }: { results: PlayerSearchResult[]; onP
         ))}
       </div>
     </div>
+  );
+}
+
+function GlobalHeroRow({ hero, rank }: { hero: PlayerMetaHero; rank: number }) {
+  return (
+    <tr className="border-b border-white/5 transition hover:bg-white/[0.035]">
+      <td className="py-3 pr-4">
+        <div className="flex items-center gap-2">
+          {hero.hero_icon && <img src={hero.hero_icon} alt="" className="h-8 w-8 rounded object-cover" />}
+          <span>
+            <span className="block font-black text-stone-100">{hero.hero_name}</span>
+            <span className="text-xs text-stone-500">#{rank}</span>
+          </span>
+        </div>
+      </td>
+      <td className="py-3 pr-4 text-stone-300">{hero.role_label}</td>
+      <td className={`py-3 pr-4 font-black tabular-nums ${hero.win_rate >= 52 ? "text-green-300" : "text-stone-300"}`}>
+        {hero.win_rate}%
+      </td>
+      <td className="py-3 pr-4 tabular-nums text-stone-400">{compactNumber(hero.matches)}</td>
+      <td className="py-3 pr-4">
+        <div className="flex min-w-[110px] items-center gap-2">
+          <div className="h-2 flex-1 rounded bg-white/10">
+            <div className="h-2 rounded bg-cyan-300" style={{ width: `${Math.min(hero.contest_rate, 100)}%` }} />
+          </div>
+          <span className="w-10 text-right text-xs tabular-nums text-stone-500">{hero.contest_rate}%</span>
+        </div>
+      </td>
+      <td className="py-3 pr-4 font-black tabular-nums text-yellow-300">{hero.meta_score}</td>
+      <td className="py-3 pr-4 text-xs tabular-nums text-stone-500">{hero.pro_pick ? `${hero.pro_win}/${hero.pro_pick}` : "-"}</td>
+    </tr>
+  );
+}
+
+function GlobalMetaDashboard({
+  meta,
+  loading,
+  error,
+}: {
+  meta: GlobalMetaOverview | null;
+  loading: boolean;
+  error: string;
+}) {
+  const [roleKey, setRoleKey] = useState("overall");
+  const [heroQuery, setHeroQuery] = useState("");
+  const roles = meta?.hero_meta.roles.length ? meta.hero_meta.roles : [{ key: "overall", label: "All" }];
+  const activeHeroes = meta?.hero_meta.by_scope[roleKey] || meta?.hero_meta.top || [];
+  const filteredHeroes = activeHeroes.filter((hero) => hero.hero_name.toLowerCase().includes(heroQuery.trim().toLowerCase()));
+  const roleLabels = new Map(roles.map((role) => [role.key, role.label]));
+
+  return (
+    <section id="global-meta" className="card">
+      <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+        <div>
+          <div className="text-xs font-black uppercase text-cyan-300">Global Meta</div>
+          <h1 className="mt-2 text-3xl font-black text-stone-50">全局大数据大盘</h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-400">
+            基于 OpenDota heroStats 的全英雄公开总体样本和可用职业字段，先看版本环境，再进入个人表现。
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {roles.map((role) => (
+            <button
+              key={role.key}
+              type="button"
+              onClick={() => setRoleKey(role.key)}
+              className={`rounded-lg border px-3 py-2 text-xs font-black transition ${
+                roleKey === role.key
+                  ? "border-cyan-300/60 bg-cyan-300 text-stone-950"
+                  : "border-white/10 bg-white/[0.04] text-stone-300 hover:border-cyan-300/40"
+              }`}
+            >
+              {role.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {error && !meta && <div className="mt-5 rounded-lg border border-red-300/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">{error}</div>}
+      {loading && !meta && <div className="mt-5 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-5 text-sm text-stone-400">正在加载全局英雄样本...</div>}
+
+      {meta && (
+        <>
+          <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <MetricCard label="全局英雄数" value={String(meta.snapshot.heroes)} detail={meta.source} tone="cyan" />
+            <MetricCard label="公开样本量" value={compactNumber(meta.snapshot.total_matches)} detail="pub_pick / pub_win 总体" tone="gold" />
+            <MetricCard label="职业字段样本" value={compactNumber(meta.snapshot.total_pro_picks)} detail="OpenDota pro_pick/pro_win" tone="green" />
+            <MetricCard
+              label="最高热度英雄"
+              value={meta.snapshot.top_contested_rate ? `${meta.snapshot.top_contested_rate}%` : "-"}
+              detail={meta.snapshot.top_contested_hero || "样本不足"}
+              tone="red"
+            />
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(340px,0.7fr)]">
+            <div className="min-w-0 rounded-lg border border-white/10 bg-black/20 p-4">
+              <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="text-sm font-black text-stone-100">All-Player Hero Meta</div>
+                  <div className="mt-1 text-xs text-stone-500">{roleLabels.get(roleKey) || "All"} · top {filteredHeroes.length}</div>
+                </div>
+                <input
+                  value={heroQuery}
+                  onChange={(event) => setHeroQuery(event.target.value)}
+                  className="h-9 rounded-lg border border-white/10 bg-black/30 px-3 text-xs text-stone-100 outline-none transition focus:border-cyan-300/60"
+                  placeholder="搜索英雄"
+                />
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[820px] text-sm">
+                  <thead>
+                    <tr className="border-b border-white/10 text-left text-xs uppercase text-stone-500">
+                      <th className="py-3 pr-4">Hero</th>
+                      <th className="py-3 pr-4">Scope</th>
+                      <th className="py-3 pr-4">WR</th>
+                      <th className="py-3 pr-4">Matches</th>
+                      <th className="py-3 pr-4">Contest</th>
+                      <th className="py-3 pr-4">Score</th>
+                      <th className="py-3 pr-4">职业样本</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredHeroes.slice(0, 18).map((hero, index) => (
+                      <GlobalHeroRow key={`${hero.role_key}-${hero.hero_id}`} hero={hero} rank={index + 1} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              <div className="rounded-lg border border-white/10 bg-black/20 p-4">
+                <div className="mb-3 text-sm font-black text-stone-100">Most Played</div>
+                <div className="space-y-2">
+                  {meta.volume_leaders.slice(0, 6).map((hero, index) => (
+                    <div key={hero.hero_id} className="grid grid-cols-[24px_1fr_72px] items-center gap-2 text-xs">
+                      <span className="font-black text-stone-500">#{index + 1}</span>
+                      <span className="truncate text-stone-200">{hero.hero_name}</span>
+                      <span className="text-right tabular-nums text-cyan-200">{compactNumber(hero.matches)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-black/20 p-4">
+                <div className="mb-3 text-sm font-black text-stone-100">职业样本信号</div>
+                <div className="space-y-2">
+                  {meta.pro_signal.slice(0, 6).map((hero, index) => (
+                    <div key={hero.hero_id} className="grid grid-cols-[24px_1fr_72px] items-center gap-2 text-xs">
+                      <span className="font-black text-stone-500">#{index + 1}</span>
+                      <span className="truncate text-stone-200">{hero.hero_name}</span>
+                      <span className="text-right tabular-nums text-yellow-200">{hero.pro_win}/{hero.pro_pick}</span>
+                    </div>
+                  ))}
+                  {!meta.pro_signal.length && <div className="text-sm text-stone-500">暂无职业样本字段</div>}
+                </div>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-black/20 p-4">
+                <div className="mb-3 text-sm font-black text-stone-100">High Confidence WR</div>
+                <div className="space-y-2">
+                  {meta.high_confidence.slice(0, 6).map((hero, index) => (
+                    <div key={hero.hero_id} className="grid grid-cols-[24px_1fr_72px] items-center gap-2 text-xs">
+                      <span className="font-black text-stone-500">#{index + 1}</span>
+                      <span className="truncate text-stone-200">{hero.hero_name}</span>
+                      <span className="text-right tabular-nums text-green-200">{hero.win_rate}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {meta.warnings.length > 0 && (
+            <div className="mt-4 rounded-lg border border-yellow-300/20 bg-yellow-300/10 px-4 py-3 text-xs text-yellow-100">
+              OpenDota 全局接口暂时有部分警告，当前展示已成功获取的数据。
+            </div>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 
@@ -443,32 +728,213 @@ function CountsPanel({ data }: { data: PlayerDashboardData }) {
   );
 }
 
-function ProPanel({ data }: { data: PlayerDashboardData }) {
+function PersonalMetaLab({ data }: { data: PlayerDashboardData }) {
+  if (!data.meta_fit.length && !data.build_signatures.length && !data.role_matrix.length) return null;
+
   return (
-    <section className="pro-panel">
-      <div className="max-w-2xl">
-        <div className="text-xs font-black uppercase tracking-[0.24em] text-yellow-300">DotaSense Pro</div>
-        <h2 className="mt-3 text-3xl font-black text-stone-50">把数据变成下一局的决策优势</h2>
-        <p className="mt-3 text-sm leading-6 text-stone-300">
-          免费版负责看清现状，Pro 负责把你的历史样本、版本环境和高分打法合并成可执行的训练系统。
-        </p>
-        <div className="mt-5 flex flex-wrap gap-2">
-          <button type="button" className="rounded-lg bg-yellow-300 px-4 py-2 text-sm font-black text-stone-950">加入候补名单</button>
-          <button type="button" className="rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm font-bold text-stone-100">查看样例报告</button>
+    <section className="card">
+      <div className="mb-5">
+        <div className="text-xs font-black uppercase text-yellow-300">Personal Meta</div>
+        <h2 className="mt-2 text-2xl font-black text-stone-50">个人打法对照</h2>
+        <div className="mt-2 text-xs text-stone-500">只看当前玩家：英雄池是否顺版本、OpenDota 分路样本是否稳定、最近出装是否形成套路。</div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="rounded-lg border border-white/10 bg-black/20 p-4">
+          <div className="mb-3 text-sm font-black text-stone-100">你的英雄 vs 全局 Meta</div>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            {data.meta_fit.slice(0, 6).map((fit) => (
+              <div key={fit.hero_id} className="rounded-lg border border-white/10 bg-white/[0.035] p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    {fit.hero_icon && <img src={fit.hero_icon} alt="" className="h-8 w-8 rounded object-cover" />}
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-black text-stone-100">{fit.hero_name}</div>
+                      <div className="text-xs text-stone-500">{fit.meta_role} · {compactNumber(fit.meta_matches)} global games</div>
+                    </div>
+                  </div>
+                  <span className={`rounded border px-2 py-1 text-[11px] font-black ${fit.gap >= 0 ? "border-green-300/25 bg-green-300/10 text-green-200" : "border-red-300/25 bg-red-300/10 text-red-200"}`}>
+                    {signed(fit.gap, "%")}
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                  <div>
+                    <div className="text-stone-500">你的 WR</div>
+                    <div className="mt-1 font-black text-stone-100">{fit.personal_win_rate}%</div>
+                  </div>
+                  <div>
+                    <div className="text-stone-500">全局 WR</div>
+                    <div className="mt-1 font-black text-cyan-200">{fit.meta_win_rate}%</div>
+                  </div>
+                  <div>
+                    <div className="text-stone-500">判断</div>
+                    <div className="mt-1 font-black text-yellow-200">{fit.verdict}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {!data.meta_fit.length && <div className="text-sm text-stone-500">暂无足够英雄样本</div>}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-white/10 bg-black/20 p-4">
+          <div className="mb-3 text-sm font-black text-stone-100">OpenDota 分路样本</div>
+          <div className="grid grid-cols-1 gap-2">
+            {data.role_matrix.map((role) => (
+              <div key={role.lane_role} className="grid grid-cols-[92px_1fr_68px] items-center gap-3 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs">
+                <div>
+                  <div className="font-black text-stone-100">{role.role_name}</div>
+                  <div className="text-stone-500">{role.games} 场</div>
+                </div>
+                <div className="min-w-0">
+                  <div className="truncate text-stone-400">{role.top_hero || "样本积累"}</div>
+                  <div className="mt-1 text-stone-500">{role.avg_gpm} GPM · KDA {role.avg_kda}</div>
+                </div>
+                <div className={`text-right font-black tabular-nums ${role.win_rate >= 50 ? "text-green-300" : "text-red-300"}`}>
+                  {role.win_rate}%
+                </div>
+              </div>
+            ))}
+            {!data.role_matrix.length && <div className="text-sm text-stone-500">近期比赛没有 OpenDota 分路解析样本</div>}
+          </div>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        {data.coach.pro_preview.map((feature) => (
-          <div key={feature.title} className="rounded-lg border border-white/10 bg-black/20 p-4">
-            <div className="flex items-center justify-between gap-2">
-              <div className="font-black text-stone-100">{feature.title}</div>
-              <span className="rounded border border-yellow-300/25 bg-yellow-300/10 px-2 py-1 text-[11px] font-black text-yellow-200">PRO</span>
-            </div>
-            <p className="mt-3 text-sm leading-6 text-stone-400">{feature.detail}</p>
+
+      {data.build_signatures.length > 0 && (
+        <div className="mt-4 rounded-lg border border-white/10 bg-black/20 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-sm font-black text-stone-100">Recent Build Signatures</div>
+            <div className="text-xs text-stone-500">当前玩家最近解析比赛聚合</div>
           </div>
-        ))}
-      </div>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-4">
+            {data.build_signatures.slice(0, 8).map((build) => (
+              <div key={`${build.hero_id}-${build.lane_role}`} className="rounded-lg border border-white/10 bg-white/[0.035] p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    {build.hero_icon && <img src={build.hero_icon} alt="" className="h-9 w-9 rounded object-cover" />}
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-black text-stone-100">{build.hero_name}</div>
+                      <div className="text-xs text-stone-500">{build.role_name} · {build.games}场</div>
+                    </div>
+                  </div>
+                  <div className={`text-right text-sm font-black tabular-nums ${build.win_rate >= 50 ? "text-green-300" : "text-red-300"}`}>
+                    {build.win_rate}%
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1">
+                  {build.items.map((item) => (
+                    <span key={item.item_id} className="relative">
+                      <img src={item.icon} alt="" className="h-7 w-7 rounded border border-white/10 bg-black/30 object-cover" />
+                      {item.count > 1 && (
+                        <span className="absolute -right-1 -top-1 rounded bg-yellow-300 px-1 text-[10px] font-black text-stone-950">{item.count}</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+                <div className="mt-3 text-xs text-cyan-200">KDA {build.avg_kda}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
+  );
+}
+
+function MatchHistoryList({
+  matches,
+  limit = 8,
+  compact = false,
+  onOpenAll,
+}: {
+  matches: PlayerMatch[];
+  limit?: number;
+  compact?: boolean;
+  onOpenAll?: () => void;
+}) {
+  if (!matches.length) return null;
+
+  return (
+    <div className="card">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="section-title mb-0">个人比赛历史</h2>
+          <div className="mt-2 text-xs text-stone-500">最近 {Math.min(matches.length, limit)} 场，按时间倒序。</div>
+        </div>
+        {onOpenAll && (
+          <button
+            type="button"
+            onClick={onOpenAll}
+            className="w-fit rounded-lg border border-yellow-300/30 bg-yellow-300/10 px-3 py-2 text-xs font-black text-yellow-200 transition hover:bg-yellow-300 hover:text-stone-950"
+          >
+            查看全部比赛
+          </button>
+        )}
+      </div>
+      <div className="space-y-2">
+        {matches.slice(0, limit).map((match) => {
+          const itemIcons = (match.item_icons ?? []).filter(Boolean).slice(0, compact ? 4 : 6);
+          const opendotaUrl = match.opendota_url || `https://www.opendota.com/matches/${match.match_id}`;
+
+          return (
+            <div
+              key={match.match_id}
+              className="grid grid-cols-1 gap-3 rounded-lg border border-white/10 bg-black/20 p-3 transition hover:border-cyan-300/30 hover:bg-white/[0.035] lg:grid-cols-[minmax(220px,1.2fr)_120px_160px_minmax(160px,0.8fr)_90px]"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                {match.hero_icon && <img src={match.hero_icon} alt="" className="h-10 w-10 rounded object-cover" />}
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="truncate text-sm font-black text-stone-100">{match.hero_name}</span>
+                    <span className={`rounded px-2 py-0.5 text-[11px] font-black ${match.win ? "bg-green-400/15 text-green-300" : "bg-red-400/15 text-red-300"}`}>
+                      {match.win ? "胜" : "负"}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-xs text-stone-500">{match.game_mode} · {match.role_name}</div>
+                </div>
+              </div>
+              <div className="tabular-nums">
+                <div className="text-sm font-black text-stone-100">{match.kills}/{match.deaths}/{match.assists}</div>
+                <div className="text-xs text-cyan-300">KDA {match.kda}</div>
+              </div>
+              <div className="tabular-nums">
+                <div className="text-sm font-black text-yellow-300">{match.gold_per_min || "-"} GPM</div>
+                <div className="text-xs text-stone-500">{match.duration_text} · Lv {match.level || "-"}</div>
+              </div>
+              <div className="flex flex-wrap items-center gap-1">
+                {itemIcons.map((url, index) => (
+                  <img
+                    key={`${match.match_id}-history-${index}`}
+                    src={url}
+                    alt=""
+                    className="h-7 w-7 rounded border border-white/10 bg-black/30 object-cover"
+                  />
+                ))}
+                {match.item_neutral_icon && (
+                  <img
+                    src={match.item_neutral_icon}
+                    alt=""
+                    className="h-7 w-7 rounded border border-yellow-300/40 bg-yellow-300/10 object-cover"
+                  />
+                )}
+                {!itemIcons.length && !match.item_neutral_icon && <span className="text-xs text-stone-500">未解析出装</span>}
+              </div>
+              <div className="flex items-center justify-between gap-3 lg:block lg:text-right">
+                <div className="text-xs text-stone-500">{match.played_at}</div>
+                <a
+                  href={opendotaUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-0 inline-block rounded border border-white/10 bg-white/[0.04] px-2 py-1 text-xs font-bold text-stone-300 transition hover:border-yellow-300/50 hover:text-yellow-200 lg:mt-2"
+                >
+                  OpenDota
+                </a>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -507,7 +973,7 @@ function MatchTable({ matches }: { matches: PlayerMatch[] }) {
               <th className="py-3 pr-4">补刀</th>
               <th className="py-3 pr-4">伤害</th>
               <th className="py-3 pr-4">出装</th>
-              <th className="py-3 pr-4">模式 / 分路定位</th>
+              <th className="py-3 pr-4">模式 / OpenDota 分路</th>
               <th className="py-3 pr-4">时间</th>
               <th className="py-3 pr-4">详情</th>
             </tr>
@@ -608,11 +1074,15 @@ export default function Home() {
   const [accountId, setAccountId] = useState(initialAccountId);
   const [query, setQuery] = useState(accountId);
   const [limit, setLimit] = useState(50);
+  const [meta, setMeta] = useState<GlobalMetaOverview | null>(null);
   const [data, setData] = useState<PlayerDashboardData | null>(null);
   const [searchResults, setSearchResults] = useState<PlayerSearchResult[]>([]);
+  const [metaLoading, setMetaLoading] = useState(true);
+  const [metaError, setMetaError] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<AppTab>("player");
 
   const loadPlayer = useCallback(async (targetAccountId: string, targetLimit: number) => {
     setLoading(true);
@@ -632,11 +1102,32 @@ export default function Home() {
     void loadPlayer(accountId, limit);
   }, [accountId, limit, loadPlayer]);
 
+  useEffect(() => {
+    let active = true;
+    async function loadMeta() {
+      setMetaLoading(true);
+      setMetaError("");
+      try {
+        const result = await getMetaOverview();
+        if (active) setMeta(result);
+      } catch (err) {
+        if (active) setMetaError(err instanceof Error ? err.message : "全局大盘加载失败");
+      } finally {
+        if (active) setMetaLoading(false);
+      }
+    }
+    void loadMeta();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       const trimmed = query.trim();
       if (!trimmed) return;
+      setActiveTab("player");
 
       if (/^\d+$/.test(trimmed)) {
         setSearchResults([]);
@@ -666,6 +1157,7 @@ export default function Home() {
     setQuery(id);
     setSearchResults([]);
     setAccountId(id);
+    setActiveTab("player");
   }, []);
 
   const copyProfileLink = useCallback(() => {
@@ -684,8 +1176,8 @@ export default function Home() {
     <main className="mx-auto max-w-[1480px] px-4 py-4 sm:px-6 lg:px-8">
       <div className="space-y-4">
         <ProductNav data={data} copied={copied} onCopyProfile={copyProfileLink} />
-        <ProfileHeader
-          data={data}
+        <WorkspaceTabs activeTab={activeTab} onChange={setActiveTab} data={data} />
+        <CommandSearch
           query={query}
           setQuery={setQuery}
           limit={limit}
@@ -693,30 +1185,80 @@ export default function Home() {
           loading={loading}
           onSubmit={handleSubmit}
         />
-
         {error && <div className="rounded-lg border border-red-300/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">{error}</div>}
         <SearchResults results={searchResults} onPick={pickPlayer} />
 
-        {data && (
-          <>
-            {data.warnings.length > 0 && (
-              <div className="rounded-lg border border-yellow-300/20 bg-yellow-300/10 px-4 py-3 text-xs text-yellow-100">
-                OpenDota 部分接口暂时不可用，当前显示已成功获取的数据。稍后刷新会自动补齐。
-              </div>
-            )}
-            <CoachBrief data={data} />
-            <SummaryGrid data={data} />
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_420px]">
-              <HeroStrip title="近期英雄池" heroes={data.hero_pool} />
-              <CountsPanel data={data} />
+        {activeTab === "meta" && <GlobalMetaDashboard meta={meta} loading={metaLoading} error={metaError} />}
+
+        {activeTab === "player" && (
+          <section id="personal-dashboard" className="space-y-4">
+            <div className="card">
+              <div className="text-xs font-black uppercase text-yellow-300">Personal Dashboard</div>
+              <h1 className="mt-2 text-3xl font-black text-stone-50">个人战绩面板</h1>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-400">
+                输入自己的 account_id 或玩家名，查看近期状态、英雄池、OpenDota 分路、出装和打法对照。
+              </p>
             </div>
-            <HeroStrip title="生涯常用英雄" heroes={data.lifetime_heroes} />
-            <ProPanel data={data} />
-            {hasCharts && <Charts data={data} />}
-            <MatchTable matches={data.recent_matches} />
-            <div className="pb-4 text-right text-xs text-stone-600">Updated {data.updated_at}</div>
-          </>
+            <ProfileHeader
+              data={data}
+              query={query}
+              setQuery={setQuery}
+              limit={limit}
+              setLimit={setLimit}
+              loading={loading}
+              onSubmit={handleSubmit}
+              showSearch={false}
+            />
+
+            {data && (
+              <>
+                {data.warnings.length > 0 && (
+                  <div className="rounded-lg border border-yellow-300/20 bg-yellow-300/10 px-4 py-3 text-xs text-yellow-100">
+                    OpenDota 部分接口暂时不可用，当前显示已成功获取的数据。稍后刷新会自动补齐。
+                  </div>
+                )}
+                <CoachBrief data={data} />
+                <SummaryGrid data={data} />
+                <MatchHistoryList matches={data.recent_matches} limit={5} compact onOpenAll={() => setActiveTab("matches")} />
+                <WardMap accountId={data.profile.account_id} />
+                <PersonalMetaLab data={data} />
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_420px]">
+                  <HeroStrip title="近期英雄池" heroes={data.hero_pool} />
+                  <CountsPanel data={data} />
+                </div>
+                <HeroStrip title="生涯常用英雄" heroes={data.lifetime_heroes} />
+                <div className="pb-4 text-right text-xs text-stone-600">Updated {data.updated_at}</div>
+              </>
+            )}
+          </section>
         )}
+
+        {activeTab === "matches" && (
+          <section className="space-y-4">
+            <div className="card">
+              <div className="text-xs font-black uppercase text-cyan-300">Match Center</div>
+              <h1 className="mt-2 text-3xl font-black text-stone-50">比赛详情与趋势</h1>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-400">
+                当前玩家的滚动胜率、段位轨迹、时间窗口和最近比赛明细集中在这里。
+              </p>
+            </div>
+            {!data && <div className="card text-sm text-stone-400">玩家数据加载中，或请先在 Player tab 选择账号。</div>}
+            {data && (
+              <>
+                {data.warnings.length > 0 && (
+                  <div className="rounded-lg border border-yellow-300/20 bg-yellow-300/10 px-4 py-3 text-xs text-yellow-100">
+                    OpenDota 部分比赛详情暂时不可用，当前显示已成功获取的数据。
+                  </div>
+                )}
+                <MatchHistoryList matches={data.recent_matches} limit={12} />
+                <MatchTable matches={data.recent_matches} />
+                {hasCharts && <Charts data={data} />}
+                <div className="pb-4 text-right text-xs text-stone-600">Updated {data.updated_at}</div>
+              </>
+            )}
+          </section>
+        )}
+
       </div>
     </main>
   );

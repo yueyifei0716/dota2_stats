@@ -80,6 +80,114 @@ select {
   min-width: 0;
 }
 
+.workspace-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(14, 15, 12, 0.78);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.2);
+}
+
+.workspace-tab {
+  min-height: 58px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 3px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  padding: 10px 12px;
+  color: #d8d2c2;
+  background: transparent;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.workspace-tab:hover:not(:disabled) {
+  border-color: rgba(99, 199, 201, 0.38);
+  background: rgba(242, 239, 230, 0.06);
+}
+
+.workspace-tab-active {
+  border-color: rgba(240, 200, 90, 0.55);
+  background: linear-gradient(135deg, rgba(240, 200, 90, 0.22), rgba(99, 199, 201, 0.08));
+  color: #f7edcf;
+}
+
+.workspace-tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.command-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px 104px auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 66px;
+  padding: 10px;
+  border: 1px solid rgba(99, 199, 201, 0.18);
+  border-radius: 8px;
+  background: rgba(27, 39, 40, 0.9);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
+}
+
+.command-search-input {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.command-select,
+.command-submit {
+  height: 44px;
+  border-radius: 6px;
+  border: 1px solid rgba(242, 239, 230, 0.12);
+  background: rgba(242, 239, 230, 0.08);
+  color: #f2efe6;
+  font-weight: 800;
+}
+
+.command-submit {
+  background: rgba(240, 200, 90, 0.2);
+  color: #ffeaa7;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.command-submit:hover:not(:disabled) {
+  background: #f0c85a;
+  color: #11120f;
+}
+
+.command-submit:disabled {
+  opacity: 0.55;
+}
+
+.command-keys {
+  display: flex;
+  gap: 6px;
+}
+
+.command-keys span {
+  display: grid;
+  min-width: 38px;
+  height: 34px;
+  place-items: center;
+  border-radius: 6px;
+  background: rgba(242, 239, 230, 0.12);
+  color: #d8d2c2;
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
 .coach-radar {
   position: absolute;
   right: -120px;
@@ -91,22 +199,6 @@ select {
     radial-gradient(circle, rgba(99, 199, 201, 0.24), transparent 58%),
     conic-gradient(from 150deg, rgba(240, 200, 90, 0.18), transparent, rgba(84, 209, 138, 0.18), transparent);
   opacity: 0.8;
-}
-
-.pro-panel {
-  display: grid;
-  grid-template-columns: minmax(0, 0.92fr) minmax(360px, 1fr);
-  gap: 24px;
-  align-items: center;
-  padding: 28px;
-  border-radius: 8px;
-  border: 1px solid rgba(240, 200, 90, 0.2);
-  background:
-    linear-gradient(135deg, rgba(240, 200, 90, 0.12), transparent 45%),
-    linear-gradient(255deg, rgba(99, 199, 201, 0.12), transparent 55%),
-    rgba(14, 15, 12, 0.94);
-  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.28);
-  min-width: 0;
 }
 
 .stat-box {
@@ -129,14 +221,27 @@ select option {
 }
 
 @media (max-width: 900px) {
-  .product-nav,
-  .pro-panel {
-    grid-template-columns: 1fr;
-  }
-
   .product-nav {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .workspace-tabs {
+    display: flex;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+
+  .workspace-tab {
+    min-width: 142px;
+  }
+
+  .command-search {
+    grid-template-columns: 1fr;
+  }
+
+  .command-keys {
+    display: none;
   }
 }
 
@@ -147,8 +252,7 @@ select option {
     overflow-x: hidden;
   }
 
-  .card,
-  .pro-panel {
+  .card {
     width: calc(100vw - 32px);
     max-width: calc(100vw - 32px);
   }
