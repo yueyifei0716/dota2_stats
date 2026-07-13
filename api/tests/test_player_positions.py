@@ -3,10 +3,34 @@ from concurrent.futures import ThreadPoolExecutor
 import time
 from unittest.mock import patch
 
-from routers.players import _apply_stratz_match_data, _cache, _cached_stratz_player_matches, _position_meta_fit, _role_matrix
+from routers.players import (
+    _apply_stratz_match_data,
+    _cache,
+    _cached_stratz_player_matches,
+    _position_meta_fit,
+    _role_matrix,
+    _stratz_meta_snapshot,
+    meta_overview,
+)
 
 
 class PlayerPositionTests(unittest.TestCase):
+    def test_verified_weekly_meta_snapshot_is_complete(self):
+        snapshot = _stratz_meta_snapshot()
+
+        self.assertTrue(snapshot["available"])
+        self.assertEqual(set(snapshot["hero_meta"]["by_scope"]), {"pos1", "pos2", "pos3", "pos4", "pos5"})
+        self.assertTrue(all(snapshot["hero_meta"]["by_scope"][f"pos{position}"] for position in range(1, 6)))
+
+    @patch("routers.players._cached_stratz_hero_stats", return_value=(None, "unavailable", "IP restricted", 1783296000))
+    def test_meta_endpoint_uses_snapshot_when_live_stratz_is_unavailable(self, _hero_stats):
+        overview = meta_overview()
+
+        self.assertTrue(overview["available"])
+        self.assertEqual(overview["status"], "ready")
+        self.assertEqual(overview["data_freshness"], "weekly_snapshot")
+        self.assertEqual(overview["warnings"], [])
+
     @patch("routers.players._stratz_graphql", return_value=({"player": None}, "ready", None))
     def test_missing_stratz_player_degrades_without_crashing(self, _graphql):
         _cache.clear()

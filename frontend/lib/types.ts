@@ -406,6 +406,7 @@ export interface GlobalMetaOverview {
   scope: string;
   available: boolean;
   status: "ready" | "empty" | "not_configured" | "unavailable";
+  data_freshness?: "live" | "weekly_snapshot";
   period_start: string;
   period_end: string;
   hero_meta: PlayerHeroMeta;

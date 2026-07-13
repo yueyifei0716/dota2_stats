@@ -703,7 +703,7 @@ function GlobalMetaDashboard({
           {meta.warnings.length > 0 && (
             <div className="meta-warning">STRATZ 当前返回部分警告，榜单仅展示已验证的位置样本。</div>
           )}
-          <div className="meta-footnote">STRATZ · Divine/Immortal · {meta.period_start} 至 {meta.period_end}。1–5 号位来自 Ranked Roles，不使用 lane_role、GPM 或补刀数推断；默认至少 {compactNumber(minimumSample)} 个位置样本，搜索仍可查看长尾英雄。</div>
+          <div className="meta-footnote">STRATZ · Divine/Immortal · {meta.period_start} 至 {meta.period_end} · {meta.data_freshness === "weekly_snapshot" ? "已验证周快照" : "实时"}。1–5 号位来自 Ranked Roles，不使用 lane_role、GPM 或补刀数推断；默认至少 {compactNumber(minimumSample)} 个位置样本，搜索仍可查看长尾英雄。</div>
         </>
       )}
     </section>

@@ -6,6 +6,7 @@ from datetime import datetime, timezone, timedelta
 import json
 import math
 import os
+from pathlib import Path
 from threading import Lock
 import time
 from typing import Any, Dict, List, Optional, Tuple
@@ -21,6 +22,7 @@ router = APIRouter()
 
 BASE_URL = "https://api.opendota.com/api"
 STRATZ_API_URL = "https://api.stratz.com/graphql"
+STRATZ_META_SNAPSHOT = Path(__file__).resolve().parents[1] / "snapshots" / "stratz_meta_overview.json"
 CACHE_TTL = 180
 STRATZ_CACHE_TTL = 3600
 STRATZ_PLAYER_CACHE_TTL = 300
@@ -1075,6 +1077,17 @@ def _global_meta_overview(raw_position_stats: Any, status: str, week: int) -> Di
     }
 
 
+def _stratz_meta_snapshot() -> Optional[Dict[str, Any]]:
+    try:
+        snapshot = json.loads(STRATZ_META_SNAPSHOT.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    scopes = snapshot.get("hero_meta", {}).get("by_scope", {}) if isinstance(snapshot, dict) else {}
+    if not snapshot.get("available") or not all(scopes.get(scope["key"]) for scope in POSITION_META_SCOPES):
+        return None
+    return snapshot
+
+
 def _meta_fit(
     hero_pool: List[Dict[str, Any]],
     lifetime_heroes: List[Dict[str, Any]],
@@ -1514,10 +1527,20 @@ def search_players(q: str = Query(..., min_length=2), limit: int = Query(8, ge=1
 def meta_overview():
     position_stats, status, warning, week = _cached_stratz_hero_stats()
     overview = _global_meta_overview(position_stats, status, week)
+    if not overview["available"]:
+        snapshot = _stratz_meta_snapshot()
+        if snapshot:
+            return {
+                **snapshot,
+                "source": "STRATZ GraphQL heroStats weekly snapshot",
+                "warnings": [],
+                "data_freshness": "weekly_snapshot",
+            }
     return {
         **overview,
         "warnings": [warning] if warning else [],
         "updated_at": datetime.now(timezone.utc).isoformat(),
+        "data_freshness": "live",
     }
 
 

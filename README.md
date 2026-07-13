@@ -9,7 +9,7 @@
 - 个人数据工作台：默认只展示英雄、真实 1–5 号位、胜负和日期；阵营、模式、匹配类型、组队状态收进“更多筛选”。
 - Matches 比赛复盘：单局结算数据、STRATZ IMP/奖项、6 个主装备槽、中立物品、同英雄百分位和证据覆盖清单；不展示背包槽。
 - 五标签工作区：Overview、Matches、Heroes、Meta、Progress，移动端支持横向切换。
-- 五位置 Meta：基于 STRATZ GraphQL `heroStats` 的 Ranked Roles，分别展示 1–5 号位的胜率、校准胜率、样本量和位置选取率；不会用分路、经济或补刀数据猜测位置。
+- 五位置 Meta：基于 STRATZ GraphQL `heroStats` 的 Ranked Roles，分别展示 1–5 号位的胜率、校准胜率、样本量和位置选取率；实时接口不可用时回退到随版本发布的上一完整周验证快照，不会用分路、经济或补刀数据猜测位置。
 - 最近表现：最近 30/50/80 场胜率、KDA、状态评分、连胜/连败、平均时长。
 - 英雄分析：近期英雄池、生涯常用英雄、胜率和 KDA。
 - 趋势图表：滚动胜率、段位轨迹、时段表现、星期表现。
@@ -56,7 +56,7 @@ cd ..
 cp .env.example .env
 ```
 
-`OPENDOTA_API_KEY` 是可选项；不填也能用公共 OpenDota API，但限流更低。`STRATZ_API_TOKEN` 用于五位置 Meta、个人真实位置、IMP 与比赛奖项；没有 Token 时这些字段明确不可用，不回退到推断。Notion 变量只影响旧的数据抓取、MMR 和比赛笔记能力。
+`OPENDOTA_API_KEY` 是可选项；不填也能用公共 OpenDota API，但限流更低。`STRATZ_API_TOKEN` 用于五位置 Meta、个人真实位置、IMP 与比赛奖项；STRATZ Token 限制为单一出口 IP，因此 Serverless 生产环境必须配置固定出口，未配置时全局 Meta 使用验证周快照，个人位置字段明确不可用且不回退到推断。Notion 变量只影响旧的数据抓取、MMR 和比赛笔记能力。
 
 ### 商业化配置
 
