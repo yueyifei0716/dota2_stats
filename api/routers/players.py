@@ -1,4 +1,4 @@
-"""Player dashboard API backed by public OpenDota endpoints."""
+"""Player dashboard API backed by OpenDota and STRATZ evidence."""
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import Counter
@@ -6,6 +6,7 @@ from datetime import datetime, timezone, timedelta
 import json
 import math
 import os
+from threading import Lock
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -19,12 +20,14 @@ from services.stats import get_item_icon_url, get_rank_name, get_rank_name_simpl
 router = APIRouter()
 
 BASE_URL = "https://api.opendota.com/api"
+STRATZ_API_URL = "https://api.stratz.com/graphql"
 CACHE_TTL = 180
+STRATZ_CACHE_TTL = 3600
+STRATZ_PLAYER_CACHE_TTL = 300
 CN_TZ = timezone(timedelta(hours=8))
 MATCH_DETAIL_LIMIT = 8
 
 LANE_ROLE_NAMES = {
-    0: "分路未解析",
     1: "优势路",
     2: "中路",
     3: "劣势路",
@@ -34,6 +37,23 @@ LANE_ROLE_NAMES = {
 META_SCOPES = [
     {"key": "overall", "label": "All Public"},
 ]
+
+POSITION_META_SCOPES = [
+    {"key": "pos1", "label": "1号位 核心", "position": "POSITION_1"},
+    {"key": "pos2", "label": "2号位 中单", "position": "POSITION_2"},
+    {"key": "pos3", "label": "3号位 劣势路", "position": "POSITION_3"},
+    {"key": "pos4", "label": "4号位 游走", "position": "POSITION_4"},
+    {"key": "pos5", "label": "5号位 硬辅", "position": "POSITION_5"},
+]
+
+POSITION_DETAILS = {
+    scope["position"]: {
+        "position": index,
+        "position_key": scope["key"],
+        "position_name": scope["label"],
+    }
+    for index, scope in enumerate(POSITION_META_SCOPES, start=1)
+}
 
 GAME_MODES = {
     1: "All Pick",
@@ -58,6 +78,13 @@ LOBBY_TYPES = {
 }
 
 _cache: Dict[str, Dict[str, Any]] = {}
+_cache_locks: Dict[str, Lock] = {}
+_cache_locks_guard = Lock()
+
+
+def _cache_lock(cache_key: str) -> Lock:
+    with _cache_locks_guard:
+        return _cache_locks.setdefault(cache_key, Lock())
 
 
 def _safe_int(value: Any, default: int = 0) -> int:
@@ -88,19 +115,212 @@ def _cached_get(path: str, params: Optional[Dict[str, Any]] = None, timeout: int
     if cached and now - cached["time"] < CACHE_TTL:
         return cached["data"], None
 
-    try:
-        response = requests.get(f"{BASE_URL}{path}", params=params, timeout=timeout)
-        response.raise_for_status()
-        data = response.json()
-        _cache[cache_key] = {"time": now, "data": data}
-        return data, None
-    except requests.HTTPError as exc:
-        status = exc.response.status_code if exc.response is not None else "unknown"
-        return None, f"{path} returned HTTP {status}"
-    except requests.RequestException as exc:
-        return None, f"{path} request failed: {exc}"
-    except ValueError:
-        return None, f"{path} returned invalid JSON"
+    warning = ""
+    for attempt in range(2):
+        try:
+            response = requests.get(f"{BASE_URL}{path}", params=params, timeout=timeout)
+            if response.status_code == 429 or response.status_code >= 500:
+                warning = f"{path} returned HTTP {response.status_code}"
+                if attempt == 0:
+                    time.sleep(0.35)
+                    continue
+            response.raise_for_status()
+            data = response.json()
+            _cache[cache_key] = {"time": time.time(), "data": data}
+            return data, None
+        except requests.HTTPError as exc:
+            status = exc.response.status_code if exc.response is not None else "unknown"
+            return None, f"{path} returned HTTP {status}"
+        except requests.RequestException as exc:
+            warning = f"{path} request failed: {exc}"
+            if attempt == 0:
+                time.sleep(0.35)
+                continue
+        except ValueError:
+            warning = f"{path} returned invalid JSON"
+            if attempt == 0:
+                time.sleep(0.2)
+                continue
+    return None, warning or f"{path} request failed"
+
+
+def _last_completed_week_timestamp(now: Optional[datetime] = None) -> int:
+    current = now or datetime.now(timezone.utc)
+    monday = datetime(current.year, current.month, current.day, tzinfo=timezone.utc) - timedelta(days=current.weekday())
+    return int((monday - timedelta(days=7)).timestamp())
+
+
+def _stratz_graphql(query: str, timeout: int = 25) -> Tuple[Any, str, Optional[str]]:
+    token = os.getenv("STRATZ_API_TOKEN", "").strip()
+    if not token:
+        return None, "not_configured", "STRATZ_API_TOKEN is not configured"
+    warning = ""
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
+        "User-Agent": "STRATZ_API",
+    }
+    for attempt in range(3):
+        try:
+            response = requests.post(
+                STRATZ_API_URL,
+                headers=headers,
+                json={"query": query},
+                timeout=timeout,
+            )
+            if response.status_code == 429 or response.status_code >= 500:
+                warning = f"STRATZ returned HTTP {response.status_code}"
+                if attempt < 2:
+                    retry_after = response.headers.get("Retry-After", "")
+                    delay = min(float(retry_after), 2.0) if retry_after.replace(".", "", 1).isdigit() else 0.5 * (attempt + 1)
+                    time.sleep(delay)
+                    continue
+            response.raise_for_status()
+            payload = response.json()
+            errors = payload.get("errors") if isinstance(payload, dict) else None
+            if errors:
+                message = errors[0].get("message", "GraphQL error") if isinstance(errors[0], dict) else str(errors[0])
+                warning = f"STRATZ GraphQL error: {message}"
+                if attempt < 2 and any(term in message.lower() for term in ("rate", "timeout", "temporar")):
+                    time.sleep(0.5 * (attempt + 1))
+                    continue
+                return None, "unavailable", warning
+            data = payload.get("data") if isinstance(payload, dict) else None
+            if not isinstance(data, dict):
+                warning = "STRATZ returned an unexpected GraphQL response"
+                if attempt < 2:
+                    time.sleep(0.35)
+                    continue
+                return None, "unavailable", warning
+            return data, "ready", None
+        except requests.HTTPError as exc:
+            status = exc.response.status_code if exc.response is not None else "unknown"
+            return None, "unavailable", f"STRATZ returned HTTP {status}"
+        except requests.RequestException as exc:
+            warning = f"STRATZ request failed: {exc}"
+            if attempt < 2:
+                time.sleep(0.5 * (attempt + 1))
+                continue
+        except ValueError:
+            warning = "STRATZ returned invalid JSON"
+            if attempt < 2:
+                time.sleep(0.35)
+                continue
+    return None, "unavailable", warning or "STRATZ request failed"
+
+
+def _cached_stratz_hero_stats() -> Tuple[Any, str, Optional[str], int]:
+    week = _last_completed_week_timestamp()
+    cache_key = f"stratz:hero-meta:{week}"
+    cached = _cache.get(cache_key)
+    now = time.time()
+    if cached and now - cached["time"] < STRATZ_CACHE_TTL:
+        return cached["data"], "ready", None, week
+
+    with _cache_lock(cache_key):
+        cached = _cache.get(cache_key)
+        now = time.time()
+        if cached and now - cached["time"] < STRATZ_CACHE_TTL:
+            return cached["data"], "ready", None, week
+
+        query = f"""
+        query DotaSenseHeroMeta {{
+          heroStats {{
+            stats(
+              bracketBasicIds: [DIVINE_IMMORTAL]
+              groupByPosition: true
+              groupByBracket: true
+              week: {week}
+            ) {{
+              heroId
+              position
+              matchCount
+              winCount
+            }}
+          }}
+        }}
+        """
+        data, status, warning = _stratz_graphql(query)
+        stats = data.get("heroStats", {}).get("stats") if isinstance(data, dict) else None
+        if status == "ready" and not isinstance(stats, list):
+            status = "unavailable"
+            warning = "STRATZ returned an unexpected heroStats response"
+        if not isinstance(stats, list):
+            if cached:
+                return cached["data"], "ready", f"{warning or 'STRATZ unavailable'}; using cached hero Meta", week
+            return None, status, warning, week
+        _cache[cache_key] = {"time": time.time(), "data": stats}
+        return stats, "ready", None, week
+
+
+def _cached_stratz_player_matches(account_id: int, limit: int) -> Tuple[Any, Optional[str]]:
+    take = max(1, min(limit, 100))
+    cache_key = f"stratz:player-matches:{account_id}:{take}"
+    cached = _cache.get(cache_key)
+    now = time.time()
+    if cached and now - cached["time"] < STRATZ_PLAYER_CACHE_TTL:
+        return cached["data"], None
+
+    with _cache_lock(cache_key):
+        cached = _cache.get(cache_key)
+        now = time.time()
+        if cached and now - cached["time"] < STRATZ_PLAYER_CACHE_TTL:
+            return cached["data"], None
+
+        query = f"""
+        query DotaSensePlayerMatches {{
+          player(steamAccountId: {account_id}) {{
+            matches(request: {{ take: {take} }}) {{
+              id
+              players(steamAccountId: {account_id}) {{
+                steamAccountId
+                heroId
+                isRadiant
+                position
+                role
+                lane
+                imp
+                award
+                kills
+                deaths
+                assists
+                numLastHits
+                goldPerMinute
+                experiencePerMinute
+                networth
+                level
+                heroDamage
+                towerDamage
+                heroHealing
+                item0Id
+                item1Id
+                item2Id
+                item3Id
+                item4Id
+                item5Id
+                neutral0Id
+              }}
+            }}
+          }}
+        }}
+        """
+        data, status, warning = _stratz_graphql(query, timeout=30)
+        if status != "ready":
+            if cached:
+                return cached["data"], f"{warning or 'STRATZ unavailable'}; using cached player matches"
+            return None, warning
+        player = data.get("player") if isinstance(data, dict) else None
+        if not isinstance(player, dict):
+            if cached:
+                return cached["data"], "STRATZ has no current player data; using cached player matches"
+            return None, "STRATZ has no public Ranked Roles data for this player"
+        matches = player.get("matches")
+        if not isinstance(matches, list):
+            if cached:
+                return cached["data"], "STRATZ returned an unexpected response; using cached player matches"
+            return None, "STRATZ returned an unexpected player matches response"
+        _cache[cache_key] = {"time": time.time(), "data": matches}
+        return matches, None
 
 
 def _is_radiant(player_slot: Any) -> bool:
@@ -144,7 +364,7 @@ def _form_score(match: Dict[str, Any]) -> int:
 
 
 def _role_payload(lane_role: int) -> Dict[str, Any]:
-    lane_name = LANE_ROLE_NAMES.get(lane_role, "分路未知")
+    lane_name = LANE_ROLE_NAMES.get(lane_role, "")
 
     return {
         "lane_role_name": lane_name,
@@ -153,12 +373,63 @@ def _role_payload(lane_role: int) -> Dict[str, Any]:
     }
 
 
-def _item_payload(item_id: Any) -> Dict[str, Any]:
+def _position_payload(position_value: Any) -> Dict[str, Any]:
+    details = POSITION_DETAILS.get(str(position_value or ""))
+    if not details:
+        return {
+            "position": 0,
+            "position_key": "",
+            "position_name": "",
+            "position_source": "unavailable",
+        }
+    return {**details, "position_source": "stratz"}
+
+
+def _cached_item_catalog() -> Dict[int, Dict[str, str]]:
+    cache_key = "opendota:item-catalog"
+    cached = _cache.get(cache_key)
+    now = time.time()
+    if cached and now - cached["time"] < 86400:
+        return cached["data"]
+
+    with _cache_lock(cache_key):
+        cached = _cache.get(cache_key)
+        now = time.time()
+        if cached and now - cached["time"] < 86400:
+            return cached["data"]
+
+        data, _ = _cached_get("/constants/items", timeout=18)
+        catalog: Dict[int, Dict[str, str]] = {}
+        if isinstance(data, dict):
+            for slug, item in data.items():
+                if not isinstance(item, dict):
+                    continue
+                item_id = _safe_int(item.get("id"))
+                if not item_id:
+                    continue
+                image_path = str(item.get("img") or "").split("?", 1)[0]
+                icon = f"https://cdn.cloudflare.steamstatic.com{image_path}" if image_path.startswith("/apps/") else ""
+                catalog[item_id] = {
+                    "name": str(item.get("dname") or slug),
+                    "icon": icon,
+                }
+        if catalog:
+            _cache[cache_key] = {"time": time.time(), "data": catalog}
+            return catalog
+        return cached["data"] if cached else {}
+
+
+def _item_payload(item_id: Any, catalog: Optional[Dict[int, Dict[str, str]]] = None) -> Dict[str, Any]:
     item_id_int = _safe_int(item_id)
-    return {"item_id": item_id_int, "icon": get_item_icon_url(item_id_int)}
+    catalog_item = (catalog or {}).get(item_id_int, {})
+    return {
+        "item_id": item_id_int,
+        "name": catalog_item.get("name", ""),
+        "icon": catalog_item.get("icon") or get_item_icon_url(item_id_int),
+    }
 
 
-def _player_match_detail(account_id: int, match_id: str) -> Tuple[str, Optional[Dict[str, Any]], Optional[str]]:
+def _player_match_detail(account_id: int, match_id: str, item_catalog: Optional[Dict[int, Dict[str, str]]] = None) -> Tuple[str, Optional[Dict[str, Any]], Optional[str]]:
     data, warning = _cached_get(f"/matches/{match_id}", timeout=12)
     if warning:
         return match_id, None, warning
@@ -174,8 +445,8 @@ def _player_match_detail(account_id: int, match_id: str) -> Tuple[str, Optional[
         return match_id, None, f"/matches/{match_id} missing player {account_id}"
 
     item_ids = [_safe_int(player.get(f"item_{index}")) for index in range(6)]
-    items = [_item_payload(item_id) for item_id in item_ids]
-    neutral_item = _item_payload(player.get("item_neutral"))
+    items = [_item_payload(item_id, item_catalog) for item_id in item_ids]
+    neutral_item = _item_payload(player.get("item_neutral"), item_catalog)
     lane_role = _safe_int(player.get("lane_role"))
     kills = _safe_int(player.get("kills"))
     deaths = _safe_int(player.get("deaths"))
@@ -211,6 +482,8 @@ def _player_match_detail(account_id: int, match_id: str) -> Tuple[str, Optional[
         "item_icons": [item["icon"] for item in items],
         "neutral_item": neutral_item,
         "item_neutral_icon": neutral_item["icon"],
+        "equipment_available": any(player.get(field) is not None for field in [*(f"item_{index}" for index in range(6)), "item_neutral"]),
+        "equipment_source": "opendota",
         "opendota_url": f"https://www.opendota.com/matches/{match_id}",
     }, None
 
@@ -221,9 +494,10 @@ def _enrich_match_details(account_id: int, matches: List[Dict[str, Any]]) -> Lis
         return []
 
     warnings = []
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    item_catalog = _cached_item_catalog()
+    with ThreadPoolExecutor(max_workers=3) as executor:
         future_map = {
-            executor.submit(_player_match_detail, account_id, match["match_id"]): match
+            executor.submit(_player_match_detail, account_id, match["match_id"], item_catalog): match
             for match in detail_targets
         }
         for future in as_completed(future_map):
@@ -239,6 +513,85 @@ def _enrich_match_details(account_id: int, matches: List[Dict[str, Any]]) -> Lis
                 match.update(detail)
 
     return warnings[:6]
+
+
+def _apply_stratz_match_data(matches: List[Dict[str, Any]], raw_matches: Any) -> int:
+    if not isinstance(raw_matches, list):
+        return 0
+
+    indexed = {
+        str(raw.get("id")): raw
+        for raw in raw_matches
+        if isinstance(raw, dict) and raw.get("id") is not None
+    }
+    verified_positions = 0
+    item_catalog: Optional[Dict[int, Dict[str, str]]] = None
+    field_map = {
+        "kills": "kills",
+        "deaths": "deaths",
+        "assists": "assists",
+        "numLastHits": "last_hits",
+        "goldPerMinute": "gold_per_min",
+        "experiencePerMinute": "xp_per_min",
+        "networth": "net_worth",
+        "level": "level",
+        "heroDamage": "hero_damage",
+        "towerDamage": "tower_damage",
+        "heroHealing": "hero_healing",
+    }
+
+    for match in matches:
+        raw = indexed.get(str(match.get("match_id")))
+        players = raw.get("players") if isinstance(raw, dict) else None
+        player = players[0] if isinstance(players, list) and players and isinstance(players[0], dict) else None
+        if not player:
+            continue
+
+        position = _position_payload(player.get("position"))
+        match.update(position)
+        if position["position"]:
+            verified_positions += 1
+            match["role_name"] = position["position_name"]
+            match["role_source"] = "stratz"
+
+        for source_field, target_field in field_map.items():
+            if player.get(source_field) is not None:
+                match[target_field] = _safe_int(player.get(source_field))
+
+        if all(player.get(field) is not None for field in ("kills", "deaths", "assists")):
+            match["kda"] = _kda(match["kills"], match["deaths"], match["assists"])
+
+        imp_value = player.get("imp")
+        equipment_fields = [
+            *(f"item{index}Id" for index in range(6)),
+            "neutral0Id",
+        ]
+        if any(player.get(field) is not None for field in equipment_fields):
+            if item_catalog is None:
+                item_catalog = _cached_item_catalog()
+            items = [_item_payload(player.get(f"item{index}Id"), item_catalog) for index in range(6)]
+            neutral_item = _item_payload(player.get("neutral0Id"), item_catalog)
+            match.update({
+                "items": items,
+                "item_icons": [item["icon"] for item in items],
+                "neutral_item": neutral_item,
+                "item_neutral_icon": neutral_item["icon"],
+                "equipment_available": True,
+                "equipment_source": "stratz",
+            })
+        match.update({
+            "stratz_role": str(player.get("role") or ""),
+            "stratz_lane": str(player.get("lane") or ""),
+            "stratz_imp": _safe_int(imp_value) if imp_value is not None else None,
+            "stratz_award": str(player.get("award") or ""),
+            "performance_available": any(player.get(field) is not None for field in field_map),
+        })
+        if match["performance_available"]:
+            match["detail_available"] = True
+            if match.get("evidence_level") != "parsed":
+                match["evidence_level"] = "verified"
+
+    return verified_positions
 
 
 def _summarize_streak(matches: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -264,6 +617,8 @@ def _aggregate_recent(raw_matches: List[Dict[str, Any]], limit: int) -> List[Dic
         assists = _safe_int(match.get("assists"))
         duration = _safe_int(match.get("duration"))
         win = _did_win(match)
+        player_slot = _safe_int(match.get("player_slot"))
+        is_radiant = _is_radiant(player_slot)
         lane_role = _safe_int(match.get("lane_role"))
         role = _role_payload(lane_role)
         enriched.append({
@@ -280,11 +635,20 @@ def _aggregate_recent(raw_matches: List[Dict[str, Any]], limit: int) -> List[Dic
             "duration_text": _duration_text(duration),
             "start_time": _safe_int(match.get("start_time")),
             "played_at": _played_at(match.get("start_time")),
-            "game_mode": GAME_MODES.get(_safe_int(match.get("game_mode")), str(match.get("game_mode") or "Unknown")),
-            "lobby_type": LOBBY_TYPES.get(_safe_int(match.get("lobby_type")), str(match.get("lobby_type") or "Unknown")),
+            "game_mode": GAME_MODES.get(_safe_int(match.get("game_mode")), "其他模式"),
+            "lobby_type": LOBBY_TYPES.get(_safe_int(match.get("lobby_type")), "其他匹配"),
             "party_size": _safe_int(match.get("party_size")),
+            "player_slot": player_slot,
+            "is_radiant": is_radiant,
+            "side": "Radiant" if is_radiant else "Dire",
             "lane_role": lane_role,
             **role,
+            **_position_payload(None),
+            "stratz_role": "",
+            "stratz_lane": "",
+            "stratz_imp": None,
+            "stratz_award": "",
+            "performance_available": False,
             "form_score": _form_score(match),
             "detail_available": False,
             "benchmark_available": False,
@@ -302,8 +666,10 @@ def _aggregate_recent(raw_matches: List[Dict[str, Any]], limit: int) -> List[Dic
             "hero_healing": 0,
             "items": [],
             "item_icons": [],
-            "neutral_item": {"item_id": 0, "icon": ""},
+            "neutral_item": {"item_id": 0, "name": "", "icon": ""},
             "item_neutral_icon": "",
+            "equipment_available": False,
+            "equipment_source": "unavailable",
             "opendota_url": f"https://www.opendota.com/matches/{match.get('match_id', '')}",
         })
     return enriched
@@ -485,7 +851,11 @@ def _counts_summary(raw_counts: Any) -> Dict[str, List[Dict[str, Any]]]:
     if not isinstance(raw_counts, dict):
         return {}
 
-    def format_counts(raw: Dict[str, Any], labels: Dict[int, str]) -> List[Dict[str, Any]]:
+    def format_counts(
+        raw: Dict[str, Any],
+        labels: Dict[int, str],
+        allowed_keys: Optional[set] = None,
+    ) -> List[Dict[str, Any]]:
         result = []
         for key, value in raw.items():
             games = _safe_int(value.get("games"))
@@ -493,6 +863,8 @@ def _counts_summary(raw_counts: Any) -> Dict[str, List[Dict[str, Any]]]:
             if games <= 0:
                 continue
             numeric_key = _safe_int(key, -1)
+            if allowed_keys is not None and numeric_key not in allowed_keys:
+                continue
             result.append({
                 "label": labels.get(numeric_key, str(key)),
                 "games": games,
@@ -501,10 +873,23 @@ def _counts_summary(raw_counts: Any) -> Dict[str, List[Dict[str, Any]]]:
             })
         return sorted(result, key=lambda item: -item["games"])[:8]
 
+    lane_counts = raw_counts.get("lane_role", {})
+    lane_total_games = sum(_safe_int(value.get("games")) for value in lane_counts.values())
+    lane_known_games = sum(
+        _safe_int(value.get("games"))
+        for key, value in lane_counts.items()
+        if _safe_int(key, -1) in LANE_ROLE_NAMES
+    )
+
     return {
-        "game_mode": format_counts(raw_counts.get("game_mode", {}), GAME_MODES),
-        "lobby_type": format_counts(raw_counts.get("lobby_type", {}), LOBBY_TYPES),
-        "lane_role": format_counts(raw_counts.get("lane_role", {}), LANE_ROLE_NAMES),
+        "game_mode": format_counts(raw_counts.get("game_mode", {}), GAME_MODES, set(GAME_MODES)),
+        "lobby_type": format_counts(raw_counts.get("lobby_type", {}), LOBBY_TYPES, set(LOBBY_TYPES)),
+        "lane_role": format_counts(lane_counts, LANE_ROLE_NAMES, set(LANE_ROLE_NAMES)),
+        "lane_role_summary": {
+            "known_games": lane_known_games,
+            "total_games": lane_total_games,
+            "coverage_rate": _round(lane_known_games / lane_total_games * 100) if lane_total_games else 0,
+        },
     }
 
 
@@ -587,36 +972,105 @@ def _hero_meta(raw_hero_stats: Any) -> Dict[str, Any]:
     }
 
 
-def _global_meta_overview(raw_hero_stats: Any) -> Dict[str, Any]:
-    hero_meta = _hero_meta(raw_hero_stats)
-    overall = hero_meta.get("by_scope", {}).get("overall", [])
-    total_matches = sum(hero.get("matches", 0) for hero in overall)
-    total_pro_picks = sum(hero.get("pro_pick", 0) for hero in overall)
-    volume_leaders = sorted(overall, key=lambda item: (-item["matches"], -item["win_rate"]))[:12]
-    pro_signal = sorted(
-        [hero for hero in overall if hero.get("pro_pick", 0) > 0],
-        key=lambda item: (-item["pro_pick"], -item["pro_win"], -item["meta_score"]),
-    )[:12]
+def _position_meta(raw_position_stats: Any) -> Dict[str, Any]:
+    roles = [{"key": scope["key"], "label": scope["label"]} for scope in POSITION_META_SCOPES]
+    if not isinstance(raw_position_stats, list):
+        return {"source": "STRATZ GraphQL heroStats", "roles": roles, "top": [], "by_scope": {}}
+
+    grouped: Dict[Tuple[int, str], Dict[str, int]] = {}
+    valid_positions = {scope["position"] for scope in POSITION_META_SCOPES}
+    for row in raw_position_stats:
+        if not isinstance(row, dict):
+            continue
+        hero_id = _safe_int(row.get("heroId"))
+        position = str(row.get("position") or "")
+        games = _safe_int(row.get("matchCount"))
+        wins = _safe_int(row.get("winCount"))
+        if not hero_id or position not in valid_positions or games <= 0:
+            continue
+        entry = grouped.setdefault((hero_id, position), {"games": 0, "wins": 0})
+        entry["games"] += games
+        entry["wins"] += wins
+
+    by_scope: Dict[str, List[Dict[str, Any]]] = {}
+    for scope in POSITION_META_SCOPES:
+        position = scope["position"]
+        position_entries = [
+            (hero_id, stats)
+            for (hero_id, role_position), stats in grouped.items()
+            if role_position == position
+        ]
+        total_games = sum(stats["games"] for _, stats in position_entries)
+        total_wins = sum(stats["wins"] for _, stats in position_entries)
+        baseline = total_wins / total_games if total_games else 0.5
+        prior_games = 100
+        heroes = []
+        for hero_id, stats in position_entries:
+            games = stats["games"]
+            wins = stats["wins"]
+            win_rate = _round(wins / games * 100)
+            adjusted_win_rate = _round((wins + baseline * prior_games) / (games + prior_games) * 100, 2)
+            heroes.append({
+                "hero_id": hero_id,
+                "hero_name": _hero_name(hero_id),
+                "hero_icon": get_hero_icon_url(hero_id),
+                "role_key": scope["key"],
+                "role_label": scope["label"],
+                "matches": games,
+                "wins": wins,
+                "win_rate": win_rate,
+                "meta_score": adjusted_win_rate,
+                "contest_rate": _round(games / total_games * 100, 2) if total_games else 0,
+                "pro_pick": 0,
+                "pro_win": 0,
+            })
+        by_scope[scope["key"]] = sorted(
+            heroes,
+            key=lambda item: (-item["meta_score"], -item["matches"], item["hero_name"]),
+        )
+
+    first_scope = POSITION_META_SCOPES[0]["key"]
+    return {
+        "source": "STRATZ GraphQL heroStats",
+        "roles": roles,
+        "top": by_scope.get(first_scope, [])[:12],
+        "by_scope": by_scope,
+    }
+
+
+def _global_meta_overview(raw_position_stats: Any, status: str, week: int) -> Dict[str, Any]:
+    hero_meta = _position_meta(raw_position_stats)
+    all_entries = [hero for heroes in hero_meta.get("by_scope", {}).values() for hero in heroes]
+    unique_heroes = {hero.get("hero_id") for hero in all_entries if hero.get("hero_id")}
+    total_matches = sum(hero.get("matches", 0) for hero in all_entries)
+    volume_leaders = sorted(all_entries, key=lambda item: (-item["matches"], -item["win_rate"]))[:12]
     high_confidence = sorted(
-        [hero for hero in overall if hero.get("matches", 0) >= 1000],
+        [hero for hero in all_entries if hero.get("matches", 0) >= 100],
         key=lambda item: (-item["win_rate"], -item["matches"], -item["meta_score"]),
     )[:12]
-    highest_contest = max(overall, key=lambda item: item.get("contest_rate", 0), default=None)
+    highest_contest = max(all_entries, key=lambda item: item.get("contest_rate", 0), default=None)
+    period_start = datetime.fromtimestamp(week, timezone.utc)
+    period_end = period_start + timedelta(days=6)
+    available = bool(all_entries)
 
     return {
-        "source": "OpenDota /heroStats",
-        "scope": "All public hero totals from pub_pick/pub_win; OpenDota does not provide position-split hero meta here",
+        "source": "STRATZ GraphQL heroStats",
+        "scope": "DIVINE_IMMORTAL ranked matches grouped by Ranked Roles position",
+        "available": available,
+        "status": "ready" if available else ("empty" if status == "ready" else status),
+        "period_start": period_start.date().isoformat(),
+        "period_end": period_end.date().isoformat(),
         "hero_meta": hero_meta,
         "snapshot": {
-            "heroes": len(overall),
+            "heroes": len(unique_heroes),
             "total_matches": total_matches,
-            "total_pro_picks": total_pro_picks,
+            "total_pro_picks": 0,
             "top_contested_hero": highest_contest["hero_name"] if highest_contest else "",
             "top_contested_rate": highest_contest["contest_rate"] if highest_contest else 0,
         },
-        "role_leaders": {},
+        "role_leaders": {key: heroes[:6] for key, heroes in hero_meta.get("by_scope", {}).items()},
         "volume_leaders": volume_leaders,
-        "pro_signal": pro_signal,
+        "pro_signal": [],
         "high_confidence": high_confidence,
     }
 
@@ -666,6 +1120,62 @@ def _meta_fit(
     return sorted(result, key=lambda item: (-item["personal_games"], -item["gap"], -item["meta_score"]))[:8]
 
 
+def _position_meta_fit(matches: List[Dict[str, Any]], hero_meta: Dict[str, Any]) -> List[Dict[str, Any]]:
+    grouped: Dict[Tuple[int, str], Dict[str, Any]] = {}
+    for match in matches:
+        hero_id = _safe_int(match.get("hero_id"))
+        position_key = str(match.get("position_key") or "")
+        position = _safe_int(match.get("position"))
+        if not hero_id or not position_key or not position:
+            continue
+        key = (hero_id, position_key)
+        entry = grouped.setdefault(key, {
+            "hero_id": hero_id,
+            "position": position,
+            "position_key": position_key,
+            "position_name": match.get("position_name") or "",
+            "games": 0,
+            "wins": 0,
+        })
+        entry["games"] += 1
+        entry["wins"] += 1 if match.get("win") else 0
+
+    result = []
+    by_scope = hero_meta.get("by_scope", {}) if isinstance(hero_meta, dict) else {}
+    for entry in grouped.values():
+        if entry["games"] < 2:
+            continue
+        scope_index = {
+            _safe_int(item.get("hero_id")): item
+            for item in by_scope.get(entry["position_key"], [])
+            if isinstance(item, dict)
+        }
+        meta_entry = scope_index.get(entry["hero_id"])
+        if not meta_entry:
+            continue
+        personal_win_rate = _round(entry["wins"] / entry["games"] * 100)
+        gap = _round(personal_win_rate - meta_entry["win_rate"])
+        verdict = "顺版本" if gap >= 5 else "接近基准" if gap >= -5 else "需要复盘"
+        result.append({
+            "hero_id": entry["hero_id"],
+            "hero_name": _hero_name(entry["hero_id"]),
+            "hero_icon": get_hero_icon_url(entry["hero_id"]),
+            "position": entry["position"],
+            "position_key": entry["position_key"],
+            "position_name": entry["position_name"],
+            "personal_games": entry["games"],
+            "personal_win_rate": personal_win_rate,
+            "meta_role": entry["position_name"],
+            "meta_matches": meta_entry["matches"],
+            "meta_win_rate": meta_entry["win_rate"],
+            "meta_score": meta_entry["meta_score"],
+            "gap": gap,
+            "verdict": verdict,
+        })
+
+    return sorted(result, key=lambda item: (-item["personal_games"], -item["gap"], item["hero_name"]))[:8]
+
+
 def _build_signatures(matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     grouped: Dict[Tuple[int, int], Dict[str, Any]] = {}
     for match in matches:
@@ -675,16 +1185,22 @@ def _build_signatures(matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         item_icons = [icon for icon in match.get("item_icons", []) if icon]
         if not item_icons and not match.get("item_neutral_icon"):
             continue
+        position = _safe_int(match.get("position"))
+        if position not in {1, 2, 3, 4, 5}:
+            continue
         lane_role = _safe_int(match.get("lane_role"))
-        key = (hero_id, lane_role)
+        key = (hero_id, position)
         if key not in grouped:
             grouped[key] = {
                 "hero_id": hero_id,
                 "hero_name": match.get("hero_name") or _hero_name(hero_id),
                 "hero_icon": match.get("hero_icon") or get_hero_icon_url(hero_id),
                 "lane_role": lane_role,
-                "lane_role_name": match.get("lane_role_name") or LANE_ROLE_NAMES.get(lane_role, "分路未知"),
-                "role_name": match.get("role_name", "分路未解析"),
+                "lane_role_name": match.get("lane_role_name") or LANE_ROLE_NAMES.get(lane_role, ""),
+                "position": position,
+                "position_key": match.get("position_key") or f"pos{position}",
+                "position_name": match.get("position_name") or match.get("role_name") or "",
+                "role_name": match.get("position_name") or match.get("role_name") or "",
                 "games": 0,
                 "wins": 0,
                 "kills": 0,
@@ -725,6 +1241,9 @@ def _build_signatures(matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             "hero_icon": entry["hero_icon"],
             "lane_role": entry["lane_role"],
             "lane_role_name": entry["lane_role_name"],
+            "position": entry["position"],
+            "position_key": entry["position_key"],
+            "position_name": entry["position_name"],
             "role_name": entry["role_name"],
             "games": games,
             "wins": entry["wins"],
@@ -739,14 +1258,15 @@ def _build_signatures(matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 def _role_matrix(matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     grouped: Dict[int, Dict[str, Any]] = {}
     for match in matches:
-        lane_role = _safe_int(match.get("lane_role"))
-        if not lane_role:
+        position = _safe_int(match.get("position"))
+        if position not in {1, 2, 3, 4, 5}:
             continue
-        if lane_role not in grouped:
-            grouped[lane_role] = {
-                "lane_role": lane_role,
-                "lane_role_name": LANE_ROLE_NAMES.get(lane_role, "分路未知"),
-                "role_name": LANE_ROLE_NAMES.get(lane_role, "分路未知"),
+        if position not in grouped:
+            grouped[position] = {
+                "position": position,
+                "position_key": match.get("position_key") or f"pos{position}",
+                "position_name": match.get("position_name") or f"{position}号位",
+                "role_name": match.get("position_name") or f"{position}号位",
                 "games": 0,
                 "wins": 0,
                 "kills": 0,
@@ -756,9 +1276,12 @@ def _role_matrix(matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "xpm": 0,
                 "last_hits": 0,
                 "damage": 0,
+                "imp_total": 0,
+                "imp_games": 0,
+                "awards": 0,
                 "heroes": Counter(),
             }
-        entry = grouped[lane_role]
+        entry = grouped[position]
         entry["games"] += 1
         entry["wins"] += 1 if match.get("win") else 0
         entry["kills"] += _safe_int(match.get("kills"))
@@ -768,6 +1291,11 @@ def _role_matrix(matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         entry["xpm"] += _safe_int(match.get("xp_per_min"))
         entry["last_hits"] += _safe_int(match.get("last_hits"))
         entry["damage"] += _safe_int(match.get("hero_damage"))
+        if match.get("stratz_imp") is not None:
+            entry["imp_total"] += _safe_int(match.get("stratz_imp"))
+            entry["imp_games"] += 1
+        if match.get("stratz_award") not in {None, "", "NONE"}:
+            entry["awards"] += 1
         if match.get("hero_name"):
             entry["heroes"][match["hero_name"]] += 1
 
@@ -775,8 +1303,9 @@ def _role_matrix(matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     for entry in grouped.values():
         games = entry["games"]
         result.append({
-            "lane_role": entry["lane_role"],
-            "lane_role_name": entry["lane_role_name"],
+            "position": entry["position"],
+            "position_key": entry["position_key"],
+            "position_name": entry["position_name"],
             "role_name": entry["role_name"],
             "games": games,
             "win_rate": _round(entry["wins"] / games * 100) if games else 0,
@@ -785,10 +1314,12 @@ def _role_matrix(matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             "avg_xpm": _round(entry["xpm"] / games) if games else 0,
             "avg_last_hits": _round(entry["last_hits"] / games) if games else 0,
             "avg_damage": _round(entry["damage"] / games) if games else 0,
+            "avg_imp": _round(entry["imp_total"] / entry["imp_games"]) if entry["imp_games"] else None,
+            "awards": entry["awards"],
             "top_hero": entry["heroes"].most_common(1)[0][0] if entry["heroes"] else "",
         })
 
-    return sorted(result, key=lambda item: item["lane_role"])
+    return sorted(result, key=lambda item: item["position"])
 
 
 def _best_bucket(buckets: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -871,7 +1402,7 @@ def _coach_pack(
         insights.append({
             "title": "输局死亡",
             "metric": f"{len(high_death_losses)}/{len(losses) or 1} 局",
-            "body": "近期输局里高死亡样本偏多；未解析 replay 时无法可靠判断具体位置和团战原因。",
+            "body": "近期输局里高死亡样本偏多；缺少 Replay 事件时不判断具体位置和团战原因。",
             "action": "下一组三局手动标记每次死亡属于带线、接团、救人或操作失误。",
             "tone": "red",
         })
@@ -981,8 +1512,8 @@ def search_players(q: str = Query(..., min_length=2), limit: int = Query(8, ge=1
 
 @router.get("/meta/overview")
 def meta_overview():
-    hero_stats_raw, warning = _cached_get("/heroStats", timeout=12)
-    overview = _global_meta_overview(hero_stats_raw)
+    position_stats, status, warning, week = _cached_stratz_hero_stats()
+    overview = _global_meta_overview(position_stats, status, week)
     return {
         **overview,
         "warnings": [warning] if warning else [],
@@ -994,14 +1525,13 @@ def _fetch_player_sources(account_id: int, include_deep: bool = True, limit: int
     requests_to_make = {
         "profile": (f"/players/{account_id}", None, 10),
         "recent": (f"/players/{account_id}/matches", {"limit": min(limit, 100)}, 12),
+        "wl": (f"/players/{account_id}/wl", None, 10),
     }
     if include_deep:
         requests_to_make.update({
-            "wl": (f"/players/{account_id}/wl", None, 10),
             "heroes": (f"/players/{account_id}/heroes", None, 12),
             "ratings": (f"/players/{account_id}/ratings", None, 12),
             "counts": (f"/players/{account_id}/counts", None, 12),
-            "hero_stats": ("/heroStats", None, 12),
         })
 
     values: Dict[str, Any] = {}
@@ -1028,10 +1558,10 @@ def _fetch_player_sources(account_id: int, include_deep: bool = True, limit: int
 
 def _empty_hero_meta() -> Dict[str, Any]:
     return {
-        "source": "OpenDota /heroStats pub_pick/pub_win",
-        "roles": META_SCOPES,
+        "source": "STRATZ GraphQL heroStats",
+        "roles": [{"key": scope["key"], "label": scope["label"]} for scope in POSITION_META_SCOPES],
         "top": [],
-        "by_scope": {},
+        "by_scope": {scope["key"]: [] for scope in POSITION_META_SCOPES},
     }
 
 
@@ -1053,6 +1583,12 @@ def _player_quick_payload(account_id: int, limit: int) -> Dict[str, Any]:
         "meta_fit": [],
         "build_signatures": [],
         "role_matrix": [],
+        "position_coverage": {
+            "verified_matches": 0,
+            "total_matches": len(recent_matches),
+            "coverage_rate": 0,
+            "source": "STRATZ Ranked Roles",
+        },
         "rank_history": [],
         "rolling_winrate": _rolling_winrate(recent_matches),
         "time_analysis": time_data,
@@ -1073,10 +1609,21 @@ def _player_dashboard_payload(account_id: int, limit: int) -> Dict[str, Any]:
     heroes_raw = sources.get("heroes")
     ratings_raw = sources.get("ratings")
     counts_raw = sources.get("counts")
-    hero_stats_raw = sources.get("hero_stats")
 
     recent_matches = _aggregate_recent(recent_raw if isinstance(recent_raw, list) else [], limit)
-    warnings.extend(_enrich_match_details(account_id, recent_matches))
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        player_matches_future = executor.submit(_cached_stratz_player_matches, account_id, limit)
+        hero_meta_future = executor.submit(_cached_stratz_hero_stats)
+        warnings.extend(_enrich_match_details(account_id, recent_matches))
+        stratz_matches, stratz_matches_warning = player_matches_future.result()
+        position_stats, _, position_meta_warning, _ = hero_meta_future.result()
+
+    if stratz_matches_warning:
+        warnings.append(stratz_matches_warning)
+    if position_meta_warning:
+        warnings.append(position_meta_warning)
+    verified_positions = _apply_stratz_match_data(recent_matches, stratz_matches)
+    position_hero_meta = _position_meta(position_stats)
     summary = _summary(recent_matches)
     hero_pool = _hero_pool(recent_matches)
     lifetime_heroes = _lifetime_heroes(heroes_raw)
@@ -1088,10 +1635,16 @@ def _player_dashboard_payload(account_id: int, limit: int) -> Dict[str, Any]:
         "recent_matches": recent_matches,
         "hero_pool": hero_pool,
         "lifetime_heroes": lifetime_heroes,
-        "hero_meta": _hero_meta(hero_stats_raw),
-        "meta_fit": _meta_fit(hero_pool, lifetime_heroes, recent_matches, hero_stats_raw),
+        "hero_meta": position_hero_meta,
+        "meta_fit": _position_meta_fit(recent_matches, position_hero_meta),
         "build_signatures": _build_signatures(recent_matches),
         "role_matrix": _role_matrix(recent_matches),
+        "position_coverage": {
+            "verified_matches": verified_positions,
+            "total_matches": len(recent_matches),
+            "coverage_rate": _round(verified_positions / len(recent_matches) * 100) if recent_matches else 0,
+            "source": "STRATZ Ranked Roles",
+        },
         "rank_history": _rank_history(ratings_raw),
         "rolling_winrate": _rolling_winrate(recent_matches),
         "time_analysis": time_data,
@@ -1113,7 +1666,10 @@ def _review_match_sample(matches: List[Dict[str, Any]], limit: int = 20) -> List
             "result": "win" if match.get("win") else "loss",
             "kda": f"{match.get('kills', 0)}/{match.get('deaths', 0)}/{match.get('assists', 0)}",
             "kda_score": match.get("kda", 0),
-            "lane": match.get("role_name"),
+            "position": match.get("position_name"),
+            "position_source": match.get("position_source"),
+            "imp": match.get("stratz_imp"),
+            "award": match.get("stratz_award"),
             "duration": match.get("duration_text"),
             "gpm": match.get("gold_per_min", 0),
             "xpm": match.get("xp_per_min", 0),
@@ -1134,10 +1690,12 @@ def _top_loss_matches(matches: List[Dict[str, Any]], limit: int = 3) -> List[Dic
     ranked = sorted(losses, key=lambda match: (-_safe_int(match.get("deaths")), _safe_int(match.get("form_score"))))
     result = []
     for match in ranked[:limit]:
+        role_name = str(match.get("role_name") or "").strip()
+        role_clause = f"，{role_name}" if role_name else ""
         result.append({
             "match_id": match.get("match_id"),
             "hero": match.get("hero_name"),
-            "reason": f"{match.get('deaths', 0)} 死，{match.get('role_name', '分路未解析')}，KDA {match.get('kda', 0)}",
+            "reason": f"{match.get('deaths', 0)} 死{role_clause}，KDA {match.get('kda', 0)}",
         })
     return result
 
@@ -1198,17 +1756,17 @@ def _fallback_review(payload: Dict[str, Any]) -> Dict[str, Any]:
                 f"{meta_gap.get('hero_name')} 个人胜率比全局低 {abs(meta_gap.get('gap', 0))} 个百分点，属于优先复盘英雄。"
                 if meta_gap else "你的近期英雄暂时没有明显落后全局 Meta 的样本。"
             ),
-            "evidence": "全局对照来自 OpenDota heroStats 的 pub_pick/pub_win 总体样本。",
+            "evidence": "全局对照来自 STRATZ Divine/Immortal Ranked Roles，同一英雄按 1-5 号位分别比较。",
             "action": "只把全局 Meta 当作筛选器，真正决定是否继续练的是你的同英雄最近 5 场死亡和经济节奏。",
         },
         {
-            "title": "分路与经济",
+            "title": "位置与经济",
             "finding": (
-                f"{best_role.get('role_name')} 是当前最稳定分路：{best_role.get('games', 0)} 场，胜率 {best_role.get('win_rate', 0)}%，KDA {best_role.get('avg_kda', 0)}。"
-                if best_role else "近期没有足够的 OpenDota 分路解析样本。"
+                f"{best_role.get('role_name')} 是当前最稳定位置：{best_role.get('games', 0)} 场，胜率 {best_role.get('win_rate', 0)}%，KDA {best_role.get('avg_kda', 0)}。"
+                if best_role else "近期没有足够的 STRATZ 位置样本。"
             ),
-            "evidence": f"平均 GPM {best_role.get('avg_gpm', 0)}，平均补刀 {best_role.get('avg_last_hits', 0)}。" if best_role else "分路字段缺失时不做位置推断。",
-            "action": "每局 10 分钟记录一次：补刀、死亡、TP 是否用在有效支援上，用这三项判断是否偏离分路任务。",
+            "evidence": f"平均 GPM {best_role.get('avg_gpm', 0)}，平均补刀 {best_role.get('avg_last_hits', 0)}，平均 IMP {best_role.get('avg_imp') if best_role.get('avg_imp') is not None else '-'}。" if best_role else "位置字段缺失时不做推断。",
+            "action": "每局 10 分钟记录一次：补刀、死亡、TP 是否用在有效支援上，用这三项判断是否偏离位置任务。",
         },
         {
             "title": "排位窗口",
@@ -1256,7 +1814,7 @@ def _compact_review_context(payload: Dict[str, Any]) -> Dict[str, Any]:
             "scoreboard_matches": sum(1 for match in matches if match.get("detail_available")),
             "benchmark_matches": sum(1 for match in matches if match.get("benchmark_available")),
             "replay_parsed_matches": sum(1 for match in matches if match.get("replay_parsed")),
-            "parsed_lane_matches": sum(1 for match in matches if _safe_int(match.get("lane_role")) > 0),
+            "verified_position_matches": sum(1 for match in matches if _safe_int(match.get("position")) > 0),
         },
         "recent_matches": _review_match_sample(matches, limit=24),
     }
@@ -1483,7 +2041,7 @@ def _match_scorecard_payload(account_id: int, match_id: str) -> Dict[str, Any]:
                 "key": "replay",
                 "label": "Replay 事件",
                 "status": "parsed" if replay_parsed else "unavailable",
-                "detail": "可分析逐分钟经济、购买和眼位事件。" if replay_parsed else "该局未解析，不判断具体团战、死亡位置或装备时间。",
+                "detail": "可分析逐分钟经济、购买和眼位事件。" if replay_parsed else "该局仅有结算数据，不判断具体团战、死亡位置或装备时间。",
             },
         ],
         "replay_parsed": replay_parsed,

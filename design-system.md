@@ -33,23 +33,29 @@ Do not use broad gradients. A faint tactical grid may appear only on the page ba
 ## Layout
 
 - Maximum workspace width: 1480px.
-- Desktop navigation uses five equal tracks: Today, Match Lab, Hero Pool, Meta, Progress.
-- The Today page starts with profile context and the mission strip, followed by recent matches and evidence coverage.
+- Desktop navigation uses five equal tracks: Overview, Matches, Heroes, Meta, Progress.
+- Overview starts with a 96px recent-form decision strip, a compact three-match command, and a filterable personal data explorer. Lifetime totals stay secondary.
+- Personal match filters default to hero, STRATZ position 1-5, result, and date range. Side, mode, lobby, and party size stay behind one compact more-filters control.
+- Six decision metrics share one horizontal strip; deep metrics always disclose their valid sample count.
+- Global Meta is segmented into positions 1-5 using STRATZ Ranked Roles data. Lane aggregates and economy-based estimates are never used as position labels.
+- Meta tables show raw win rate, Bayesian-adjusted win rate, position sample count, and within-position pick share.
+- Personal position matrices use only STRATZ `POSITION_1`-`POSITION_5` evidence. Missing positions stay unavailable and never become a chart category.
 - Dense tables stay inside horizontal scroll containers on mobile.
-- Mobile tabs scroll horizontally with 124px minimum targets; no page-level horizontal overflow.
+- Match equipment always reserves six inventory slots plus one visually separated neutral item. Backpack slots are intentionally excluded. Empty slots and unavailable data use different states.
+- Mobile tabs scroll horizontally with 108px minimum targets; no page-level horizontal overflow.
 
 ## Components
 
 - Cards: 1px border, 6-8px radius, no decorative floating sections, minimal shadow.
-- Primary button: gold fill, dark text, 44px minimum height.
+- Primary button: gold fill, dark text, 34px in dense command bars and 44px in full workflows.
 - Secondary button: transparent surface, visible border, icon plus concise command.
-- Inputs: 44px minimum height, dark inset surface, cyan focus border.
+- Inputs: 34-36px in dense toolbars, 44px in full forms, dark inset surface, cyan focus border.
 - Status chips: compact, semantic color, never decorative.
 - Icons: Lucide, 16-18px, 1.75-2px stroke. Buttons use familiar icons where possible.
 
 ## Evidence states
 
-- Verified: final scoreboard or hero benchmark exists.
+- Verified: final scoreboard, STRATZ Ranked Roles position, or hero benchmark exists.
 - Parsed: replay timelines and event logs exist.
 - Limited: only match summary exists.
 - Unavailable: the product explicitly declines to infer.

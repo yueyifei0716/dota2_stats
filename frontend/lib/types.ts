@@ -323,10 +323,22 @@ export interface PlayerMatch {
   game_mode: string;
   lobby_type: string;
   party_size: number;
+  player_slot: number;
+  is_radiant: boolean;
+  side: "Radiant" | "Dire";
   lane_role: number;
   lane_role_name: string;
   role_name: string;
-  role_source: "parsed" | "unknown";
+  role_source: "stratz" | "parsed" | "unknown";
+  position: number;
+  position_key: string;
+  position_name: string;
+  position_source: "stratz" | "unavailable";
+  stratz_role: string;
+  stratz_lane: string;
+  stratz_imp: number | null;
+  stratz_award: string;
+  performance_available: boolean;
   form_score: number;
   detail_available: boolean;
   benchmark_available: boolean;
@@ -342,10 +354,12 @@ export interface PlayerMatch {
   hero_damage: number;
   tower_damage: number;
   hero_healing: number;
-  items: { item_id: number; icon: string }[];
+  items: { item_id: number; name: string; icon: string }[];
   item_icons: string[];
-  neutral_item: { item_id: number; icon: string };
+  neutral_item: { item_id: number; name: string; icon: string };
   item_neutral_icon: string;
+  equipment_available: boolean;
+  equipment_source: "stratz" | "opendota" | "unavailable";
   opendota_url: string;
 }
 
@@ -390,6 +404,10 @@ export interface PlayerHeroMeta {
 export interface GlobalMetaOverview {
   source: string;
   scope: string;
+  available: boolean;
+  status: "ready" | "empty" | "not_configured" | "unavailable";
+  period_start: string;
+  period_end: string;
   hero_meta: PlayerHeroMeta;
   snapshot: {
     heroes: number;
@@ -410,6 +428,9 @@ export interface PlayerMetaFit {
   hero_id: number;
   hero_name: string;
   hero_icon: string;
+  position: number;
+  position_key: string;
+  position_name: string;
   personal_games: number;
   personal_win_rate: number;
   meta_role: string;
@@ -426,6 +447,9 @@ export interface PlayerBuildSignature {
   hero_icon: string;
   lane_role: number;
   lane_role_name: string;
+  position: number;
+  position_key: string;
+  position_name: string;
   role_name: string;
   games: number;
   wins: number;
@@ -435,8 +459,9 @@ export interface PlayerBuildSignature {
 }
 
 export interface PlayerRoleMatrix {
-  lane_role: number;
-  lane_role_name: string;
+  position: number;
+  position_key: string;
+  position_name: string;
   role_name: string;
   games: number;
   win_rate: number;
@@ -445,6 +470,8 @@ export interface PlayerRoleMatrix {
   avg_xpm: number;
   avg_last_hits: number;
   avg_damage: number;
+  avg_imp: number | null;
+  awards: number;
   top_hero: string;
 }
 
@@ -501,6 +528,12 @@ export interface PlayerDashboardData {
   meta_fit: PlayerMetaFit[];
   build_signatures: PlayerBuildSignature[];
   role_matrix: PlayerRoleMatrix[];
+  position_coverage: {
+    verified_matches: number;
+    total_matches: number;
+    coverage_rate: number;
+    source: string;
+  };
   rank_history: RankHistoryEntry[];
   rolling_winrate: RollingWinrateEntry[];
   time_analysis: TimeEntry[];
@@ -509,6 +542,11 @@ export interface PlayerDashboardData {
     game_mode?: PlayerCountItem[];
     lobby_type?: PlayerCountItem[];
     lane_role?: PlayerCountItem[];
+    lane_role_summary?: {
+      known_games: number;
+      total_games: number;
+      coverage_rate: number;
+    };
   };
   coach: PlayerCoachPack;
   warnings: string[];

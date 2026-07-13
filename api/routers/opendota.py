@@ -123,10 +123,12 @@ def get_counts():
         "7": "Bot", "9": "Battle Cup",
     }
 
-    def format_counts(raw: dict, name_map: Optional[dict] = None):
+    def format_counts(raw: dict, name_map: Optional[dict] = None, valid_keys: Optional[set] = None):
         """Convert {id: {games, win}} to sorted list."""
         items = []
         for key, val in raw.items():
+            if valid_keys is not None and key not in valid_keys:
+                continue
             games = val.get("games", 0)
             wins = val.get("win", 0)
             if games == 0:
@@ -150,7 +152,7 @@ def get_counts():
         result["side"] = format_counts(data["is_radiant"], side_map)
     if "lane_role" in data:
         lane_map = {"1": "Safe Lane", "2": "Mid", "3": "Off Lane", "4": "Jungle"}
-        result["lane_role"] = format_counts(data["lane_role"], lane_map)
+        result["lane_role"] = format_counts(data["lane_role"], lane_map, set(lane_map))
     if "patch" in data:
         patches = format_counts(data["patch"])[:10]  # top 10 recent patches
         result["patch"] = patches
