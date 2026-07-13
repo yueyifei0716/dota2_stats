@@ -325,12 +325,14 @@ export interface PlayerMatch {
   party_size: number;
   lane_role: number;
   lane_role_name: string;
-  position_rank: number;
-  position_name: string;
   role_name: string;
-  role_source: "parsed" | "estimated" | "parsed+estimated" | "unknown";
+  role_source: "parsed" | "unknown";
   form_score: number;
   detail_available: boolean;
+  benchmark_available: boolean;
+  benchmarks: Record<string, { raw: number; pct: number }>;
+  replay_parsed: boolean;
+  evidence_level: "limited" | "verified" | "parsed";
   level: number;
   gold_per_min: number;
   xp_per_min: number;
@@ -356,6 +358,94 @@ export interface PlayerHeroStat {
   win_rate: number;
   avg_kda?: number;
   last_played?: string;
+}
+
+export interface PlayerMetaRole {
+  key: string;
+  label: string;
+}
+
+export interface PlayerMetaHero {
+  hero_id: number;
+  hero_name: string;
+  hero_icon: string;
+  role_key: string;
+  role_label: string;
+  matches: number;
+  wins: number;
+  win_rate: number;
+  meta_score: number;
+  contest_rate: number;
+  pro_pick: number;
+  pro_win: number;
+}
+
+export interface PlayerHeroMeta {
+  source: string;
+  roles: PlayerMetaRole[];
+  top: PlayerMetaHero[];
+  by_scope: Record<string, PlayerMetaHero[]>;
+}
+
+export interface GlobalMetaOverview {
+  source: string;
+  scope: string;
+  hero_meta: PlayerHeroMeta;
+  snapshot: {
+    heroes: number;
+    total_matches: number;
+    total_pro_picks: number;
+    top_contested_hero: string;
+    top_contested_rate: number;
+  };
+  role_leaders: Record<string, PlayerMetaHero[]>;
+  volume_leaders: PlayerMetaHero[];
+  pro_signal: PlayerMetaHero[];
+  high_confidence: PlayerMetaHero[];
+  warnings: string[];
+  updated_at: string;
+}
+
+export interface PlayerMetaFit {
+  hero_id: number;
+  hero_name: string;
+  hero_icon: string;
+  personal_games: number;
+  personal_win_rate: number;
+  meta_role: string;
+  meta_matches: number;
+  meta_win_rate: number;
+  meta_score: number;
+  gap: number;
+  verdict: string;
+}
+
+export interface PlayerBuildSignature {
+  hero_id: number;
+  hero_name: string;
+  hero_icon: string;
+  lane_role: number;
+  lane_role_name: string;
+  role_name: string;
+  games: number;
+  wins: number;
+  win_rate: number;
+  avg_kda: number;
+  items: { item_id: number; icon: string; count: number }[];
+}
+
+export interface PlayerRoleMatrix {
+  lane_role: number;
+  lane_role_name: string;
+  role_name: string;
+  games: number;
+  win_rate: number;
+  avg_kda: number;
+  avg_gpm: number;
+  avg_xpm: number;
+  avg_last_hits: number;
+  avg_damage: number;
+  top_hero: string;
 }
 
 export interface PlayerCountItem {
@@ -407,6 +497,10 @@ export interface PlayerDashboardData {
   recent_matches: PlayerMatch[];
   hero_pool: PlayerHeroStat[];
   lifetime_heroes: PlayerHeroStat[];
+  hero_meta: PlayerHeroMeta;
+  meta_fit: PlayerMetaFit[];
+  build_signatures: PlayerBuildSignature[];
+  role_matrix: PlayerRoleMatrix[];
   rank_history: RankHistoryEntry[];
   rolling_winrate: RollingWinrateEntry[];
   time_analysis: TimeEntry[];
@@ -417,6 +511,138 @@ export interface PlayerDashboardData {
     lane_role?: PlayerCountItem[];
   };
   coach: PlayerCoachPack;
+  warnings: string[];
+  data_stage: "quick" | "deep";
+  updated_at: string;
+}
+
+export interface MatchScorecardMetric {
+  key: string;
+  label: string;
+  unit: string;
+  value: number;
+  percentile: number;
+}
+
+export interface MatchScorecardEvidence {
+  key: string;
+  label: string;
+  status: "verified" | "parsed" | "unavailable";
+  detail: string;
+}
+
+export interface PlayerMatchScorecard {
+  match: {
+    match_id: string;
+    hero_id: number;
+    hero_name: string;
+    hero_icon: string;
+    win: boolean;
+    kills: number;
+    deaths: number;
+    assists: number;
+    kda: number;
+    duration_text: string;
+    played_at: string;
+    items: { item_id: number; icon: string }[];
+  };
+  metrics: MatchScorecardMetric[];
+  headline: string;
+  finding: string;
+  action: string;
+  evidence: MatchScorecardEvidence[];
+  replay_parsed: boolean;
+  source: string;
+  updated_at: string;
+}
+
+export interface CommercialPlan {
+  key: "founder" | "review" | "team";
+  name: string;
+  price: string;
+  checkout_configured: boolean;
+}
+
+export interface CommercialConfig {
+  plans: CommercialPlan[];
+  sales_contact: string;
+  sales_url: string;
+  discord_url: string;
+  webhook_configured: boolean;
+  access_code_configured: boolean;
+}
+
+export interface CommercialLeadPayload {
+  account_id?: number;
+  plan: string;
+  contact: string;
+  role?: string;
+  goal?: string;
+  source?: string;
+}
+
+export interface CommercialLeadResponse {
+  ok: boolean;
+  plan: string;
+  lead_delivered: boolean;
+  checkout_url: string;
+  next_step: "checkout" | "manual_contact";
+}
+
+export interface CommercialAccessResponse {
+  ok: boolean;
+  account_id?: number;
+  access_token: string;
+  expires_at: number;
+  plan: string;
+  ttl_seconds: number;
+}
+
+export interface CommercialAccessVerifyResponse {
+  ok: boolean;
+  account_id?: number;
+  plan: string;
+  expires_at: number;
+}
+
+export interface PlayerReviewSection {
+  title: string;
+  finding: string;
+  evidence: string;
+  action: string;
+}
+
+export interface PlayerReviewPlanStep {
+  day: string;
+  focus: string;
+  task: string;
+  metric: string;
+}
+
+export interface PlayerReviewMatch {
+  match_id: string;
+  hero: string;
+  reason: string;
+}
+
+export interface PlayerReview {
+  headline: string;
+  score: number;
+  summary: string;
+  sections: PlayerReviewSection[];
+  weekly_plan: PlayerReviewPlanStep[];
+  priority_matches: PlayerReviewMatch[];
+  model_note: string;
+}
+
+export interface PlayerReviewResponse {
+  locked: boolean;
+  source: "deterministic_preview" | "deterministic_fallback" | "deepseek" | string;
+  review: PlayerReview;
+  paywall?: {
+    title: string;
+    detail: string;
+  };
   warnings: string[];
   updated_at: string;
 }

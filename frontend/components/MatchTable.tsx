@@ -59,7 +59,7 @@ export default function MatchTable({ allHeroes }: { allHeroes: HeroFilter[] }) {
           value={roleFilter ?? ""}
           onChange={(e) => setRoleFilter(e.target.value ? Number(e.target.value) : undefined)}
         >
-          <option value="">全部位置</option>
+          <option value="">全部分路</option>
           {Object.entries(ROLE_NAMES).map(([k, v]) => (
             <option key={k} value={k}>{v}</option>
           ))}
@@ -80,7 +80,7 @@ export default function MatchTable({ allHeroes }: { allHeroes: HeroFilter[] }) {
                 <th className="text-left py-2 px-2">英雄</th>
                 <th className="text-center py-2 px-2">结果</th>
                 <th className="text-center py-2 px-2">KDA</th>
-                <th className="text-center py-2 px-2">位置</th>
+                <th className="text-center py-2 px-2">分路</th>
                 <th className="text-center py-2 px-2">影响力</th>
                 <th className="text-center py-2 px-2">时长</th>
                 <th className="text-center py-2 px-2">物品</th>

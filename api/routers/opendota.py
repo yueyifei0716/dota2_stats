@@ -4,7 +4,7 @@ import time
 from typing import DefaultDict, Dict, Optional
 
 import requests
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 router = APIRouter()
 
@@ -60,11 +60,11 @@ def _normalize_ward_data(raw: dict) -> list:
 
 
 @router.get("/wardmap")
-def get_wardmap():
-    """Get ward placement data for the player, coordinates normalized to 0-1."""
+def get_wardmap(account_id: int = Query(STEAM_ID, ge=1)):
+    """Get ward placement data for a player, coordinates normalized to 0-1."""
     data = _cached_get(
-        "wardmap",
-        f"{BASE_URL}/players/{STEAM_ID}/wardmap",
+        f"wardmap_{account_id}",
+        f"{BASE_URL}/players/{account_id}/wardmap",
     )
     if not data:
         return {"obs": [], "sen": []}
@@ -160,7 +160,7 @@ def get_counts():
 
 # ── 4. Hero Item Popularity ──
 
-ROLE_NAMES = {1: "Pos 1", 2: "Pos 2", 3: "Pos 3", 4: "Pos 4", 5: "Pos 5"}
+ROLE_NAMES = {1: "优势路", 2: "中路", 3: "劣势路", 4: "打野"}
 
 
 @router.get("/hero_items/{hero_id}")
