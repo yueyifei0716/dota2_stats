@@ -1,5 +1,6 @@
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+import os
 import time
 from unittest.mock import patch
 
@@ -9,12 +10,21 @@ from routers.players import (
     _cached_stratz_player_matches,
     _position_meta_fit,
     _role_matrix,
+    _stratz_graphql,
     _stratz_meta_snapshot,
     meta_overview,
 )
 
 
 class PlayerPositionTests(unittest.TestCase):
+    def test_snapshot_runtime_skips_ip_locked_stratz_requests(self):
+        with patch.dict(os.environ, {"STRATZ_RUNTIME_MODE": "snapshot", "STRATZ_API_TOKEN": "configured"}):
+            data, status, warning = _stratz_graphql("query { constants { gameVersions { id } } }")
+
+        self.assertIsNone(data)
+        self.assertEqual(status, "unavailable")
+        self.assertIsNone(warning)
+
     def test_verified_weekly_meta_snapshot_is_complete(self):
         snapshot = _stratz_meta_snapshot()
 

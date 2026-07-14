@@ -153,6 +153,8 @@ def _last_completed_week_timestamp(now: Optional[datetime] = None) -> int:
 
 
 def _stratz_graphql(query: str, timeout: int = 25) -> Tuple[Any, str, Optional[str]]:
+    if os.getenv("STRATZ_RUNTIME_MODE", "live").strip().lower() == "snapshot":
+        return None, "unavailable", None
     token = os.getenv("STRATZ_API_TOKEN", "").strip()
     if not token:
         return None, "not_configured", "STRATZ_API_TOKEN is not configured"

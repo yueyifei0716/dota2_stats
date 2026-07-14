@@ -56,7 +56,7 @@ cd ..
 cp .env.example .env
 ```
 
-`OPENDOTA_API_KEY` 是可选项；不填也能用公共 OpenDota API，但限流更低。`STRATZ_API_TOKEN` 用于五位置 Meta、个人真实位置、IMP 与比赛奖项；STRATZ Token 限制为单一出口 IP，因此 Serverless 生产环境必须配置固定出口，未配置时全局 Meta 使用验证周快照，个人位置字段明确不可用且不回退到推断。Notion 变量只影响旧的数据抓取、MMR 和比赛笔记能力。
+`OPENDOTA_API_KEY` 是可选项；不填也能用公共 OpenDota API，但限流更低。`STRATZ_API_TOKEN` 用于五位置 Meta、个人真实位置、IMP 与比赛奖项；STRATZ Token 限制为单一出口 IP，因此 Serverless 生产环境必须配置固定出口，或设置 `STRATZ_RUNTIME_MODE=snapshot` 使用验证周快照。快照模式下个人位置字段明确不可用且不回退到推断。Notion 变量只影响旧的数据抓取、MMR 和比赛笔记能力。
 
 ### 商业化配置
 
