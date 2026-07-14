@@ -4,7 +4,7 @@ import time
 from typing import DefaultDict, Dict, Optional
 
 import requests
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 router = APIRouter()
 
@@ -60,11 +60,11 @@ def _normalize_ward_data(raw: dict) -> list:
 
 
 @router.get("/wardmap")
-def get_wardmap():
-    """Get ward placement data for the player, coordinates normalized to 0-1."""
+def get_wardmap(account_id: int = Query(STEAM_ID, ge=1)):
+    """Get ward placement data for a player, coordinates normalized to 0-1."""
     data = _cached_get(
-        "wardmap",
-        f"{BASE_URL}/players/{STEAM_ID}/wardmap",
+        f"wardmap_{account_id}",
+        f"{BASE_URL}/players/{account_id}/wardmap",
     )
     if not data:
         return {"obs": [], "sen": []}
@@ -123,10 +123,12 @@ def get_counts():
         "7": "Bot", "9": "Battle Cup",
     }
 
-    def format_counts(raw: dict, name_map: Optional[dict] = None):
+    def format_counts(raw: dict, name_map: Optional[dict] = None, valid_keys: Optional[set] = None):
         """Convert {id: {games, win}} to sorted list."""
         items = []
         for key, val in raw.items():
+            if valid_keys is not None and key not in valid_keys:
+                continue
             games = val.get("games", 0)
             wins = val.get("win", 0)
             if games == 0:
@@ -150,7 +152,7 @@ def get_counts():
         result["side"] = format_counts(data["is_radiant"], side_map)
     if "lane_role" in data:
         lane_map = {"1": "Safe Lane", "2": "Mid", "3": "Off Lane", "4": "Jungle"}
-        result["lane_role"] = format_counts(data["lane_role"], lane_map)
+        result["lane_role"] = format_counts(data["lane_role"], lane_map, set(lane_map))
     if "patch" in data:
         patches = format_counts(data["patch"])[:10]  # top 10 recent patches
         result["patch"] = patches
@@ -160,7 +162,7 @@ def get_counts():
 
 # ── 4. Hero Item Popularity ──
 
-ROLE_NAMES = {1: "Pos 1", 2: "Pos 2", 3: "Pos 3", 4: "Pos 4", 5: "Pos 5"}
+ROLE_NAMES = {1: "优势路", 2: "中路", 3: "劣势路", 4: "打野"}
 
 
 @router.get("/hero_items/{hero_id}")

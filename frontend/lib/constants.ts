@@ -11,11 +11,10 @@ export const RANK_TIERS: Record<number, string> = {
 };
 
 export const ROLE_NAMES: Record<number, string> = {
-  1: "Pos 1 (核心)",
-  2: "Pos 2 (中路)",
-  3: "Pos 3 (劣势路)",
-  4: "Pos 4 (辅助)",
-  5: "Pos 5 (纯辅助)",
+  1: "优势路",
+  2: "中路",
+  3: "劣势路",
+  4: "打野",
 };
 
 export function formatDuration(seconds: number): string {

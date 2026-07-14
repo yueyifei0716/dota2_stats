@@ -1,7 +1,26 @@
 "use client";
 
 import type { FormEvent, ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { LucideIcon } from "lucide-react";
+import {
+  Activity,
+  BookOpen,
+  Check,
+  Circle,
+  Crown,
+  LayoutDashboard,
+  ListFilter,
+  LoaderCircle,
+  RotateCcw,
+  Search,
+  Share2,
+  ShieldCheck,
+  SlidersHorizontal,
+  Swords,
+  Target,
+  TrendingUp,
+} from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -15,11 +34,73 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { getPlayerDashboard, searchPlayers } from "@/lib/api";
-import type { PlayerDashboardData, PlayerHeroStat, PlayerMatch, PlayerSearchResult } from "@/lib/types";
+import {
+  createCommercialLead,
+  getCommercialConfig,
+  getMetaOverview,
+  getPlayerDashboard,
+  getPlayerMatchScorecard,
+  getPlayerQuickDashboard,
+  getPlayerReview,
+  getPlayerReviewPreview,
+  searchPlayers,
+  unlockCommercialAccess,
+  verifyCommercialAccess,
+} from "@/lib/api";
+import type {
+  CommercialConfig,
+  GlobalMetaOverview,
+  PlayerDashboardData,
+  PlayerHeroStat,
+  PlayerMatch,
+  PlayerMatchScorecard,
+  PlayerMetaHero,
+  PlayerReview,
+  PlayerReviewResponse,
+  PlayerSearchResult,
+} from "@/lib/types";
+import WardMap from "@/components/WardMap";
 
 const DEFAULT_ACCOUNT_ID = "894447460";
 const STORAGE_KEY = "dota2-dashboard-account-id";
+const PRO_ACCESS_STORAGE_PREFIX = "dota2-pro-access-token";
+
+type AppTab = "today" | "lab" | "pool" | "meta" | "progress";
+
+const APP_TABS: { key: AppTab; label: string; detail: string; icon: LucideIcon }[] = [
+  { key: "today", label: "Overview", detail: "个人总览", icon: LayoutDashboard },
+  { key: "lab", label: "Matches", detail: "比赛与复盘", icon: Swords },
+  { key: "pool", label: "Heroes", detail: "英雄与视野", icon: BookOpen },
+  { key: "meta", label: "Meta", detail: "全局环境", icon: Activity },
+  { key: "progress", label: "Progress", detail: "训练进度", icon: TrendingUp },
+];
+
+const COMMERCIAL_OFFERS = [
+  {
+    key: "founder",
+    title: "Founder Pro",
+    price: "¥19/月",
+    buyer: "认真冲分玩家",
+    promise: "每周一份个人复盘、英雄池建议和下一组排位计划。",
+    accent: "gold",
+  },
+  {
+    key: "review",
+    title: "单次复盘",
+    price: "¥49/次",
+    buyer: "想先验证价值",
+    promise: "选择 3-5 场关键比赛，输出死亡、节奏、出装和分路问题。",
+    accent: "cyan",
+  },
+  {
+    key: "team",
+    title: "战队空间",
+    price: "¥199/月",
+    buyer: "五排/高校队/小队",
+    promise: "追踪多个账号、常用阵容、队友组合和赛前 BP 建议。",
+    accent: "green",
+  },
+] as const;
 
 function initialAccountId() {
   if (typeof window === "undefined") return DEFAULT_ACCOUNT_ID;
@@ -38,6 +119,20 @@ function signed(value: number, suffix = "") {
   return `${prefix}${value}${suffix}`;
 }
 
+function stratzAwardLabel(award: string) {
+  return {
+    MVP: "MVP",
+    TOP_CORE: "最佳核心",
+    TOP_SUPPORT: "最佳辅助",
+  }[award] || "";
+}
+
+function compactNumber(value: number) {
+  if (!value) return "-";
+  if (value >= 1000) return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}k`;
+  return String(value);
+}
+
 function toneClasses(tone: "gold" | "green" | "red" | "cyan") {
   return {
     gold: "border-yellow-300/25 bg-yellow-300/10 text-yellow-200",
@@ -47,36 +142,83 @@ function toneClasses(tone: "gold" | "green" | "red" | "cyan") {
   }[tone];
 }
 
+function checkoutConfigured(config: CommercialConfig | null, planKey: string) {
+  return Boolean(config?.plans.find((plan) => plan.key === planKey)?.checkout_configured);
+}
+
 function ProductNav({
   data,
   copied,
   onCopyProfile,
+  onOpenPro,
 }: {
   data: PlayerDashboardData | null;
   copied: boolean;
   onCopyProfile: () => void;
+  onOpenPro: () => void;
 }) {
   return (
     <header className="product-nav">
-      <div>
-        <div className="text-xs font-black uppercase tracking-[0.28em] text-yellow-300">DotaSense</div>
-        <div className="mt-1 text-sm text-stone-400">Personal ranked intelligence</div>
+      <div className="flex items-center gap-3">
+        <div className="product-mark">DS</div>
+        <div>
+          <div className="text-sm font-black uppercase text-yellow-300">DotaSense</div>
+          <div className="product-tagline text-xs text-stone-500">Player intelligence</div>
+        </div>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-stone-400">Free Scout</span>
+      <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={onCopyProfile}
           disabled={!data}
-          className="rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs font-bold text-stone-100 transition hover:border-cyan-300/50 disabled:opacity-50"
+          className="icon-command"
+          aria-label={copied ? "公开页链接已复制" : "复制公开页链接"}
+          title={copied ? "已复制" : "分享公开页"}
         >
-          {copied ? "已复制公开页" : "分享公开页"}
+          <Share2 size={15} aria-hidden="true" />
         </button>
-        <button type="button" className="rounded-lg border border-yellow-300/40 bg-yellow-300 px-3 py-2 text-xs font-black text-stone-950">
-          Pro
+        <button
+          type="button"
+          onClick={onOpenPro}
+          className="pro-command"
+        >
+          <Crown size={15} aria-hidden="true" />
+          升级 Pro
         </button>
       </div>
     </header>
+  );
+}
+
+function WorkspaceTabs({
+  activeTab,
+  onChange,
+  data,
+}: {
+  activeTab: AppTab;
+  onChange: (tab: AppTab) => void;
+  data: PlayerDashboardData | null;
+}) {
+  return (
+    <nav className="workspace-tabs" aria-label="DotaSense sections">
+      {APP_TABS.map((tab) => {
+        const Icon = tab.icon;
+        const active = activeTab === tab.key;
+        const disabled = !data && (tab.key === "lab" || tab.key === "pool" || tab.key === "progress");
+        return (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => onChange(tab.key)}
+            disabled={disabled}
+            className={`workspace-tab ${active ? "workspace-tab-active" : ""}`}
+            aria-current={active ? "page" : undefined}
+          >
+            <span className="flex items-center gap-2 text-sm font-black"><Icon size={16} aria-hidden="true" />{tab.label}</span>
+          </button>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -107,8 +249,61 @@ function MetricCard({
   );
 }
 
-function ProfileHeader({
-  data,
+function ProfileHeader({ data, deepLoading }: { data: PlayerDashboardData | null; deepLoading: boolean }) {
+  const profile = data?.profile;
+  const summary = data?.summary;
+  const topHero = data?.hero_pool[0];
+  const trend = summary?.trend.win_rate_diff || 0;
+  return (
+    <section className="player-command-bar" aria-label="玩家近期决策摘要">
+      <div className="player-identity-compact">
+        <div className="flex min-w-0 items-center gap-3">
+          {profile?.avatar ? (
+            <img src={profile.avatar} alt="" className="player-avatar-compact" />
+          ) : (
+            <div className="player-avatar-compact bg-white/10" />
+          )}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase text-cyan-300">
+              <ShieldCheck size={12} aria-hidden="true" />
+              Player overview
+            </div>
+            <h1 className="truncate text-xl font-black text-stone-50">{profile?.username || "Dota 2 Dashboard"}</h1>
+            <div className="mt-1 truncate text-[11px] text-stone-500 tabular-nums">
+              {profile ? `${profile.total_games} 场生涯 · ${profile.lifetime_win_rate}% · ID ${profile.account_id}` : `ID ${DEFAULT_ACCOUNT_ID}`}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="player-kpi-strip" aria-label="近期关键指标">
+        <div><span>近期胜率</span><strong className="text-green-300">{summary ? `${summary.win_rate}%` : "-"}</strong><small>{summary?.games || 0} 场样本</small></div>
+        <div><span>胜率趋势</span><strong className={numberClass(trend)}>{summary ? signed(trend, "pp") : "-"}</strong><small>较前一窗口</small></div>
+        <div><span>平均 KDA</span><strong>{summary?.avg_kda ?? "-"}</strong><small>{summary ? `${summary.avg_kills}/${summary.avg_deaths}/${summary.avg_assists}` : "-"}</small></div>
+        <div><span>平均死亡</span><strong className="text-red-300">{summary?.avg_deaths ?? "-"}</strong><small>{summary?.streak.label || "-"}</small></div>
+        <div className="player-top-hero">
+          <span>近期主力</span>
+          <strong>{topHero?.hero_name || "-"}</strong>
+          <small>{topHero ? `${topHero.games} 场 · ${topHero.win_rate}%` : "等待比赛"}</small>
+        </div>
+      </div>
+
+      <div className="player-rank-compact">
+        {profile?.rank_icon ? <img src={profile.rank_icon} alt="" /> : <div className="player-rank-placeholder" />}
+        <div>
+          <span>当前段位</span>
+          <strong>{profile?.rank_name || "未校准"}</strong>
+          <small className="flex items-center gap-1">
+            {deepLoading ? <LoaderCircle size={11} className="animate-spin" aria-hidden="true" /> : <Check size={11} aria-hidden="true" />}
+            {deepLoading ? "补全详情" : `${data?.recent_matches.length || 0} 场已载入`}
+          </small>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CommandSearch({
   query,
   setQuery,
   limit,
@@ -116,7 +311,6 @@ function ProfileHeader({
   loading,
   onSubmit,
 }: {
-  data: PlayerDashboardData | null;
   query: string;
   setQuery: (value: string) => void;
   limit: number;
@@ -124,56 +318,32 @@ function ProfileHeader({
   loading: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
-  const profile = data?.profile;
   return (
-    <div className="card overflow-hidden">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-        <div className="flex items-center gap-4">
-          {profile?.avatar ? (
-            <img src={profile.avatar} alt="" className="h-16 w-16 rounded-lg border border-white/10 object-cover" />
-          ) : (
-            <div className="h-16 w-16 rounded-lg border border-white/10 bg-white/10" />
-          )}
-          <div>
-            <div className="text-xs uppercase text-stone-400">OpenDota account</div>
-            <h1 className="mt-1 text-3xl font-black text-stone-50">{profile?.username || "Dota 2 Dashboard"}</h1>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-stone-400">
-              <span className="rounded border border-white/10 bg-white/5 px-2 py-1 tabular-nums">ID {profile?.account_id || DEFAULT_ACCOUNT_ID}</span>
-              <span className="rounded border border-yellow-300/20 bg-yellow-300/10 px-2 py-1 text-yellow-200">{profile?.rank_name || "未校准"}</span>
-              {profile?.leaderboard_rank && (
-                <span className="rounded border border-cyan-300/20 bg-cyan-300/10 px-2 py-1 text-cyan-200">
-                  #{profile.leaderboard_rank}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <form onSubmit={onSubmit} className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
-          <input
-            className="h-11 min-w-0 rounded-lg border border-white/15 bg-black/25 px-3 text-sm text-stone-100 outline-none transition focus:border-yellow-300/70"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="account_id 或玩家名"
-          />
-          <select
-            className="h-11 rounded-lg border border-white/15 bg-black/25 px-3 text-sm text-stone-100 outline-none"
-            value={limit}
-            onChange={(event) => setLimit(Number(event.target.value))}
-          >
-            <option value={30}>最近 30 场</option>
-            <option value={50}>最近 50 场</option>
-            <option value={80}>最近 80 场</option>
-          </select>
-          <button
-            className="h-11 rounded-lg border border-yellow-300/30 bg-yellow-300 px-4 text-sm font-black text-stone-950 transition hover:bg-yellow-200 disabled:opacity-60"
-            disabled={loading}
-          >
-            {loading ? "加载中" : "查看"}
-          </button>
-        </form>
+    <form onSubmit={onSubmit} className="command-search">
+      <div className="command-search-input">
+        <Search size={18} className="shrink-0 text-stone-500" aria-hidden="true" />
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search players or account id"
+          className="min-w-0 flex-1 bg-transparent text-sm font-bold text-stone-100 outline-none placeholder:text-stone-500"
+        />
       </div>
-    </div>
+      <select
+        className="command-select"
+        value={limit}
+        onChange={(event) => setLimit(Number(event.target.value))}
+        aria-label="Match sample size"
+      >
+        <option value={30}>30</option>
+        <option value={50}>50</option>
+        <option value={80}>80</option>
+      </select>
+      <button className="command-submit inline-flex items-center justify-center gap-2" disabled={loading}>
+        {loading && <LoaderCircle size={16} className="animate-spin" aria-hidden="true" />}
+        {loading ? "加载中" : "查看"}
+      </button>
+    </form>
   );
 }
 
@@ -199,6 +369,592 @@ function SearchResults({ results, onPick }: { results: PlayerSearchResult[]; onP
         ))}
       </div>
     </div>
+  );
+}
+
+type MatchExplorerFilters = {
+  hero: string;
+  position: string;
+  result: string;
+  side: string;
+  mode: string;
+  lobby: string;
+  party: string;
+  range: string;
+};
+
+const DEFAULT_MATCH_FILTERS: MatchExplorerFilters = {
+  hero: "all",
+  position: "all",
+  result: "all",
+  side: "all",
+  mode: "all",
+  lobby: "all",
+  party: "all",
+  range: "all",
+};
+
+function ExplorerSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="explorer-filter">
+      <span>{label}</span>
+      <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}>
+        {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+      </select>
+    </label>
+  );
+}
+
+function PlayerDataExplorer({ data, equipmentLoading, onOpenMatches }: { data: PlayerDashboardData; equipmentLoading: boolean; onOpenMatches: () => void }) {
+  const [filters, setFilters] = useState<MatchExplorerFilters>(DEFAULT_MATCH_FILTERS);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
+  const heroOptions = useMemo(() => {
+    const heroes = new Map<number, string>();
+    data.recent_matches.forEach((match) => heroes.set(match.hero_id, match.hero_name));
+    return Array.from(heroes, ([value, label]) => ({ value: String(value), label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "zh-CN"));
+  }, [data.recent_matches]);
+
+  const modeOptions = useMemo(
+    () => Array.from(new Set(data.recent_matches.map((match) => match.game_mode))).sort().map((label) => ({ value: label, label })),
+    [data.recent_matches],
+  );
+  const lobbyOptions = useMemo(
+    () => Array.from(new Set(data.recent_matches.map((match) => match.lobby_type))).sort().map((label) => ({ value: label, label })),
+    [data.recent_matches],
+  );
+
+  const filteredMatches = useMemo(() => {
+    const latestMatchTime = Math.max(...data.recent_matches.map((match) => match.start_time), 0) * 1000;
+    const dayMs = 24 * 60 * 60 * 1000;
+    return data.recent_matches.filter((match) => {
+      if (filters.hero !== "all" && String(match.hero_id) !== filters.hero) return false;
+      if (filters.position !== "all" && match.position_key !== filters.position) return false;
+      if (filters.result === "win" && !match.win) return false;
+      if (filters.result === "loss" && match.win) return false;
+      if (filters.side !== "all" && match.side !== filters.side) return false;
+      if (filters.mode !== "all" && match.game_mode !== filters.mode) return false;
+      if (filters.lobby !== "all" && match.lobby_type !== filters.lobby) return false;
+      if (filters.party === "solo" && match.party_size !== 1) return false;
+      if (filters.party === "party" && match.party_size <= 1) return false;
+      if (filters.range !== "all" && match.start_time * 1000 < latestMatchTime - Number(filters.range) * dayMs) return false;
+      return true;
+    });
+  }, [data.recent_matches, filters]);
+
+  const detailMatches = filteredMatches.filter((match) => match.detail_available);
+  const wins = filteredMatches.filter((match) => match.win).length;
+  const activeFilterCount = Object.values(filters).filter((value) => value !== "all").length;
+  const advancedFilterCount = [filters.side, filters.mode, filters.lobby, filters.party].filter((value) => value !== "all").length;
+
+  function pair(matches: PlayerMatch[], getter: (match: PlayerMatch) => number, digits = 0) {
+    if (!matches.length) return { average: "-", maximum: "-" };
+    const values = matches.map(getter);
+    const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+    return { average: average.toFixed(digits), maximum: Math.max(...values).toFixed(digits) };
+  }
+
+  const deaths = pair(filteredMatches, (match) => match.deaths, 1);
+  const kda = pair(filteredMatches, (match) => match.kda, 2);
+  const gpm = pair(detailMatches, (match) => match.gold_per_min);
+  const impMatches = filteredMatches.filter((match) => match.stratz_imp !== null);
+  const imp = pair(impMatches, (match) => match.stratz_imp || 0, 1);
+  const heroDamage = pair(detailMatches, (match) => match.hero_damage);
+  const metrics = [
+    { label: "筛选胜率", average: filteredMatches.length ? `${Math.round(wins / filteredMatches.length * 100)}%` : "-", detail: `${wins}胜 ${filteredMatches.length - wins}负`, tone: "green" },
+    { label: "平均 KDA", average: kda.average, detail: kda.maximum === "-" ? "-" : `峰值 ${kda.maximum}`, tone: "gold" },
+    { label: "平均死亡", average: deaths.average, detail: deaths.maximum === "-" ? "-" : `峰值 ${deaths.maximum}`, tone: "red" },
+    { label: "平均 GPM", average: gpm.average, detail: gpm.maximum === "-" ? `${detailMatches.length} 场详情` : `峰值 ${gpm.maximum}`, tone: "gold" },
+    { label: "平均 IMP", average: imp.average, detail: `${impMatches.length} 场 STRATZ 评分`, tone: "cyan" },
+    { label: "平均伤害", average: heroDamage.average === "-" ? "-" : compactNumber(Number(heroDamage.average)), detail: heroDamage.maximum === "-" ? `${detailMatches.length} 场详情` : `峰值 ${compactNumber(Number(heroDamage.maximum))}`, tone: "red" },
+  ];
+
+  const updateFilter = (key: keyof MatchExplorerFilters, value: string) => {
+    setFilters((current) => ({ ...current, [key]: value }));
+  };
+
+  return (
+    <>
+      <section className="data-explorer" aria-label="个人比赛筛选与统计">
+        <div className="data-explorer-header">
+          <div className="flex min-w-0 items-center gap-2">
+            <ListFilter size={15} className="shrink-0 text-cyan-300" aria-hidden="true" />
+            <h2>筛选比赛</h2>
+            <span className="explorer-depth-note">{data.data_stage === "quick" ? "位置校验中" : `${data.position_coverage.verified_matches} 场真实位置`}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="explorer-result-count">{filteredMatches.length}/{data.recent_matches.length} 场</span>
+            <button type="button" className="explorer-reset" onClick={() => setFilters(DEFAULT_MATCH_FILTERS)} disabled={!activeFilterCount} aria-label="重置筛选" title="重置筛选">
+              <RotateCcw size={15} aria-hidden="true" />
+              <span>重置</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="explorer-filter-toolbar">
+          <div className="explorer-filters explorer-filters-primary">
+            <ExplorerSelect label="英雄" value={filters.hero} onChange={(value) => updateFilter("hero", value)} options={[{ value: "all", label: "全部英雄" }, ...heroOptions]} />
+            <ExplorerSelect label="位置" value={filters.position} onChange={(value) => updateFilter("position", value)} options={[{ value: "all", label: "全部位置" }, { value: "pos1", label: "1号位 核心" }, { value: "pos2", label: "2号位 中单" }, { value: "pos3", label: "3号位 劣势路" }, { value: "pos4", label: "4号位 游走" }, { value: "pos5", label: "5号位 硬辅" }]} />
+            <ExplorerSelect label="结果" value={filters.result} onChange={(value) => updateFilter("result", value)} options={[{ value: "all", label: "全部结果" }, { value: "win", label: "胜利" }, { value: "loss", label: "失败" }]} />
+            <ExplorerSelect label="日期" value={filters.range} onChange={(value) => updateFilter("range", value)} options={[{ value: "all", label: "全部日期" }, { value: "7", label: "最近 7 天" }, { value: "30", label: "最近 30 天" }, { value: "90", label: "最近 90 天" }]} />
+          </div>
+          <button type="button" className={`explorer-more ${showAdvancedFilters || advancedFilterCount ? "explorer-more-active" : ""}`} onClick={() => setShowAdvancedFilters((current) => !current)} aria-expanded={showAdvancedFilters}>
+            <SlidersHorizontal size={15} aria-hidden="true" />
+            <span>更多</span>
+            {advancedFilterCount > 0 && <b>{advancedFilterCount}</b>}
+          </button>
+        </div>
+        {showAdvancedFilters && (
+          <div className="explorer-filters explorer-filters-advanced">
+            <ExplorerSelect label="阵营" value={filters.side} onChange={(value) => updateFilter("side", value)} options={[{ value: "all", label: "全部阵营" }, { value: "Radiant", label: "Radiant" }, { value: "Dire", label: "Dire" }]} />
+            <ExplorerSelect label="模式" value={filters.mode} onChange={(value) => updateFilter("mode", value)} options={[{ value: "all", label: "全部模式" }, ...modeOptions]} />
+            <ExplorerSelect label="匹配类型" value={filters.lobby} onChange={(value) => updateFilter("lobby", value)} options={[{ value: "all", label: "全部匹配" }, ...lobbyOptions]} />
+            <ExplorerSelect label="组队" value={filters.party} onChange={(value) => updateFilter("party", value)} options={[{ value: "all", label: "全部队列" }, { value: "solo", label: "单排" }, { value: "party", label: "组排" }]} />
+          </div>
+        )}
+
+        <div className="explorer-metrics">
+          {metrics.map((metric) => (
+            <div key={metric.label} className={`explorer-metric explorer-metric-${metric.tone}`}>
+              <span>{metric.label}</span>
+              <strong>{metric.average}</strong>
+              <small>{metric.detail}</small>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {filteredMatches.length ? (
+        <MatchHistoryList matches={filteredMatches} limit={8} equipmentLoading={equipmentLoading} onOpenAll={onOpenMatches} />
+      ) : (
+        <div className="card explorer-empty">
+          <div><strong>没有符合条件的比赛</strong><span>当前已加载 {data.recent_matches.length} 场公开比赛。</span></div>
+          <button type="button" onClick={() => setFilters(DEFAULT_MATCH_FILTERS)}>清除筛选</button>
+        </div>
+      )}
+    </>
+  );
+}
+
+function GlobalHeroRow({ hero, rank }: { hero: PlayerMetaHero; rank: number }) {
+  return (
+    <tr className="meta-table-row">
+      <td>
+        <div className="flex items-center gap-2">
+          <span className="meta-rank">{rank}</span>
+          {hero.hero_icon && <img src={hero.hero_icon} alt="" className="h-8 w-8 rounded object-cover" />}
+          <span>
+            <span className="block font-black text-stone-100">{hero.hero_name}</span>
+            <span className="text-[10px] text-stone-500">{hero.role_label}</span>
+          </span>
+        </div>
+      </td>
+      <td className={`font-black tabular-nums ${hero.win_rate >= 52 ? "text-green-300" : "text-stone-300"}`}>
+        {hero.win_rate}%
+      </td>
+      <td className="font-black tabular-nums text-yellow-300">{hero.meta_score}%</td>
+      <td className="tabular-nums text-stone-300">{compactNumber(hero.matches)}</td>
+      <td className="tabular-nums text-cyan-200">{hero.contest_rate}%</td>
+    </tr>
+  );
+}
+
+function GlobalMetaDashboard({
+  meta,
+  loading,
+  error,
+}: {
+  meta: GlobalMetaOverview | null;
+  loading: boolean;
+  error: string;
+}) {
+  const [roleKey, setRoleKey] = useState("pos1");
+  const [heroQuery, setHeroQuery] = useState("");
+  const [sortKey, setSortKey] = useState<"score" | "winrate" | "samples">("score");
+  const roles = meta?.hero_meta.roles.length ? meta.hero_meta.roles : [
+    { key: "pos1", label: "1号位 核心" },
+    { key: "pos2", label: "2号位 中单" },
+    { key: "pos3", label: "3号位 劣势路" },
+    { key: "pos4", label: "4号位 游走" },
+    { key: "pos5", label: "5号位 硬辅" },
+  ];
+  const activeRoleKey = roles.some((role) => role.key === roleKey) ? roleKey : roles[0].key;
+  const activeHeroes = meta?.hero_meta.by_scope[activeRoleKey] || [];
+  const positionSamples = activeHeroes.reduce((sum, hero) => sum + hero.matches, 0);
+  const minimumSample = Math.max(100, Math.ceil(positionSamples * 0.001));
+  const qualifiedHeroes = activeHeroes.filter((hero) => hero.matches >= minimumSample);
+  const searchTerm = heroQuery.trim().toLowerCase();
+  const filteredHeroes = (searchTerm ? activeHeroes : qualifiedHeroes)
+    .filter((hero) => hero.hero_name.toLowerCase().includes(searchTerm))
+    .sort((left, right) => {
+      if (sortKey === "winrate") return right.win_rate - left.win_rate || right.matches - left.matches;
+      if (sortKey === "samples") return right.matches - left.matches || right.meta_score - left.meta_score;
+      return right.meta_score - left.meta_score || right.matches - left.matches;
+  });
+  const activeRole = roles.find((role) => role.key === activeRoleKey);
+  const volumeLeader = [...activeHeroes].sort((left, right) => right.matches - left.matches)[0];
+  const scoreLeader = [...qualifiedHeroes].sort((left, right) => right.meta_score - left.meta_score)[0];
+  const hasMetaData = Boolean(meta?.available && activeHeroes.length);
+
+  return (
+    <section id="global-meta" className="meta-workspace">
+      <div className="meta-toolbar">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase text-cyan-300">Ranked roles meta</div>
+          <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h1>五位置英雄 Meta</h1>
+            <span>{meta?.source || "STRATZ GraphQL heroStats"}</span>
+          </div>
+        </div>
+        <div className="meta-role-tabs" aria-label="位置选择">
+          {roles.map((role) => (
+            <button
+              key={role.key}
+              type="button"
+              onClick={() => setRoleKey(role.key)}
+              className={activeRoleKey === role.key ? "active" : ""}
+            >
+              {role.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {error && !meta && <div className="meta-state text-red-200">{error}</div>}
+      {loading && !meta && <div className="meta-state text-stone-400">正在加载五位置英雄样本...</div>}
+
+      {meta && !meta.available && (
+        <div className="meta-state meta-data-boundary">
+          <strong>五位置数据暂时不可用</strong>
+          <span>已停止展示基于分路、经济或补刀数据推断的位置排名。</span>
+        </div>
+      )}
+
+      {meta?.available && !activeHeroes.length && (
+        <div className="meta-state meta-data-boundary">
+          <strong>{activeRole?.label || "当前位置"}暂无有效样本</strong>
+          <span>该位置不会使用其他分路数据补齐。</span>
+        </div>
+      )}
+
+      {meta && hasMetaData && (
+        <>
+          <div className="meta-snapshot-strip">
+            <div><span>当前位置</span><strong>{activeRole?.label || "-"}</strong></div>
+            <div><span>达标英雄</span><strong>{qualifiedHeroes.length}</strong><small>共 {activeHeroes.length}</small></div>
+            <div><span>位置样本</span><strong>{compactNumber(positionSamples)}</strong></div>
+            <div><span>最大样本</span><strong>{volumeLeader?.hero_name || "-"}</strong><small>{volumeLeader ? compactNumber(volumeLeader.matches) : "-"}</small></div>
+            <div><span>校准胜率首位</span><strong>{scoreLeader?.hero_name || "-"}</strong><small>{scoreLeader ? `${scoreLeader.meta_score}%` : "-"}</small></div>
+          </div>
+
+          <div className="meta-table-toolbar">
+            <div className="meta-sort-control" aria-label="排序方式">
+              {([
+                ["score", "校准胜率"],
+                ["winrate", "原始胜率"],
+                ["samples", "样本量"],
+              ] as const).map(([key, label]) => (
+                <button key={key} type="button" onClick={() => setSortKey(key)} className={sortKey === key ? "active" : ""}>{label}</button>
+              ))}
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="hidden text-xs text-stone-500 sm:inline">{filteredHeroes.length} 个英雄 · ≥{compactNumber(minimumSample)} 场</span>
+              <div className="meta-hero-search">
+                <Search size={14} aria-hidden="true" />
+                <input
+                  value={heroQuery}
+                  onChange={(event) => setHeroQuery(event.target.value)}
+                  placeholder="搜索英雄"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="meta-table-scroll">
+            <table className="meta-table">
+              <thead>
+                <tr>
+                  <th>英雄</th>
+                  <th>胜率</th>
+                  <th>校准胜率</th>
+                  <th>样本</th>
+                  <th>位置选取率</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredHeroes.slice(0, 24).map((hero, index) => (
+                  <GlobalHeroRow key={`${hero.role_key}-${hero.hero_id}`} hero={hero} rank={index + 1} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {meta.warnings.length > 0 && (
+            <div className="meta-warning">STRATZ 当前返回部分警告，榜单仅展示已验证的位置样本。</div>
+          )}
+          <div className="meta-footnote">STRATZ · Divine/Immortal · {meta.period_start} 至 {meta.period_end} · {meta.data_freshness === "weekly_snapshot" ? "已验证周快照" : "实时"}。1–5 号位来自 Ranked Roles，不使用 lane_role、GPM 或补刀数推断；默认至少 {compactNumber(minimumSample)} 个位置样本，搜索仍可查看长尾英雄。</div>
+        </>
+      )}
+    </section>
+  );
+}
+
+function ThreeMatchMission({ data, expanded = false }: { data: PlayerDashboardData; expanded?: boolean }) {
+  const storageKey = `dota2-training-mission-${data.profile.account_id}`;
+  const [startedAt, setStartedAt] = useState(() => typeof window === "undefined" ? 0 : Number(window.localStorage.getItem(storageKey) || 0));
+  const step = data.coach.training_plan[0];
+  const recommendedHero = data.coach.signature_hero || data.hero_pool[0];
+
+  const challengeMatches = startedAt
+    ? data.recent_matches
+        .filter((match) => match.start_time * 1000 > startedAt)
+        .sort((left, right) => left.start_time - right.start_time)
+        .slice(0, 3)
+    : [];
+  const complete = challengeMatches.length >= 3;
+
+  const startMission = () => {
+    const timestamp = Date.now();
+    window.localStorage.setItem(storageKey, String(timestamp));
+    setStartedAt(timestamp);
+  };
+
+  const resetMission = () => {
+    window.localStorage.removeItem(storageKey);
+    setStartedAt(0);
+  };
+
+  if (!expanded) {
+    return (
+      <section className="mission-compact" aria-label="三局训练挑战">
+        <div className="mission-compact-icon"><Target size={18} aria-hidden="true" /></div>
+        <div className="mission-compact-copy">
+          <span>下一组三局</span>
+          <strong>{step?.focus || "压缩英雄池"}</strong>
+          <small>{step?.success_metric || "完成三局并留下可比较的数据"}</small>
+        </div>
+        {recommendedHero && (
+          <div className="mission-compact-hero">
+            {recommendedHero.hero_icon && <img src={recommendedHero.hero_icon} alt="" />}
+            <span>{recommendedHero.hero_name}</span>
+          </div>
+        )}
+        <div className={`mission-compact-progress ${complete ? "complete" : ""}`}>
+          <span>{complete ? "完成" : "进度"}</span>
+          <strong>{challengeMatches.length}/3</strong>
+        </div>
+        <button type="button" onClick={startedAt ? resetMission : startMission} className={startedAt ? "mission-secondary" : "mission-primary"}>
+          {startedAt ? <RotateCcw size={15} aria-hidden="true" /> : <Target size={15} aria-hidden="true" />}
+          {startedAt ? "重置" : "开始"}
+        </button>
+      </section>
+    );
+  }
+
+  return (
+    <section className="mission-console" aria-label="三局训练挑战">
+      <div className="mission-brief">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="evidence-chip evidence-verified"><ShieldCheck size={14} aria-hidden="true" />基于最近 {data.summary.games} 场</span>
+          <span className={`evidence-chip ${complete ? "evidence-parsed" : "evidence-limited"}`}>
+            {complete ? <Check size={14} aria-hidden="true" /> : <Circle size={14} aria-hidden="true" />}
+            {complete ? "挑战完成" : `${challengeMatches.length}/3 场`}
+          </span>
+        </div>
+        <div className="mt-4 text-xs font-black text-yellow-300">当前训练目标</div>
+        <h1 className="mission-title">{step?.focus || "压缩英雄池"}</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-300">
+          {step?.drill || `连续三局优先使用 ${recommendedHero?.hero_name || "最高熟练度英雄"}，每局记录一次最主要的失误。`}
+        </p>
+        <div className="mt-4 text-sm font-black text-cyan-100">成功标准：{step?.success_metric || "完成三局并留下可比较的数据"}</div>
+        <div className="mt-5 flex flex-wrap gap-2">
+          {!startedAt ? (
+            <button type="button" onClick={startMission} className="mission-primary"><Target size={17} aria-hidden="true" />开始三局挑战</button>
+          ) : (
+            <button type="button" onClick={resetMission} className="mission-secondary">重新开始</button>
+          )}
+          {recommendedHero && (
+            <span className="mission-hero">
+              {recommendedHero.hero_icon && <img src={recommendedHero.hero_icon} alt="" />}
+              推荐：{recommendedHero.hero_name}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="mission-track">
+        {[0, 1, 2].map((slot) => {
+          const match = challengeMatches[slot];
+          return (
+            <div key={slot} className={`mission-slot ${match ? "mission-slot-filled" : ""}`}>
+              <div className="mission-slot-index">0{slot + 1}</div>
+              {match ? (
+                <>
+                  {match.hero_icon && <img src={match.hero_icon} alt="" className="mission-slot-hero" />}
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-black text-stone-100">{match.hero_name}</div>
+                    <div className={`mt-1 text-xs font-black ${match.win ? "text-green-300" : "text-red-300"}`}>
+                      {match.win ? "胜" : "负"} · {match.kills}/{match.deaths}/{match.assists}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="mission-slot-empty"><div className="text-sm font-black text-stone-400">等待比赛</div><div className="mt-1 text-xs text-stone-600">刷新后自动记录</div></div>
+              )}
+            </div>
+          );
+        })}
+        {expanded && startedAt > 0 && <div className="mission-started">开始于 {new Date(startedAt).toLocaleString("zh-CN", { hour12: false })}</div>}
+      </div>
+    </section>
+  );
+}
+
+function EvidenceCoverage({ data, deepLoading }: { data: PlayerDashboardData; deepLoading: boolean }) {
+  const sample = data.recent_matches.slice(0, 20);
+  const rows = [
+    { label: "比赛结算", value: sample.filter((match) => match.detail_available).length, total: sample.length, tone: "verified" },
+    { label: "英雄百分位", value: sample.filter((match) => match.benchmark_available).length, total: sample.length, tone: "verified" },
+    { label: "Replay 事件", value: sample.filter((match) => match.replay_parsed).length, total: sample.length, tone: "parsed" },
+    { label: "真实位置", value: sample.filter((match) => match.position_source === "stratz").length, total: sample.length, tone: "verified" },
+  ];
+
+  return (
+    <section className="evidence-coverage">
+      <div>
+        <div className="flex items-center gap-2 text-sm font-black text-stone-100">
+          {deepLoading ? <LoaderCircle size={16} className="animate-spin text-cyan-300" /> : <ShieldCheck size={16} className="text-green-300" />}
+          {deepLoading ? "正在补全深度证据" : "数据证据覆盖"}
+        </div>
+        <p className="mt-2 text-xs leading-5 text-stone-500">位置来自 STRATZ Ranked Roles；缺少 Replay 时不推断具体事件。</p>
+      </div>
+      <div className="evidence-grid">
+        {rows.map((row) => (
+          <div key={row.label} className="evidence-stat">
+            <div className="text-xs text-stone-500">{row.label}</div>
+            <div className="mt-1 text-lg font-black tabular-nums text-stone-100">{row.value}/{row.total}</div>
+            <div className={`evidence-bar evidence-bar-${row.tone}`} style={{ "--coverage": `${row.total ? (row.value / row.total) * 100 : 0}%` } as React.CSSProperties} />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MatchLab({ data }: { data: PlayerDashboardData }) {
+  const candidates = useMemo(() => data.recent_matches.slice(0, 8), [data.recent_matches]);
+  const [selectedMatchId, setSelectedMatchId] = useState(candidates[0]?.match_id || "");
+  const [scorecard, setScorecard] = useState<PlayerMatchScorecard | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const effectiveMatchId = candidates.some((match) => match.match_id === selectedMatchId) ? selectedMatchId : candidates[0]?.match_id || "";
+
+  useEffect(() => {
+    let active = true;
+    if (!effectiveMatchId) return;
+    async function loadScorecard() {
+      await Promise.resolve();
+      if (!active) return;
+      setLoading(true);
+      setError("");
+      try {
+        const result = await getPlayerMatchScorecard(data.profile.account_id, effectiveMatchId);
+        if (active) setScorecard(result);
+      } catch (err) {
+        if (active) setError(err instanceof Error ? err.message : "评分卡加载失败");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    void loadScorecard();
+    return () => { active = false; };
+  }, [data.profile.account_id, effectiveMatchId]);
+
+  return (
+    <section className="match-lab">
+      <div className="match-lab-header">
+        <div>
+          <div className="text-xs font-black text-cyan-300">MATCH LAB</div>
+          <h1 className="mt-2 text-3xl font-black text-stone-50">单局证据评分卡</h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-400">先比较同英雄百分位，再决定下一组三局只改哪一项。</p>
+        </div>
+        <span className="evidence-chip evidence-verified"><ShieldCheck size={14} />不做位置推断</span>
+      </div>
+
+      <div className="match-picker" aria-label="选择最近比赛">
+        {candidates.map((match) => (
+          <button key={match.match_id} type="button" onClick={() => setSelectedMatchId(match.match_id)} className={`match-pick ${effectiveMatchId === match.match_id ? "match-pick-active" : ""}`}>
+            {match.hero_icon && <img src={match.hero_icon} alt="" />}
+            <span className="min-w-0 text-left">
+              <span className="block truncate text-xs font-black text-stone-100">{match.hero_name}</span>
+              <span className={`mt-1 block text-[11px] font-black ${match.win ? "text-green-300" : "text-red-300"}`}>{match.win ? "胜" : "负"} · {match.kills}/{match.deaths}/{match.assists}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {loading && <div className="match-lab-loading"><LoaderCircle size={18} className="animate-spin" />正在读取比赛与英雄基准...</div>}
+      {error && <div className="rounded-lg border border-red-300/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">{error}</div>}
+
+      {scorecard && !loading && (
+        <div className="scorecard-layout">
+          <div className="scorecard-main">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-center gap-3">
+                {scorecard.match.hero_icon && <img src={scorecard.match.hero_icon} alt="" className="h-14 w-14 rounded-md object-cover" />}
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-2xl font-black text-stone-50">{scorecard.match.hero_name}</h2>
+                    <span className={scorecard.match.win ? "text-green-300" : "text-red-300"}>{scorecard.match.win ? "胜" : "负"}</span>
+                  </div>
+                  <div className="mt-1 text-sm tabular-nums text-stone-400">{scorecard.match.kills}/{scorecard.match.deaths}/{scorecard.match.assists} · KDA {scorecard.match.kda} · {scorecard.match.duration_text}</div>
+                </div>
+              </div>
+              <span className={`evidence-chip ${scorecard.replay_parsed ? "evidence-parsed" : "evidence-limited"}`}>{scorecard.replay_parsed ? "Replay 已解析" : "结算数据模式"}</span>
+            </div>
+
+            <div className="scorecard-metrics">
+              {scorecard.metrics.map((metric) => (
+                <div key={metric.key} className="scorecard-metric">
+                  <div className="flex items-center justify-between gap-2"><span className="text-xs text-stone-500">{metric.label}</span><span className="text-xs font-black tabular-nums text-cyan-200">P{metric.percentile}</span></div>
+                  <div className="mt-2 flex items-end justify-between gap-2"><span className="text-xl font-black tabular-nums text-stone-100">{metric.value}</span><span className="text-[11px] text-stone-600">{metric.unit}</span></div>
+                  <div className="percentile-track"><span style={{ width: `${metric.percentile}%` }} /></div>
+                </div>
+              ))}
+            </div>
+
+            <div className="scorecard-callout">
+              <div className="text-xs font-black text-yellow-300">下一组三局只改这一项</div>
+              <h3 className="mt-2 text-xl font-black text-stone-50">{scorecard.headline}</h3>
+              <p className="mt-2 text-sm leading-6 text-stone-400">{scorecard.finding}</p>
+              <p className="mt-3 text-sm font-bold leading-6 text-cyan-100">{scorecard.action}</p>
+            </div>
+          </div>
+
+          <aside className="scorecard-evidence">
+            <div className="text-sm font-black text-stone-100">证据清单</div>
+            {scorecard.evidence.map((item) => (
+              <div key={item.key} className="evidence-row">
+                <div className="flex items-center justify-between gap-2"><span className="text-sm font-black text-stone-200">{item.label}</span><span className={`evidence-chip evidence-${item.status}`}>{item.status === "unavailable" ? "不可用" : item.status === "parsed" ? "已解析" : "已验证"}</span></div>
+                <p className="mt-2 text-xs leading-5 text-stone-500">{item.detail}</p>
+              </div>
+            ))}
+          </aside>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -414,65 +1170,727 @@ function Charts({ data }: { data: PlayerDashboardData }) {
 }
 
 function CountsPanel({ data }: { data: PlayerDashboardData }) {
-  const roles = data.counts.lane_role || [];
+  const positions = data.role_matrix.map((role) => ({
+    label: role.position_name,
+    games: role.games,
+    wins: Math.round(role.games * role.win_rate / 100),
+    winrate: role.win_rate,
+  }));
   const modes = data.counts.game_mode || [];
-  if (!roles.length && !modes.length) return null;
+  if (!positions.length && !modes.length) return null;
+
+  const sections = [
+    {
+      title: "近期位置",
+      detail: `${data.position_coverage.verified_matches}/${data.position_coverage.total_matches} 场由 STRATZ Ranked Roles 验证`,
+      items: positions,
+    },
+    { title: "游戏模式", detail: "", items: modes },
+  ];
 
   return (
     <div className="card">
       <h2 className="section-title">长期分布</h2>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {[{ title: "常见分路", items: roles }, { title: "常见模式", items: modes }].map((section) => (
+        {sections.map((section) => {
+          const maxGames = Math.max(...section.items.map((item) => item.games), 1);
+          return (
           <div key={section.title} className="space-y-3">
-            <div className="text-xs font-bold uppercase text-stone-500">{section.title}</div>
+            <div>
+              <div className="text-xs font-bold uppercase text-stone-500">{section.title}</div>
+              {section.detail && <div className="mt-1 text-[11px] text-stone-600">{section.detail}</div>}
+            </div>
             {section.items.slice(0, 5).map((item) => (
               <div key={item.label}>
                 <div className="mb-1 flex justify-between text-xs">
                   <span className="text-stone-300">{item.label}</span>
-                  <span className="text-stone-500">{item.games}场 · {item.winrate}%</span>
+                  <span className="text-stone-500">{item.games}场 · 胜率 {item.winrate}%</span>
                 </div>
                 <div className="h-2 rounded bg-white/10">
-                  <div className="h-2 rounded bg-yellow-300" style={{ width: `${Math.min(item.winrate, 100)}%` }} />
+                  <div className="h-2 rounded bg-yellow-300" style={{ width: `${item.games / maxGames * 100}%` }} />
                 </div>
               </div>
             ))}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function ProPanel({ data }: { data: PlayerDashboardData }) {
+function PersonalMetaLab({ data }: { data: PlayerDashboardData }) {
+  if (!data.meta_fit.length && !data.build_signatures.length && !data.role_matrix.length) return null;
+
   return (
-    <section className="pro-panel">
-      <div className="max-w-2xl">
-        <div className="text-xs font-black uppercase tracking-[0.24em] text-yellow-300">DotaSense Pro</div>
-        <h2 className="mt-3 text-3xl font-black text-stone-50">把数据变成下一局的决策优势</h2>
-        <p className="mt-3 text-sm leading-6 text-stone-300">
-          免费版负责看清现状，Pro 负责把你的历史样本、版本环境和高分打法合并成可执行的训练系统。
-        </p>
-        <div className="mt-5 flex flex-wrap gap-2">
-          <button type="button" className="rounded-lg bg-yellow-300 px-4 py-2 text-sm font-black text-stone-950">加入候补名单</button>
-          <button type="button" className="rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm font-bold text-stone-100">查看样例报告</button>
+    <section className="card">
+      <div className="mb-5">
+        <div className="text-xs font-black uppercase text-yellow-300">Personal Meta</div>
+        <h2 className="mt-2 text-2xl font-black text-stone-50">个人打法对照</h2>
+        <div className="mt-2 text-xs text-stone-500">按真实位置对照当前版本：同一英雄在不同位置分别计算，不混合核心与辅助样本。</div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="rounded-lg border border-white/10 bg-black/20 p-4">
+          <div className="mb-3 text-sm font-black text-stone-100">你的英雄 vs 全局 Meta</div>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            {data.meta_fit.slice(0, 6).map((fit) => (
+              <div key={`${fit.position_key}-${fit.hero_id}`} className="rounded-lg border border-white/10 bg-white/[0.035] p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    {fit.hero_icon && <img src={fit.hero_icon} alt="" className="h-8 w-8 rounded object-cover" />}
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-black text-stone-100">{fit.hero_name}</div>
+                      <div className="text-xs text-stone-500">{fit.meta_role} · {compactNumber(fit.meta_matches)} 场全局样本</div>
+                    </div>
+                  </div>
+                  <span className={`rounded border px-2 py-1 text-[11px] font-black ${fit.gap >= 0 ? "border-green-300/25 bg-green-300/10 text-green-200" : "border-red-300/25 bg-red-300/10 text-red-200"}`}>
+                    {signed(fit.gap, "%")}
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                  <div>
+                    <div className="text-stone-500">你的 WR</div>
+                    <div className="mt-1 font-black text-stone-100">{fit.personal_win_rate}%</div>
+                  </div>
+                  <div>
+                    <div className="text-stone-500">全局 WR</div>
+                    <div className="mt-1 font-black text-cyan-200">{fit.meta_win_rate}%</div>
+                  </div>
+                  <div>
+                    <div className="text-stone-500">判断</div>
+                    <div className="mt-1 font-black text-yellow-200">{fit.verdict}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {!data.meta_fit.length && <div className="text-sm text-stone-500">暂无足够英雄样本</div>}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-white/10 bg-black/20 p-4">
+          <div className="mb-3 text-sm font-black text-stone-100">STRATZ 五位置表现</div>
+          <div className="grid grid-cols-1 gap-2">
+            {data.role_matrix.map((role) => (
+              <div key={role.position_key} className="grid grid-cols-[112px_1fr_68px] items-center gap-3 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs">
+                <div>
+                  <div className="font-black text-stone-100">{role.position_name}</div>
+                  <div className="text-stone-500">{role.games} 场</div>
+                </div>
+                <div className="min-w-0">
+                  <div className="truncate text-stone-400">{role.top_hero || "样本积累"}</div>
+                  <div className="mt-1 text-stone-500">{role.avg_gpm} GPM · IMP {role.avg_imp === null ? "-" : signed(role.avg_imp)}</div>
+                  {role.awards > 0 && <div className="mt-1 text-yellow-200">{role.awards} 次比赛奖项</div>}
+                </div>
+                <div className={`text-right font-black tabular-nums ${role.win_rate >= 50 ? "text-green-300" : "text-red-300"}`}>
+                  {role.win_rate}%
+                </div>
+              </div>
+            ))}
+            {!data.role_matrix.length && <div className="text-sm text-stone-500">近期比赛没有可验证的位置样本</div>}
+          </div>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        {data.coach.pro_preview.map((feature) => (
-          <div key={feature.title} className="rounded-lg border border-white/10 bg-black/20 p-4">
-            <div className="flex items-center justify-between gap-2">
-              <div className="font-black text-stone-100">{feature.title}</div>
-              <span className="rounded border border-yellow-300/25 bg-yellow-300/10 px-2 py-1 text-[11px] font-black text-yellow-200">PRO</span>
+
+      {data.build_signatures.length > 0 && (
+        <div className="mt-4 rounded-lg border border-white/10 bg-black/20 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-sm font-black text-stone-100">Recent Build Signatures</div>
+            <div className="text-xs text-stone-500">当前玩家最近解析比赛聚合</div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-4">
+            {data.build_signatures.slice(0, 8).map((build) => (
+              <div key={`${build.hero_id}-${build.position_key}`} className="rounded-lg border border-white/10 bg-white/[0.035] p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    {build.hero_icon && <img src={build.hero_icon} alt="" className="h-9 w-9 rounded object-cover" />}
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-black text-stone-100">{build.hero_name}</div>
+                      <div className="text-xs text-stone-500">{build.role_name} · {build.games}场</div>
+                    </div>
+                  </div>
+                  <div className={`text-right text-sm font-black tabular-nums ${build.win_rate >= 50 ? "text-green-300" : "text-red-300"}`}>
+                    {build.win_rate}%
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1">
+                  {build.items.map((item) => (
+                    <span key={item.item_id} className="relative">
+                      <img src={item.icon} alt="" className="h-7 w-7 rounded border border-white/10 bg-black/30 object-cover" />
+                      {item.count > 1 && (
+                        <span className="absolute -right-1 -top-1 rounded bg-yellow-300 px-1 text-[10px] font-black text-stone-950">{item.count}</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+                <div className="mt-3 text-xs text-cyan-200">KDA {build.avg_kda}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ProLeadForm({
+  data,
+  commercialConfig,
+}: {
+  data: PlayerDashboardData;
+  commercialConfig: CommercialConfig | null;
+}) {
+  const [plan, setPlan] = useState("founder");
+  const [contact, setContact] = useState("");
+  const [role, setRole] = useState("");
+  const [goal, setGoal] = useState("");
+  const [status, setStatus] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const selectedOffer = COMMERCIAL_OFFERS.find((offer) => offer.key === plan) || COMMERCIAL_OFFERS[0];
+  const configured = checkoutConfigured(commercialConfig, plan);
+
+  const submitLead = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!contact.trim()) return;
+    setSubmitting(true);
+    setStatus("");
+    try {
+      const result = await createCommercialLead({
+        account_id: data.profile.account_id,
+        plan,
+        contact,
+        role,
+        goal,
+        source: "progress_upgrade",
+      });
+      if (result.checkout_url) {
+        window.location.assign(result.checkout_url);
+        return;
+      }
+      setStatus("已记录开通申请。支付链接未启用时，会按你留下的联系方式人工开通。");
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : "提交失败，请稍后再试。");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submitLead} className="pro-lead-form">
+      <div>
+        <div className="text-xs font-black uppercase text-cyan-300">DotaSense Pro</div>
+        <h3 className="mt-2 text-2xl font-black text-stone-50">保存完整训练历史</h3>
+        <p className="mt-2 text-sm leading-6 text-stone-400">
+          Pro 会保存每次三局挑战、完整 AI 复盘和长期趋势。留下联系方式即可申请创始会员。
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-2">
+        {COMMERCIAL_OFFERS.map((offer) => (
+          <label
+            key={offer.key}
+            className={`cursor-pointer rounded-lg border p-3 transition ${plan === offer.key ? "border-yellow-300/50 bg-yellow-300/10" : "border-white/10 bg-black/20 hover:border-cyan-300/30"}`}
+          >
+            <input
+              type="radio"
+              name="plan"
+              value={offer.key}
+              checked={plan === offer.key}
+              onChange={(event) => setPlan(event.target.value)}
+              className="sr-only"
+            />
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-black text-stone-100">{offer.title}</span>
+              <span className="text-sm font-black text-yellow-200">{offer.price}</span>
             </div>
-            <p className="mt-3 text-sm leading-6 text-stone-400">{feature.detail}</p>
+            <div className="mt-2 text-xs leading-5 text-stone-400">{offer.promise}</div>
+          </label>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3">
+        <input
+          value={contact}
+          onChange={(event) => setContact(event.target.value)}
+          required
+          className="rounded-lg border border-white/10 bg-black/30 px-3 py-3 text-sm text-stone-100 outline-none transition placeholder:text-stone-600 focus:border-yellow-300/50"
+          placeholder="微信 / 邮箱"
+        />
+        <input
+          value={role}
+          onChange={(event) => setRole(event.target.value)}
+          className="rounded-lg border border-white/10 bg-black/30 px-3 py-3 text-sm text-stone-100 outline-none transition placeholder:text-stone-600 focus:border-cyan-300/50"
+          placeholder="你的分段、位置或队伍身份"
+        />
+        <textarea
+          value={goal}
+          onChange={(event) => setGoal(event.target.value)}
+          className="min-h-[96px] rounded-lg border border-white/10 bg-black/30 px-3 py-3 text-sm text-stone-100 outline-none transition placeholder:text-stone-600 focus:border-cyan-300/50"
+          placeholder="这周最想解决的问题，例如死亡太多、英雄池混乱、上分停滞"
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={submitting || !contact.trim()}
+        className="rounded-lg bg-yellow-300 px-4 py-3 text-sm font-black text-stone-950 transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {submitting ? "提交中..." : configured ? `提交并购买 ${selectedOffer.price}` : `申请开通 ${selectedOffer.price}`}
+      </button>
+      {status && <div className="rounded-lg border border-yellow-300/20 bg-yellow-300/10 px-3 py-2 text-xs leading-5 text-yellow-100">{status}</div>}
+    </form>
+  );
+}
+
+function ReviewReport({
+  review,
+  source,
+  locked,
+}: {
+  review: PlayerReview;
+  source: string;
+  locked: boolean;
+}) {
+  const sourceLabel = source === "deepseek" ? "DeepSeek + evidence guard" : locked ? "免费预览" : "规则复盘";
+
+  return (
+    <div className="ai-review-report">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`rounded border px-2 py-1 text-[11px] font-black ${locked ? "border-yellow-300/25 bg-yellow-300/10 text-yellow-200" : "border-green-300/25 bg-green-300/10 text-green-200"}`}>
+              {locked ? "预览" : "PRO 已解锁"}
+            </span>
+            <span className="rounded border border-cyan-300/20 bg-cyan-300/10 px-2 py-1 text-[11px] font-black text-cyan-200">
+              {sourceLabel}
+            </span>
+          </div>
+          <h3 className="mt-3 text-2xl font-black text-stone-50">{review.headline}</h3>
+          <p className="mt-3 max-w-4xl text-sm leading-6 text-stone-300">{review.summary}</p>
+        </div>
+        <div className="review-score">
+          <div className="text-xs font-black uppercase text-stone-500">训练评分</div>
+          <div className="mt-2 text-5xl font-black tabular-nums text-yellow-200">{review.score || "-"}</div>
+        </div>
+      </div>
+
+      <div className="mt-5 grid grid-cols-1 gap-3 xl:grid-cols-2">
+        {review.sections.map((section) => (
+          <div key={section.title} className="review-section">
+            <div className="text-xs font-black uppercase text-yellow-300">{section.title}</div>
+            <div className="mt-3 text-sm font-black leading-6 text-stone-100">{section.finding}</div>
+            <div className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3 text-xs leading-5 text-stone-400">{section.evidence}</div>
+            <div className="mt-3 text-sm leading-6 text-cyan-100">{section.action}</div>
           </div>
         ))}
+      </div>
+
+      <div className="mt-5 grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="review-plan">
+          <div className="mb-3 text-sm font-black text-stone-100">7 天训练计划</div>
+          <div className="grid grid-cols-1 gap-2">
+            {review.weekly_plan.map((step) => (
+              <div key={`${step.day}-${step.focus}`} className="grid grid-cols-1 gap-2 rounded-lg border border-white/10 bg-white/[0.035] p-3 md:grid-cols-[88px_1fr_180px]">
+                <div className="text-xs font-black text-yellow-300">{step.day}</div>
+                <div className="min-w-0">
+                  <div className="font-black text-stone-100">{step.focus}</div>
+                  <div className="mt-1 text-xs leading-5 text-stone-400">{step.task}</div>
+                </div>
+                <div className="text-xs leading-5 text-green-200">{step.metric}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="review-plan">
+          <div className="mb-3 text-sm font-black text-stone-100">优先复盘比赛</div>
+          <div className="space-y-2">
+            {review.priority_matches.map((match) => (
+              <a
+                key={match.match_id}
+                href={`https://www.opendota.com/matches/${match.match_id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="block rounded-lg border border-white/10 bg-white/[0.035] p-3 transition hover:border-yellow-300/40"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-sm font-black text-stone-100">{match.hero || "Match"}</span>
+                  <span className="text-xs tabular-nums text-stone-500">{match.match_id}</span>
+                </div>
+                <div className="mt-2 text-xs leading-5 text-stone-400">{match.reason}</div>
+              </a>
+            ))}
+            {!review.priority_matches.length && <div className="text-sm text-stone-500">暂无明显输局样本。</div>}
+          </div>
+        </div>
+      </div>
+
+      {review.model_note && <div className="mt-4 text-xs leading-5 text-stone-500">{review.model_note}</div>}
+    </div>
+  );
+}
+
+function AiReviewPanel({
+  data,
+  commercialConfig,
+}: {
+  data: PlayerDashboardData;
+  commercialConfig: CommercialConfig | null;
+}) {
+  const accountId = data.profile.account_id;
+  const storageKey = useMemo(() => `${PRO_ACCESS_STORAGE_PREFIX}:${accountId}`, [accountId]);
+  const [preview, setPreview] = useState<PlayerReviewResponse | null>(null);
+  const [fullReview, setFullReview] = useState<PlayerReviewResponse | null>(null);
+  const [accessToken, setAccessToken] = useState("");
+  const [accessCode, setAccessCode] = useState("");
+  const [accessStatus, setAccessStatus] = useState("");
+  const [reviewError, setReviewError] = useState("");
+  const [previewLoading, setPreviewLoading] = useState(true);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [unlockLoading, setUnlockLoading] = useState(false);
+
+  const accessReady = Boolean(commercialConfig?.access_code_configured);
+  const activeReview = fullReview || preview;
+
+  useEffect(() => {
+    let active = true;
+    setPreview(null);
+    setPreviewLoading(true);
+    setReviewError("");
+    void getPlayerReviewPreview(accountId, 30)
+      .then((result) => {
+        if (active) setPreview(result);
+      })
+      .catch((err) => {
+        if (active) setReviewError(err instanceof Error ? err.message : "复盘预览加载失败");
+      })
+      .finally(() => {
+        if (active) setPreviewLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [accountId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let active = true;
+    const stored = window.localStorage.getItem(storageKey) || "";
+    setFullReview(null);
+    setAccessToken("");
+    setAccessStatus("");
+    setAccessCode("");
+    if (!stored) return;
+
+    void verifyCommercialAccess(stored, accountId)
+      .then((result) => {
+        if (!active) return;
+        if (result.ok) {
+          setAccessToken(stored);
+          setAccessStatus("已识别本账号 Pro 权益，可以生成完整复盘。");
+        } else {
+          window.localStorage.removeItem(storageKey);
+        }
+      })
+      .catch(() => {
+        if (active) window.localStorage.removeItem(storageKey);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [accountId, storageKey]);
+
+  const generateReview = useCallback(
+    async (tokenOverride?: string) => {
+      const token = tokenOverride || accessToken;
+      if (!token) {
+        setAccessStatus("请输入购买后获得的访问码解锁完整复盘。");
+        return;
+      }
+      setReviewLoading(true);
+      setReviewError("");
+      try {
+        const result = await getPlayerReview(accountId, token, 50);
+        setFullReview(result);
+        setAccessStatus(result.source === "deepseek" ? "完整 AI 复盘已生成。" : "完整复盘已生成；AI 模型不可用时使用本地规则兜底。");
+      } catch (err) {
+        setReviewError(err instanceof Error ? err.message : "完整复盘生成失败");
+        if (err instanceof Error && err.message.includes("Pro access")) {
+          window.localStorage.removeItem(storageKey);
+          setAccessToken("");
+        }
+      } finally {
+        setReviewLoading(false);
+      }
+    },
+    [accessToken, accountId, storageKey],
+  );
+
+  const submitAccessCode = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!accessReady) {
+      setAccessStatus("自动开通码还未启用。请先提交购买意向，人工开通后再输入访问码。");
+      return;
+    }
+    if (!accessCode.trim()) return;
+
+    setUnlockLoading(true);
+    setReviewError("");
+    setAccessStatus("");
+    try {
+      const result = await unlockCommercialAccess({
+        code: accessCode,
+        account_id: accountId,
+        plan: "founder",
+      });
+      setAccessToken(result.access_token);
+      window.localStorage.setItem(storageKey, result.access_token);
+      setAccessStatus("Pro 已解锁，正在生成完整 AI 复盘。");
+      await generateReview(result.access_token);
+    } catch (err) {
+      setAccessStatus(err instanceof Error ? err.message : "访问码验证失败");
+    } finally {
+      setUnlockLoading(false);
+    }
+  };
+
+  return (
+    <section className="ai-review-panel">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0">
+          <div className="text-xs font-black uppercase text-cyan-300">DEEP REVIEW</div>
+          <h2 className="mt-2 text-3xl font-black text-stone-50">深度训练报告</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-400">
+            每条结论都受证据边界约束；没有 Replay 事件时，只使用结算数据、英雄百分位和可验证的训练动作。
+          </p>
+        </div>
+        <div className="review-unlock">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-xs font-black uppercase text-stone-500">Access</div>
+              <div className={`mt-1 text-sm font-black ${accessToken ? "text-green-200" : "text-yellow-200"}`}>
+                {accessToken ? "Pro 已解锁" : accessReady ? "输入访问码解锁" : "等待人工开通"}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => void generateReview()}
+              disabled={!accessToken || reviewLoading}
+              className="rounded-lg border border-green-300/30 bg-green-300/10 px-3 py-2 text-xs font-black text-green-200 transition hover:bg-green-300 hover:text-stone-950 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {reviewLoading ? "生成中..." : "生成完整复盘"}
+            </button>
+          </div>
+
+          <form onSubmit={submitAccessCode} className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
+            <input
+              value={accessCode}
+              onChange={(event) => setAccessCode(event.target.value)}
+              disabled={!accessReady || unlockLoading}
+              className="rounded-lg border border-white/10 bg-black/30 px-3 py-3 text-sm text-stone-100 outline-none transition placeholder:text-stone-600 focus:border-yellow-300/50 disabled:opacity-50"
+              placeholder={accessReady ? "输入购买后获得的访问码" : "自动访问码暂未启用"}
+            />
+            <button
+              type="submit"
+              disabled={!accessReady || unlockLoading || !accessCode.trim()}
+              className="rounded-lg bg-yellow-300 px-4 py-3 text-sm font-black text-stone-950 transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {unlockLoading ? "验证中..." : "解锁"}
+            </button>
+          </form>
+          {accessStatus && <div className="mt-3 rounded-lg border border-yellow-300/20 bg-yellow-300/10 px-3 py-2 text-xs leading-5 text-yellow-100">{accessStatus}</div>}
+          {reviewError && <div className="mt-3 rounded-lg border border-red-300/20 bg-red-400/10 px-3 py-2 text-xs leading-5 text-red-100">{reviewError}</div>}
+        </div>
+      </div>
+
+      <div className="mt-5">
+        {previewLoading && <div className="rounded-lg border border-white/10 bg-black/20 px-4 py-5 text-sm text-stone-400">正在生成复盘预览...</div>}
+        {activeReview?.review && (
+          <ReviewReport review={activeReview.review} source={activeReview.source} locked={activeReview.locked && !fullReview} />
+        )}
       </div>
     </section>
   );
 }
 
-function MatchTable({ matches }: { matches: PlayerMatch[] }) {
+function ProPanel({ data, commercialConfig }: { data: PlayerDashboardData; commercialConfig: CommercialConfig | null }) {
+  const benefits = [
+    { title: "训练记忆", detail: "保存每次目标、三局结果与成功标准，形成个人长期样本。" },
+    { title: "证据化复盘", detail: "区分结算数据、英雄基准和 Replay 事件，不用推断冒充事实。" },
+    { title: "英雄池计划", detail: "按继续上分、专项训练和暂时停用管理英雄池。" },
+    { title: "每周总结", detail: "把本周最稳定优势和最大短板整理成下一周计划。" },
+  ];
+
+  return (
+    <section className="space-y-4">
+      <div className="pro-panel">
+        <div className="max-w-2xl">
+          <div className="text-xs font-black uppercase text-yellow-300">DotaSense Pro</div>
+          <h2 className="mt-3 text-3xl font-black text-stone-50">把每组三局变成长期进步</h2>
+          <p className="mt-3 text-sm leading-6 text-stone-300">免费版帮助你找到一次问题；Pro 保存挑战、复盘与长期趋势，让下一次训练建立在上一次结果之上。</p>
+          <div className="mt-5 flex flex-wrap gap-2 text-xs">
+            <span className="evidence-chip evidence-verified">90 天训练历史</span>
+            <span className="evidence-chip evidence-verified">无限深度复盘</span>
+            <span className="evidence-chip evidence-parsed">自适应三局挑战</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {benefits.map((feature) => (
+            <div key={feature.title} className="rounded-lg border border-white/10 bg-black/20 p-4">
+              <div className="flex items-center justify-between gap-2"><div className="font-black text-stone-100">{feature.title}</div><Crown size={15} className="text-yellow-300" /></div>
+              <p className="mt-3 text-sm leading-6 text-stone-400">{feature.detail}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="commercial-pricing">
+          {COMMERCIAL_OFFERS.map((offer) => (
+            <div key={offer.key} className="commercial-plan">
+              <div className="flex items-start justify-between gap-4">
+                <div><div className="text-xs font-black uppercase text-stone-500">{offer.buyer}</div><h3 className="mt-2 text-2xl font-black text-stone-50">{offer.title}</h3></div>
+                <div className="text-right"><div className="text-2xl font-black text-yellow-200">{offer.price}</div><div className={`mt-2 rounded border px-2 py-1 text-[11px] font-black ${checkoutConfigured(commercialConfig, offer.key) ? "border-green-300/25 bg-green-300/10 text-green-200" : "border-stone-500/25 bg-white/[0.035] text-stone-400"}`}>{checkoutConfigured(commercialConfig, offer.key) ? "可直接付款" : "申请开通"}</div></div>
+              </div>
+              <p className="mt-4 text-sm leading-6 text-stone-400">{offer.promise}</p>
+            </div>
+          ))}
+        </div>
+        <ProLeadForm data={data} commercialConfig={commercialConfig} />
+      </div>
+    </section>
+  );
+}
+function EquipmentSlots({ match, compact = false, loading = false }: { match: PlayerMatch; compact?: boolean; loading?: boolean }) {
+  if (!match.equipment_available) {
+    if (loading) {
+      return (
+        <div className="equipment-loadout equipment-loadout-loading" aria-label="装备加载中">
+          <div className="equipment-group">
+            {Array.from({ length: 6 }, (_, index) => <span key={index} className="equipment-slot equipment-slot-loading" />)}
+          </div>
+        </div>
+      );
+    }
+    return <span className="text-xs text-stone-500">无公开装备记录</span>;
+  }
+
+  const emptyItem = { item_id: 0, name: "", icon: "" };
+  const inventory = Array.from({ length: 6 }, (_, index) => match.items?.[index] || emptyItem);
+  const neutral = match.neutral_item?.item_id > 0 ? match.neutral_item : null;
+
+  const slot = (item: PlayerMatch["items"][number], index: number, kind: "inventory" | "neutral") => {
+    const title = item.name || (item.item_id ? `物品 ${item.item_id}` : `空装备槽 ${index + 1}`);
+    const className = `equipment-slot equipment-slot-${kind} ${!item.item_id ? "equipment-slot-empty" : ""} ${item.item_id && !item.icon ? "equipment-slot-missing" : ""}`;
+    if (!item.item_id || !item.icon) return <span key={`${kind}-${index}`} className={className} title={title}>{item.item_id ? "?" : ""}</span>;
+    return <img key={`${kind}-${index}`} src={item.icon} alt={item.name || "Dota 2 item"} title={title} className={className} />;
+  };
+
+  return (
+    <div className={`equipment-loadout ${compact ? "equipment-loadout-compact" : ""}`}>
+      <div className="equipment-group" aria-label="主装备">{inventory.map((item, index) => slot(item, index, "inventory"))}</div>
+      {neutral && <div className="equipment-group equipment-group-secondary" aria-label="中立装备">{slot(neutral, 0, "neutral")}</div>}
+    </div>
+  );
+}
+
+function MatchHistoryList({
+  matches,
+  limit = 8,
+  compact = false,
+  equipmentLoading = false,
+  onOpenAll,
+}: {
+  matches: PlayerMatch[];
+  limit?: number;
+  compact?: boolean;
+  equipmentLoading?: boolean;
+  onOpenAll?: () => void;
+}) {
+  if (!matches.length) return null;
+  const equipmentCoverage = matches.filter((match) => match.equipment_available).length;
+
+  return (
+    <div className="card">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="section-title mb-0">个人比赛历史</h2>
+          <div className="mt-2 text-xs text-stone-500">
+            最近 {Math.min(matches.length, limit)} 场，按时间倒序 · {equipmentLoading ? "装备补全中" : `${equipmentCoverage}/${matches.length} 场 6+1 装备`}
+          </div>
+        </div>
+        {onOpenAll && (
+          <button
+            type="button"
+            onClick={onOpenAll}
+            className="w-fit rounded-lg border border-yellow-300/30 bg-yellow-300/10 px-3 py-2 text-xs font-black text-yellow-200 transition hover:bg-yellow-300 hover:text-stone-950"
+          >
+            查看全部比赛
+          </button>
+        )}
+      </div>
+      <div className="space-y-2">
+        {matches.slice(0, limit).map((match) => {
+          const opendotaUrl = match.opendota_url || `https://www.opendota.com/matches/${match.match_id}`;
+
+          return (
+            <div
+              key={match.match_id}
+              className="grid grid-cols-1 gap-3 rounded-lg border border-white/10 bg-black/20 p-3 transition hover:border-cyan-300/30 hover:bg-white/[0.035] lg:grid-cols-[minmax(220px,1.2fr)_120px_160px_minmax(160px,0.8fr)_90px]"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                {match.hero_icon && <img src={match.hero_icon} alt="" className="h-10 w-10 rounded object-cover" />}
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="truncate text-sm font-black text-stone-100">{match.hero_name}</span>
+                    <span className={`rounded px-2 py-0.5 text-[11px] font-black ${match.win ? "bg-green-400/15 text-green-300" : "bg-red-400/15 text-red-300"}`}>
+                      {match.win ? "胜" : "负"}
+                    </span>
+                    {match.position_name && (
+                      <span className="rounded border border-cyan-300/25 bg-cyan-300/10 px-2 py-0.5 text-[11px] font-black text-cyan-200">
+                        {match.position_name}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-1 text-xs text-stone-500">
+                    {match.game_mode} · {match.side}{match.party_size > 1 ? ` · ${match.party_size}人组排` : match.party_size === 1 ? " · 单排" : ""}
+                  </div>
+                </div>
+              </div>
+              <div className="tabular-nums">
+                <div className="text-sm font-black text-stone-100">{match.kills}/{match.deaths}/{match.assists}</div>
+                <div className="text-xs text-cyan-300">KDA {match.kda}</div>
+                <div className="mt-1 flex flex-wrap gap-1 text-[11px] font-black">
+                  {match.stratz_imp !== null && <span className={numberClass(match.stratz_imp)}>IMP {signed(match.stratz_imp)}</span>}
+                  {stratzAwardLabel(match.stratz_award) && <span className="text-yellow-300">{stratzAwardLabel(match.stratz_award)}</span>}
+                </div>
+              </div>
+              <div className="tabular-nums">
+                <div className="text-sm font-black text-yellow-300">{match.gold_per_min || "-"} GPM</div>
+                <div className="text-xs text-stone-500">{match.duration_text} · Lv {match.level || "-"}</div>
+              </div>
+              <EquipmentSlots match={match} compact={compact} loading={equipmentLoading} />
+              <div className="flex items-center justify-between gap-3 lg:block lg:text-right">
+                <div className="text-xs text-stone-500">{match.played_at}</div>
+                <a
+                  href={opendotaUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-0 inline-block rounded border border-white/10 bg-white/[0.04] px-2 py-1 text-xs font-bold text-stone-300 transition hover:border-yellow-300/50 hover:text-yellow-200 lg:mt-2"
+                >
+                  OpenDota
+                </a>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function MatchTable({ matches, equipmentLoading = false }: { matches: PlayerMatch[]; equipmentLoading?: boolean }) {
   if (!matches.length) return null;
 
   const compact = (value: number) => {
@@ -489,7 +1907,7 @@ function MatchTable({ matches }: { matches: PlayerMatch[] }) {
         <div>
           <h2 className="section-title mb-0">最近比赛详情</h2>
           <div className="mt-2 text-xs text-stone-500">
-            已尽量补全出装、经济、补刀和伤害；未解析比赛会显示摘要字段。
+            已获取详情的比赛展示出装、经济、补刀和伤害，其余保留基础结算数据。
           </div>
         </div>
         <span className="w-fit rounded-lg border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-xs font-black text-cyan-200">
@@ -507,14 +1925,13 @@ function MatchTable({ matches }: { matches: PlayerMatch[] }) {
               <th className="py-3 pr-4">补刀</th>
               <th className="py-3 pr-4">伤害</th>
               <th className="py-3 pr-4">出装</th>
-              <th className="py-3 pr-4">模式 / 分路定位</th>
+              <th className="py-3 pr-4">模式 / 阵营</th>
               <th className="py-3 pr-4">时间</th>
               <th className="py-3 pr-4">详情</th>
             </tr>
           </thead>
           <tbody>
             {matches.slice(0, 20).map((match) => {
-              const itemIcons = (match.item_icons ?? []).filter(Boolean);
               const opendotaUrl = match.opendota_url || `https://www.opendota.com/matches/${match.match_id}`;
 
               return (
@@ -524,7 +1941,7 @@ function MatchTable({ matches }: { matches: PlayerMatch[] }) {
                       {match.hero_icon && <img src={match.hero_icon} alt="" className="h-8 w-8 rounded object-cover" />}
                       <span>
                         <span className="block font-bold text-stone-100">{match.hero_name}</span>
-                        <span className="text-xs text-stone-500">Lv {match.level || "-"}</span>
+                        <span className="text-xs text-stone-500">{match.position_name || "位置未验证"} · Lv {match.level || "-"}</span>
                       </span>
                     </div>
                   </td>
@@ -537,6 +1954,8 @@ function MatchTable({ matches }: { matches: PlayerMatch[] }) {
                     <div className="font-black text-stone-100">{match.kills}/{match.deaths}/{match.assists}</div>
                     <div className="text-xs text-cyan-300">KDA {match.kda}</div>
                     <div className="text-xs text-yellow-300">评分 {match.form_score}</div>
+                    {match.stratz_imp !== null && <div className={`text-xs font-black ${numberClass(match.stratz_imp)}`}>IMP {signed(match.stratz_imp)}</div>}
+                    {stratzAwardLabel(match.stratz_award) && <div className="text-xs font-black text-yellow-300">{stratzAwardLabel(match.stratz_award)}</div>}
                   </td>
                   <td className="py-3 pr-4 tabular-nums">
                     <div className="font-black text-yellow-300">{match.gold_per_min || "-"} GPM</div>
@@ -553,32 +1972,11 @@ function MatchTable({ matches }: { matches: PlayerMatch[] }) {
                     {match.hero_healing > 0 && <div className="text-xs text-green-300">治疗 {compact(match.hero_healing)}</div>}
                   </td>
                   <td className="py-3 pr-4">
-                    <div className="flex min-w-[190px] flex-wrap gap-1">
-                      {itemIcons.map((url, index) => (
-                        <img
-                          key={`${match.match_id}-${index}`}
-                          src={url}
-                          alt=""
-                          className="h-7 w-7 rounded border border-white/10 bg-black/30 object-cover"
-                        />
-                      ))}
-                      {match.item_neutral_icon && (
-                        <img
-                          src={match.item_neutral_icon}
-                          alt=""
-                          className="h-7 w-7 rounded border border-yellow-300/40 bg-yellow-300/10 object-cover"
-                        />
-                      )}
-                      {!itemIcons.length && !match.item_neutral_icon && (
-                        <span className="rounded border border-white/10 bg-white/[0.04] px-2 py-1 text-xs text-stone-500">
-                          未解析
-                        </span>
-                      )}
-                    </div>
+                    <div className="min-w-[220px]"><EquipmentSlots match={match} compact loading={equipmentLoading} /></div>
                   </td>
                   <td className="py-3 pr-4">
                     <div className="font-bold text-stone-300">{match.game_mode}</div>
-                    <div className="text-xs text-stone-500">{match.role_name} · {match.lobby_type}</div>
+                    <div className="text-xs text-stone-500">{match.side} · {match.lobby_type}</div>
                   </td>
                   <td className="py-3 pr-4 tabular-nums">
                     <div className="font-bold text-stone-300">{match.duration_text}</div>
@@ -608,23 +2006,50 @@ export default function Home() {
   const [accountId, setAccountId] = useState(initialAccountId);
   const [query, setQuery] = useState(accountId);
   const [limit, setLimit] = useState(50);
+  const [meta, setMeta] = useState<GlobalMetaOverview | null>(null);
   const [data, setData] = useState<PlayerDashboardData | null>(null);
+  const [commercialConfig, setCommercialConfig] = useState<CommercialConfig | null>(null);
   const [searchResults, setSearchResults] = useState<PlayerSearchResult[]>([]);
+  const [metaLoading, setMetaLoading] = useState(true);
+  const [metaError, setMetaError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [deepLoading, setDeepLoading] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<AppTab>("today");
+  const loadRequestRef = useRef(0);
 
   const loadPlayer = useCallback(async (targetAccountId: string, targetLimit: number) => {
+    const requestId = ++loadRequestRef.current;
     setLoading(true);
+    setDeepLoading(true);
     setError("");
+    setData(null);
+    let quickLoaded = false;
     try {
-      const result = await getPlayerDashboard(targetAccountId, targetLimit);
-      setData(result);
+      const quick = await getPlayerQuickDashboard(targetAccountId, targetLimit);
+      if (requestId !== loadRequestRef.current) return;
+      setData(quick);
+      quickLoaded = true;
       window.localStorage.setItem(STORAGE_KEY, targetAccountId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "加载失败");
+      if (requestId === loadRequestRef.current) setError(err instanceof Error ? err.message : "快速数据加载失败");
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestRef.current) setLoading(false);
+    }
+
+    try {
+      const deep = await getPlayerDashboard(targetAccountId, targetLimit);
+      if (requestId !== loadRequestRef.current) return;
+      setData(deep);
+      setError("");
+      window.localStorage.setItem(STORAGE_KEY, targetAccountId);
+    } catch (err) {
+      if (requestId === loadRequestRef.current) {
+        setError(quickLoaded ? "已显示快速数据，深度比赛证据暂时未能补全。" : err instanceof Error ? err.message : "加载失败");
+      }
+    } finally {
+      if (requestId === loadRequestRef.current) setDeepLoading(false);
     }
   }, []);
 
@@ -632,11 +2057,48 @@ export default function Home() {
     void loadPlayer(accountId, limit);
   }, [accountId, limit, loadPlayer]);
 
+  useEffect(() => {
+    let active = true;
+    async function loadMeta() {
+      setMetaLoading(true);
+      setMetaError("");
+      try {
+        const result = await getMetaOverview();
+        if (active) setMeta(result);
+      } catch (err) {
+        if (active) setMetaError(err instanceof Error ? err.message : "全局大盘加载失败");
+      } finally {
+        if (active) setMetaLoading(false);
+      }
+    }
+    void loadMeta();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    async function loadCommercialConfig() {
+      try {
+        const result = await getCommercialConfig();
+        if (active) setCommercialConfig(result);
+      } catch {
+        if (active) setCommercialConfig(null);
+      }
+    }
+    void loadCommercialConfig();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       const trimmed = query.trim();
       if (!trimmed) return;
+      setActiveTab("today");
 
       if (/^\d+$/.test(trimmed)) {
         setSearchResults([]);
@@ -666,6 +2128,7 @@ export default function Home() {
     setQuery(id);
     setSearchResults([]);
     setAccountId(id);
+    setActiveTab("today");
   }, []);
 
   const copyProfileLink = useCallback(() => {
@@ -681,11 +2144,11 @@ export default function Home() {
   const hasCharts = useMemo(() => Boolean(data?.rolling_winrate.length || data?.rank_history.length), [data]);
 
   return (
-    <main className="mx-auto max-w-[1480px] px-4 py-4 sm:px-6 lg:px-8">
-      <div className="space-y-4">
-        <ProductNav data={data} copied={copied} onCopyProfile={copyProfileLink} />
-        <ProfileHeader
-          data={data}
+    <main className="mx-auto max-w-[1480px] px-4 py-3 sm:px-6 lg:px-8">
+      <div className="space-y-3">
+        <ProductNav data={data} copied={copied} onCopyProfile={copyProfileLink} onOpenPro={() => setActiveTab("progress")} />
+        <WorkspaceTabs activeTab={activeTab} onChange={setActiveTab} data={data} />
+        <CommandSearch
           query={query}
           setQuery={setQuery}
           limit={limit}
@@ -693,29 +2156,66 @@ export default function Home() {
           loading={loading}
           onSubmit={handleSubmit}
         />
-
         {error && <div className="rounded-lg border border-red-300/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">{error}</div>}
         <SearchResults results={searchResults} onPick={pickPlayer} />
+        {!data && loading && <div className="cockpit-loading"><LoaderCircle size={20} className="animate-spin" /><div><div className="font-black text-stone-200">正在读取最近比赛</div><div className="mt-1 text-xs text-stone-500">先显示今日任务，深度证据随后补全。</div></div></div>}
 
-        {data && (
-          <>
-            {data.warnings.length > 0 && (
-              <div className="rounded-lg border border-yellow-300/20 bg-yellow-300/10 px-4 py-3 text-xs text-yellow-100">
-                OpenDota 部分接口暂时不可用，当前显示已成功获取的数据。稍后刷新会自动补齐。
-              </div>
+        {activeTab === "meta" && <GlobalMetaDashboard meta={meta} loading={metaLoading} error={metaError} />}
+
+        {activeTab === "today" && (
+          <section id="personal-dashboard" className="space-y-3">
+            <ProfileHeader data={data} deepLoading={deepLoading} />
+
+            {data && (
+              <>
+                <ThreeMatchMission data={data} />
+                <PlayerDataExplorer key={data.profile.account_id} data={data} equipmentLoading={deepLoading} onOpenMatches={() => setActiveTab("lab")} />
+                <div className="pb-4 text-right text-xs text-stone-600">Updated {data.updated_at}</div>
+              </>
             )}
-            <CoachBrief data={data} />
-            <SummaryGrid data={data} />
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_420px]">
-              <HeroStrip title="近期英雄池" heroes={data.hero_pool} />
-              <CountsPanel data={data} />
-            </div>
+          </section>
+        )}
+
+        {activeTab === "lab" && (
+          <section className="space-y-4">
+            {data && (
+              <>
+                <MatchLab data={data} />
+                <EvidenceCoverage data={data} deepLoading={deepLoading} />
+                {data.warnings.length > 0 && (
+                  <div className="rounded-lg border border-yellow-300/20 bg-yellow-300/10 px-4 py-3 text-xs text-yellow-100">
+                    OpenDota 部分数据暂时不可用，当前复盘只显示已验证的数据。
+                  </div>
+                )}
+                <AiReviewPanel data={data} commercialConfig={commercialConfig} />
+                <MatchTable matches={data.recent_matches} equipmentLoading={deepLoading} />
+                <div className="pb-4 text-right text-xs text-stone-600">Updated {data.updated_at}</div>
+              </>
+            )}
+          </section>
+        )}
+
+        {activeTab === "pool" && data && (
+          <section className="space-y-4">
+            <div className="page-intro"><div className="text-xs font-black text-yellow-300">HERO POOL</div><h1>英雄池训练室</h1><p>把英雄分成继续上分、专项训练和暂时观察；全局数据只做参照，不冒充分位置 Meta。</p></div>
+            <PersonalMetaLab data={data} />
+            <WardMap accountId={data.profile.account_id} />
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_420px]"><HeroStrip title="近期英雄池" heroes={data.hero_pool} /><CountsPanel data={data} /></div>
             <HeroStrip title="生涯常用英雄" heroes={data.lifetime_heroes} />
-            <ProPanel data={data} />
-            {hasCharts && <Charts data={data} />}
-            <MatchTable matches={data.recent_matches} />
-            <div className="pb-4 text-right text-xs text-stone-600">Updated {data.updated_at}</div>
-          </>
+          </section>
+        )}
+
+        {activeTab === "progress" && (
+          <section className="space-y-4">
+            {data && <>
+              <div className="page-intro"><div className="text-xs font-black text-green-300">PROGRESS</div><h1>训练进度</h1><p>用同一个目标完成三局，再比较趋势；长期历史和自动周报由 Pro 保存。</p></div>
+              <ThreeMatchMission data={data} expanded />
+              <SummaryGrid data={data} />
+              <CoachBrief data={data} />
+              {hasCharts && <Charts data={data} />}
+              <ProPanel data={data} commercialConfig={commercialConfig} />
+            </>}
+          </section>
         )}
       </div>
     </main>

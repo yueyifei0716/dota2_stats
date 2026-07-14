@@ -83,7 +83,7 @@ export default function HeroItemPopularity() {
                     tab === "role" ? "bg-yellow-500/30 text-yellow-400" : "bg-white/5 text-gray-400 hover:bg-white/10"
                   }`}
                 >
-                  按位置 (我的出装)
+                  按 OpenDota 分路
                 </button>
               )}
               {hasGlobalData && (
