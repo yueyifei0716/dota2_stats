@@ -8,6 +8,7 @@ from routers.players import (
     _apply_stratz_match_data,
     _cache,
     _cached_stratz_player_matches,
+    _data_quality,
     _position_meta_fit,
     _role_matrix,
     _stratz_graphql,
@@ -39,7 +40,28 @@ class PlayerPositionTests(unittest.TestCase):
         self.assertTrue(overview["available"])
         self.assertEqual(overview["status"], "ready")
         self.assertEqual(overview["data_freshness"], "weekly_snapshot")
+        self.assertIn(overview["freshness"]["state"], {"fresh", "stale", "expired"})
+        self.assertEqual(overview["freshness"]["source_mode"], "weekly_snapshot")
         self.assertEqual(overview["warnings"], [])
+
+    def test_data_quality_counts_only_the_displayed_sample(self):
+        matches = [
+            {
+                "position_source": "unavailable",
+                "detail_available": False,
+                "equipment_available": False,
+                "benchmark_available": False,
+                "replay_parsed": False,
+            }
+            for _ in range(20)
+        ]
+        matches.append({**matches[0], "position_source": "stratz", "detail_available": True})
+
+        quality = _data_quality(matches)
+
+        self.assertEqual(quality["sample_games"], 20)
+        self.assertEqual(quality["verified_position_matches"], 0)
+        self.assertEqual(quality["detail_matches"], 0)
 
     @patch("routers.players._stratz_graphql", return_value=({"player": None}, "ready", None))
     def test_missing_stratz_player_degrades_without_crashing(self, _graphql):

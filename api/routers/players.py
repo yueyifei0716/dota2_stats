@@ -17,6 +17,7 @@ from fastapi import APIRouter, Body, Header, HTTPException, Query
 from fetch_dota_stats import HEROES_CN, HEROES_EN, get_hero_icon_url
 from routers.commercial import verify_access_token
 from services.stats import get_item_icon_url, get_rank_name, get_rank_name_simple
+from services.training import load_position_labels, normalize_client_id, training_state
 
 router = APIRouter()
 
@@ -57,6 +58,11 @@ POSITION_DETAILS = {
     for index, scope in enumerate(POSITION_META_SCOPES, start=1)
 }
 
+POSITION_BY_NUMBER = {
+    details["position"]: details
+    for details in POSITION_DETAILS.values()
+}
+
 GAME_MODES = {
     1: "All Pick",
     2: "Captain's Mode",
@@ -94,6 +100,15 @@ def _safe_int(value: Any, default: int = 0) -> int:
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def _optional_client_id(value: Optional[str]) -> str:
+    if not value:
+        return ""
+    try:
+        return normalize_client_id(value)
+    except ValueError:
+        return ""
 
 
 def _round(value: float, digits: int = 1) -> float:
@@ -416,6 +431,7 @@ def _cached_item_catalog() -> Dict[int, Dict[str, str]]:
                 catalog[item_id] = {
                     "name": str(item.get("dname") or slug),
                     "icon": icon,
+                    "slug": str(slug),
                 }
         if catalog:
             _cache[cache_key] = {"time": time.time(), "data": catalog}
@@ -598,6 +614,31 @@ def _apply_stratz_match_data(matches: List[Dict[str, Any]], raw_matches: Any) ->
     return verified_positions
 
 
+def _apply_confirmed_positions(account_id: int, client_id: str, matches: List[Dict[str, Any]]) -> int:
+    """Apply player labels only where an authoritative STRATZ position is absent."""
+    if not client_id or not matches:
+        return 0
+    labels = load_position_labels(account_id, client_id, [match.get("match_id", "") for match in matches])
+    confirmed = 0
+    for match in matches:
+        if match.get("position_source") == "stratz":
+            continue
+        label = labels.get(str(match.get("match_id") or ""))
+        if not label:
+            continue
+        details = POSITION_BY_NUMBER.get(_safe_int(label.get("position")))
+        if not details:
+            continue
+        match.update({
+            **details,
+            "position_source": "user_confirmed",
+            "role_name": details["position_name"],
+            "role_source": "user_confirmed",
+        })
+        confirmed += 1
+    return confirmed
+
+
 def _summarize_streak(matches: List[Dict[str, Any]]) -> Dict[str, Any]:
     if not matches:
         return {"count": 0, "label": ""}
@@ -724,6 +765,19 @@ def _summary(matches: List[Dict[str, Any]]) -> Dict[str, Any]:
             "kda_diff": _round(recent_stats["kda"] - previous_stats["kda"], 2),
             "form_diff": _round(recent_stats["form_score"] - previous_stats["form_score"]),
         },
+    }
+
+
+def _data_quality(matches: List[Dict[str, Any]]) -> Dict[str, Any]:
+    sample = matches[:20]
+    return {
+        "sample_games": len(sample),
+        "detail_matches": sum(1 for match in sample if match.get("detail_available")),
+        "equipment_matches": sum(1 for match in sample if match.get("equipment_available")),
+        "benchmark_matches": sum(1 for match in sample if match.get("benchmark_available")),
+        "replay_matches": sum(1 for match in sample if match.get("replay_parsed")),
+        "verified_position_matches": sum(1 for match in sample if match.get("position_source") == "stratz"),
+        "confirmed_position_matches": sum(1 for match in sample if match.get("position_source") == "user_confirmed"),
     }
 
 
@@ -1088,6 +1142,26 @@ def _stratz_meta_snapshot() -> Optional[Dict[str, Any]]:
     if not snapshot.get("available") or not all(scopes.get(scope["key"]) for scope in POSITION_META_SCOPES):
         return None
     return snapshot
+
+
+def _meta_freshness(period_end: str, source_mode: str) -> Dict[str, Any]:
+    try:
+        end_date = datetime.strptime(period_end, "%Y-%m-%d").date()
+        age_days = max(0, (datetime.now(timezone.utc).date() - end_date).days)
+    except (TypeError, ValueError):
+        return {"state": "unknown", "age_days": None, "source_mode": source_mode}
+
+    if age_days <= 9:
+        state = "fresh"
+    elif age_days <= 21:
+        state = "stale"
+    else:
+        state = "expired"
+    return {
+        "state": state,
+        "age_days": age_days,
+        "source_mode": source_mode,
+    }
 
 
 def _meta_fit(
@@ -1532,17 +1606,21 @@ def meta_overview():
     if not overview["available"]:
         snapshot = _stratz_meta_snapshot()
         if snapshot:
+            freshness = _meta_freshness(snapshot.get("period_end", ""), "weekly_snapshot")
             return {
                 **snapshot,
                 "source": "STRATZ GraphQL heroStats weekly snapshot",
                 "warnings": [],
                 "data_freshness": "weekly_snapshot",
+                "freshness": freshness,
             }
+    freshness = _meta_freshness(overview.get("period_end", ""), "live")
     return {
         **overview,
         "warnings": [warning] if warning else [],
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "data_freshness": "live",
+        "freshness": freshness,
     }
 
 
@@ -1590,9 +1668,10 @@ def _empty_hero_meta() -> Dict[str, Any]:
     }
 
 
-def _player_quick_payload(account_id: int, limit: int) -> Dict[str, Any]:
+def _player_quick_payload(account_id: int, limit: int, client_id: str = "") -> Dict[str, Any]:
     sources, warnings = _fetch_player_sources(account_id, include_deep=False, limit=limit)
     recent_matches = _aggregate_recent(sources.get("recent") if isinstance(sources.get("recent"), list) else [], min(limit, 20))
+    confirmed_positions = _apply_confirmed_positions(account_id, client_id, recent_matches)
     summary = _summary(recent_matches)
     hero_pool = _hero_pool(recent_matches)
     lifetime_heroes = _lifetime_heroes(sources.get("heroes"))
@@ -1610,9 +1689,11 @@ def _player_quick_payload(account_id: int, limit: int) -> Dict[str, Any]:
         "role_matrix": [],
         "position_coverage": {
             "verified_matches": 0,
+            "confirmed_matches": confirmed_positions,
+            "covered_matches": confirmed_positions,
             "total_matches": len(recent_matches),
-            "coverage_rate": 0,
-            "source": "STRATZ Ranked Roles",
+            "coverage_rate": _round(confirmed_positions / len(recent_matches) * 100) if recent_matches else 0,
+            "source": "STRATZ Ranked Roles + 玩家确认",
         },
         "rank_history": [],
         "rolling_winrate": _rolling_winrate(recent_matches),
@@ -1620,13 +1701,15 @@ def _player_quick_payload(account_id: int, limit: int) -> Dict[str, Any]:
         "weekday_analysis": weekday_data,
         "counts": {},
         "coach": _coach_pack(summary, recent_matches, hero_pool, lifetime_heroes, time_data, weekday_data),
+        "training": training_state(account_id, client_id, recent_matches, hero_pool),
+        "data_quality": _data_quality(recent_matches),
         "warnings": warnings,
         "data_stage": "quick",
         "updated_at": datetime.now(tz=CN_TZ).strftime("%Y-%m-%d %H:%M:%S"),
     }
 
 
-def _player_dashboard_payload(account_id: int, limit: int) -> Dict[str, Any]:
+def _player_dashboard_payload(account_id: int, limit: int, client_id: str = "") -> Dict[str, Any]:
     sources, warnings = _fetch_player_sources(account_id, include_deep=True, limit=limit)
     profile_raw = sources.get("profile")
     recent_raw = sources.get("recent")
@@ -1648,6 +1731,8 @@ def _player_dashboard_payload(account_id: int, limit: int) -> Dict[str, Any]:
     if position_meta_warning:
         warnings.append(position_meta_warning)
     verified_positions = _apply_stratz_match_data(recent_matches, stratz_matches)
+    confirmed_positions = _apply_confirmed_positions(account_id, client_id, recent_matches)
+    covered_positions = verified_positions + confirmed_positions
     position_hero_meta = _position_meta(position_stats)
     summary = _summary(recent_matches)
     hero_pool = _hero_pool(recent_matches)
@@ -1666,9 +1751,11 @@ def _player_dashboard_payload(account_id: int, limit: int) -> Dict[str, Any]:
         "role_matrix": _role_matrix(recent_matches),
         "position_coverage": {
             "verified_matches": verified_positions,
+            "confirmed_matches": confirmed_positions,
+            "covered_matches": covered_positions,
             "total_matches": len(recent_matches),
-            "coverage_rate": _round(verified_positions / len(recent_matches) * 100) if recent_matches else 0,
-            "source": "STRATZ Ranked Roles",
+            "coverage_rate": _round(covered_positions / len(recent_matches) * 100) if recent_matches else 0,
+            "source": "STRATZ Ranked Roles + 玩家确认",
         },
         "rank_history": _rank_history(ratings_raw),
         "rolling_winrate": _rolling_winrate(recent_matches),
@@ -1676,6 +1763,8 @@ def _player_dashboard_payload(account_id: int, limit: int) -> Dict[str, Any]:
         "weekday_analysis": weekday_data,
         "counts": _counts_summary(counts_raw),
         "coach": _coach_pack(summary, recent_matches, hero_pool, lifetime_heroes, time_data, weekday_data),
+        "training": training_state(account_id, client_id, recent_matches, hero_pool),
+        "data_quality": _data_quality(recent_matches),
         "warnings": warnings,
         "data_stage": "deep",
         "updated_at": datetime.now(tz=CN_TZ).strftime("%Y-%m-%d %H:%M:%S"),
@@ -1977,6 +2066,230 @@ SCORECARD_ACTIONS = {
 }
 
 
+def _scorecard_story(
+    match: Dict[str, Any],
+    player: Dict[str, Any],
+    item_ids: List[int],
+    player_slot: int,
+) -> Dict[str, Any]:
+    replay_parsed = bool(match.get("version")) and any(
+        isinstance(player.get(field), list) and len(player.get(field) or []) > 0
+        for field in ("gold_t", "xp_t", "lh_t", "purchase_log", "obs_log", "sen_log")
+    )
+    if not replay_parsed:
+        return {
+            "available": False,
+            "chapters": [],
+            "economy": [],
+            "summary": {},
+            "source": "OpenDota Replay events unavailable",
+        }
+
+    gold_t = player.get("gold_t") if isinstance(player.get("gold_t"), list) else []
+    xp_t = player.get("xp_t") if isinstance(player.get("xp_t"), list) else []
+    lh_t = player.get("lh_t") if isinstance(player.get("lh_t"), list) else []
+    radiant_adv = match.get("radiant_gold_adv") if isinstance(match.get("radiant_gold_adv"), list) else []
+    perspective = 1 if _is_radiant(player_slot) else -1
+    series_length = max(len(gold_t), len(xp_t), len(lh_t), len(radiant_adv))
+
+    def series_value(series: List[Any], minute: int, multiplier: int = 1) -> Optional[int]:
+        if minute >= len(series) or series[minute] is None:
+            return None
+        return _safe_int(series[minute]) * multiplier
+
+    economy = []
+    for minute in range(series_length):
+        economy.append({
+            "minute": minute,
+            "gold": series_value(gold_t, minute),
+            "xp": series_value(xp_t, minute),
+            "last_hits": series_value(lh_t, minute),
+            "team_advantage": series_value(radiant_adv, minute, perspective),
+        })
+
+    chapters: List[Dict[str, Any]] = []
+    if len(gold_t) > 10 and len(lh_t) > 10 and gold_t[10] is not None and lh_t[10] is not None:
+        lane = economy[10]
+        advantage = lane["team_advantage"]
+        advantage_detail = f"，全队经济差 {advantage:+d}" if advantage is not None else ""
+        chapters.append({
+            "key": "lane-10",
+            "type": "lane",
+            "time": 600,
+            "time_text": "10:00",
+            "title": "对线阶段结算",
+            "detail": f"10 分钟 {lane['last_hits']} 补刀，个人经济 {lane['gold']}{advantage_detail}。",
+            "tone": "cyan",
+        })
+
+    raw_kill_logs = player.get("kills_log")
+    kill_logs = sorted([
+        entry for entry in (raw_kill_logs or [])
+        if isinstance(entry, dict) and _safe_int(entry.get("time"), -1) >= 0 and str(entry.get("key") or "").startswith("npc_dota_hero_")
+    ], key=lambda entry: _safe_int(entry.get("time")))
+    if kill_logs:
+        first_kill = kill_logs[0]
+        target = str(first_kill.get("key") or "").replace("npc_dota_hero_", "").replace("_", " ").title()
+        first_kill_time = _safe_int(first_kill.get("time"))
+        chapters.append({
+            "key": "first-hero-kill",
+            "type": "combat",
+            "time": first_kill_time,
+            "time_text": _duration_text(first_kill_time),
+            "title": "本局首次英雄击杀",
+            "detail": f"击杀 {target}；Replay 共记录 {len(kill_logs)} 次英雄击杀。",
+            "tone": "red",
+        })
+
+    item_catalog = _cached_item_catalog()
+    by_slug = {
+        str(item.get("slug")): {"item_id": item_id, **item}
+        for item_id, item in item_catalog.items()
+        if item.get("slug")
+    }
+    final_slugs = {
+        str(item_catalog.get(item_id, {}).get("slug") or "")
+        for item_id in item_ids if item_id
+    }
+    important_slugs = final_slugs | {"aghanims_shard"}
+    seen_items = set()
+    purchase_events = []
+    raw_purchase_log = player.get("purchase_log")
+    purchase_log = sorted(
+        [entry for entry in (raw_purchase_log or []) if isinstance(entry, dict)],
+        key=lambda entry: _safe_int(entry.get("time"), -1),
+    )
+    for entry in purchase_log:
+        item_slug = str(entry.get("key") or "")
+        timestamp = _safe_int(entry.get("time"), -1)
+        if timestamp < 0 or item_slug not in important_slugs or item_slug in seen_items:
+            continue
+        item = by_slug.get(item_slug, {})
+        seen_items.add(item_slug)
+        purchase_events.append({
+            "key": f"item-{item_slug}",
+            "type": "item",
+            "time": timestamp,
+            "time_text": _duration_text(timestamp),
+            "title": str(item.get("name") or item_slug.replace("_", " ").title()),
+            "detail": "Replay 记录的实际购买时间。",
+            "tone": "gold",
+            "item": {
+                "item_id": _safe_int(item.get("item_id")),
+                "name": str(item.get("name") or ""),
+                "icon": str(item.get("icon") or ""),
+            },
+        })
+    chapters.extend(purchase_events[:6])
+
+    raw_obs_logs = player.get("obs_log")
+    raw_sen_logs = player.get("sen_log")
+    obs_logs = [entry for entry in (raw_obs_logs or []) if isinstance(entry, dict) and _safe_int(entry.get("time"), -1) >= 0]
+    sen_logs = [entry for entry in (raw_sen_logs or []) if isinstance(entry, dict) and _safe_int(entry.get("time"), -1) >= 0]
+    ward_events = [
+        *[{**entry, "ward_kind": "侦查守卫"} for entry in obs_logs],
+        *[{**entry, "ward_kind": "岗哨守卫"} for entry in sen_logs],
+    ]
+    first_ward = min(ward_events, key=lambda entry: _safe_int(entry.get("time")), default=None)
+    if first_ward:
+        ward_time = _safe_int(first_ward.get("time"))
+        ward_type = str(first_ward.get("ward_kind") or "守卫")
+        chapters.append({
+            "key": "first-ward",
+            "type": "vision",
+            "time": ward_time,
+            "time_text": _duration_text(ward_time),
+            "title": f"首次放置{ward_type}",
+            "detail": f"本局共放置 {len(obs_logs)} 个侦查守卫、{len(sen_logs)} 个岗哨守卫。",
+            "tone": "green",
+        })
+
+    objectives = match.get("objectives") if isinstance(match.get("objectives"), list) else []
+    aegis_events = [
+        event for event in objectives
+        if isinstance(event, dict)
+        and event.get("type") == "CHAT_MESSAGE_AEGIS"
+        and _safe_int(event.get("player_slot"), -1) == player_slot
+    ]
+    for index, event in enumerate(aegis_events[:2]):
+        aegis_time = _safe_int(event.get("time"))
+        chapters.append({
+            "key": f"aegis-{index}",
+            "type": "objective",
+            "time": aegis_time,
+            "time_text": _duration_text(aegis_time),
+            "title": "取得不朽之守护",
+            "detail": "肉山盾归属来自 Replay 目标事件。",
+            "tone": "green",
+        })
+
+    valid_swings = []
+    for minute in range(1, len(radiant_adv)):
+        previous = radiant_adv[minute - 1]
+        current = radiant_adv[minute]
+        if previous is None or current is None:
+            continue
+        try:
+            swing = (int(current) - int(previous)) * perspective
+        except (TypeError, ValueError):
+            continue
+        valid_swings.append((minute, swing))
+    if valid_swings:
+        turning_minute, swing = max(valid_swings, key=lambda point: abs(point[1]))
+        if abs(swing) >= 1000:
+            chapters.append({
+                "key": "team-gold-swing",
+                "type": "turning",
+                "time": turning_minute * 60,
+                "time_text": f"{turning_minute}:00",
+                "title": "全队最大单分钟经济变化",
+                "detail": f"该分钟从你的阵营视角变化 {swing:+d} 金币；这是全队数据，不归因于单个操作。",
+                "tone": "red" if swing < 0 else "green",
+            })
+
+    duration = _safe_int(match.get("duration"))
+    scoreboard_values = [player.get(field) for field in ("kills", "deaths", "assists")]
+    result_parts = []
+    if all(value is not None for value in scoreboard_values):
+        result_parts.append("结算 " + "/".join(str(_safe_int(value)) for value in scoreboard_values))
+    if player.get("gold_per_min") is not None:
+        result_parts.append(f"{_safe_int(player.get('gold_per_min'))} GPM")
+    if duration > 0:
+        result_tone = "cyan"
+        if match.get("radiant_win") is not None:
+            result_tone = "green" if bool(match.get("radiant_win")) == _is_radiant(player_slot) else "red"
+        chapters.append({
+            "key": "match-end",
+            "type": "result",
+            "time": duration,
+            "time_text": _duration_text(duration),
+            "title": "比赛结束",
+            "detail": "，".join(result_parts) + "。" if result_parts else "比赛结算事件。",
+            "tone": result_tone,
+        })
+    chapters.sort(key=lambda chapter: (chapter["time"], chapter["key"]))
+
+    summary: Dict[str, Any] = {}
+    if isinstance(raw_kill_logs, list):
+        summary["hero_kills"] = len(kill_logs)
+    if isinstance(raw_obs_logs, list):
+        summary["observer_wards"] = len(obs_logs)
+    if isinstance(raw_sen_logs, list):
+        summary["sentry_wards"] = len(sen_logs)
+    if isinstance(raw_purchase_log, list):
+        summary["major_item_timings"] = len(purchase_events)
+    if player.get("teamfight_participation") is not None:
+        summary["teamfight_participation"] = _round(float(player.get("teamfight_participation")) * 100)
+
+    return {
+        "available": True,
+        "chapters": chapters[:12],
+        "economy": economy,
+        "summary": summary,
+        "source": "OpenDota parsed Replay events",
+    }
+
+
 def _match_scorecard_payload(account_id: int, match_id: str) -> Dict[str, Any]:
     data, warning = _cached_get(f"/matches/{match_id}", timeout=18)
     if warning:
@@ -2030,6 +2343,7 @@ def _match_scorecard_payload(account_id: int, match_id: str) -> Dict[str, Any]:
     assists = _safe_int(player.get("assists"))
     player_slot = _safe_int(player.get("player_slot"))
     won = bool(data.get("radiant_win")) == _is_radiant(player_slot)
+    story = _scorecard_story(data, player, item_ids, player_slot)
     return {
         "match": {
             "match_id": str(match_id),
@@ -2070,19 +2384,28 @@ def _match_scorecard_payload(account_id: int, match_id: str) -> Dict[str, Any]:
             },
         ],
         "replay_parsed": replay_parsed,
+        "story": story,
         "source": "OpenDota match scoreboard + hero benchmarks",
         "updated_at": datetime.now(tz=CN_TZ).strftime("%Y-%m-%d %H:%M:%S"),
     }
 
 
 @router.get("/players/{account_id}/dashboard/quick")
-def player_dashboard_quick(account_id: int, limit: int = Query(20, ge=10, le=20)):
-    return _player_quick_payload(account_id, limit)
+def player_dashboard_quick(
+    account_id: int,
+    limit: int = Query(20, ge=10, le=20),
+    x_dotasense_client: Optional[str] = Header(default=None, alias="X-DotaSense-Client"),
+):
+    return _player_quick_payload(account_id, limit, _optional_client_id(x_dotasense_client))
 
 
 @router.get("/players/{account_id}/dashboard")
-def player_dashboard(account_id: int, limit: int = Query(50, ge=10, le=100)):
-    return _player_dashboard_payload(account_id, limit)
+def player_dashboard(
+    account_id: int,
+    limit: int = Query(50, ge=10, le=100),
+    x_dotasense_client: Optional[str] = Header(default=None, alias="X-DotaSense-Client"),
+):
+    return _player_dashboard_payload(account_id, limit, _optional_client_id(x_dotasense_client))
 
 
 @router.get("/players/{account_id}/matches/{match_id}/scorecard")

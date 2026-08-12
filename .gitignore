@@ -35,6 +35,11 @@ Thumbs.db
 
 # Cache
 cache/
+.data/
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
 *.bak
 api.json
 .vercel
+.playwright-cli/

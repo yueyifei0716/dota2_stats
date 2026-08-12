@@ -329,11 +329,11 @@ export interface PlayerMatch {
   lane_role: number;
   lane_role_name: string;
   role_name: string;
-  role_source: "stratz" | "parsed" | "unknown";
+  role_source: "stratz" | "user_confirmed" | "parsed" | "unknown";
   position: number;
   position_key: string;
   position_name: string;
-  position_source: "stratz" | "unavailable";
+  position_source: "stratz" | "user_confirmed" | "unavailable";
   stratz_role: string;
   stratz_lane: string;
   stratz_imp: number | null;
@@ -407,6 +407,11 @@ export interface GlobalMetaOverview {
   available: boolean;
   status: "ready" | "empty" | "not_configured" | "unavailable";
   data_freshness?: "live" | "weekly_snapshot";
+  freshness?: {
+    state: "fresh" | "stale" | "expired" | "unknown";
+    age_days: number | null;
+    source_mode: "live" | "weekly_snapshot" | string;
+  };
   period_start: string;
   period_end: string;
   hero_meta: PlayerHeroMeta;
@@ -519,6 +524,83 @@ export interface PlayerCoachPack {
   pro_preview: PlayerProPreview[];
 }
 
+export interface TrainingRecommendation {
+  available: boolean;
+  focus_key: "deaths" | "gold_per_min" | "kda";
+  title: string;
+  reason: string;
+  drill: string;
+  metric_label: string;
+  unit: string;
+  direction: "lower" | "higher";
+  baseline_value: number | null;
+  target_value: number | null;
+  baseline_games: number;
+  target_games: number;
+  recommended_hero: {
+    hero_id: number;
+    hero_name: string;
+    hero_icon: string;
+  };
+  evidence: string;
+}
+
+export interface TrainingMissionMatch {
+  match_id: string;
+  hero_id: number;
+  hero_name: string;
+  hero_icon: string;
+  win: boolean;
+  kills: number;
+  deaths: number;
+  assists: number;
+  played_at: string;
+  start_time: number;
+  metric_value: number;
+}
+
+export interface TrainingMissionProgress {
+  completed_games: number;
+  target_games: number;
+  current_value: number | null;
+  target_value: number;
+  baseline_value: number;
+  delta: number | null;
+  achieved: boolean | null;
+  matches: TrainingMissionMatch[];
+}
+
+export interface TrainingMission {
+  id: string;
+  status: "active" | "completed" | "cancelled";
+  started_at: number;
+  completed_at: number | null;
+  recommendation: TrainingRecommendation;
+  progress?: TrainingMissionProgress;
+  result?: TrainingMissionProgress | null;
+}
+
+export interface PlayerTrainingState {
+  recommendation: TrainingRecommendation;
+  active_mission: TrainingMission | null;
+  history: TrainingMission[];
+  storage: {
+    backend: string;
+    persistent: boolean;
+    production_ready: boolean;
+  };
+}
+
+export interface PlayerDataQuality {
+  sample_games: number;
+  detail_matches: number;
+  equipment_matches: number;
+  benchmark_matches: number;
+  replay_matches: number;
+  verified_position_matches: number;
+  confirmed_position_matches: number;
+}
+
 export interface PlayerDashboardData {
   profile: PlayerProfile;
   summary: PlayerSummary;
@@ -531,6 +613,8 @@ export interface PlayerDashboardData {
   role_matrix: PlayerRoleMatrix[];
   position_coverage: {
     verified_matches: number;
+    confirmed_matches: number;
+    covered_matches: number;
     total_matches: number;
     coverage_rate: number;
     source: string;
@@ -550,6 +634,8 @@ export interface PlayerDashboardData {
     };
   };
   coach: PlayerCoachPack;
+  training: PlayerTrainingState;
+  data_quality: PlayerDataQuality;
   warnings: string[];
   data_stage: "quick" | "deep";
   updated_at: string;
@@ -591,8 +677,42 @@ export interface PlayerMatchScorecard {
   action: string;
   evidence: MatchScorecardEvidence[];
   replay_parsed: boolean;
+  story: MatchStory;
   source: string;
   updated_at: string;
+}
+
+export interface MatchStoryChapter {
+  key: string;
+  type: "lane" | "combat" | "item" | "vision" | "objective" | "turning" | "result";
+  time: number;
+  time_text: string;
+  title: string;
+  detail: string;
+  tone: "gold" | "green" | "red" | "cyan";
+  item?: { item_id: number; name: string; icon: string };
+}
+
+export interface MatchStoryPoint {
+  minute: number;
+  gold: number | null;
+  xp: number | null;
+  last_hits: number | null;
+  team_advantage: number | null;
+}
+
+export interface MatchStory {
+  available: boolean;
+  chapters: MatchStoryChapter[];
+  economy: MatchStoryPoint[];
+  summary: {
+    hero_kills?: number;
+    observer_wards?: number;
+    sentry_wards?: number;
+    major_item_timings?: number;
+    teamfight_participation?: number;
+  };
+  source: string;
 }
 
 export interface CommercialPlan {

@@ -4,10 +4,37 @@ const API_BASE =
     ? "http://localhost:8000/api"
     : "/api");
 
+const CLIENT_ID_STORAGE_KEY = "dotasense-client-id";
+let volatileClientId = "";
+
+function createClientIdentity() {
+  return typeof window.crypto?.randomUUID === "function"
+    ? window.crypto.randomUUID()
+    : `client-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function clientIdentity() {
+  if (typeof window === "undefined") return "";
+  try {
+    const existing = window.localStorage.getItem(CLIENT_ID_STORAGE_KEY);
+    if (existing) return existing;
+    const created = createClientIdentity();
+    window.localStorage.setItem(CLIENT_ID_STORAGE_KEY, created);
+    return created;
+  } catch {
+    if (!volatileClientId) volatileClientId = createClientIdentity();
+    return volatileClientId;
+  }
+}
+
 async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers = new Headers(options?.headers);
+  if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  const clientId = clientIdentity();
+  if (clientId) headers.set("X-DotaSense-Client", clientId);
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers,
   });
   if (!res.ok) {
     let detail = "";
@@ -116,6 +143,33 @@ export async function getPlayerQuickDashboard(accountId: string | number, limit 
 
 export async function getPlayerMatchScorecard(accountId: string | number, matchId: string | number) {
   return fetchApi<import("./types").PlayerMatchScorecard>(`/players/${accountId}/matches/${matchId}/scorecard`);
+}
+
+export async function startTrainingMission(accountId: string | number, focusKey = "") {
+  return fetchApi<import("./types").PlayerTrainingState>(`/players/${accountId}/training/missions`, {
+    method: "POST",
+    body: JSON.stringify({ focus_key: focusKey }),
+  });
+}
+
+export async function cancelTrainingMission(accountId: string | number, missionId: string) {
+  return fetchApi<import("./types").PlayerTrainingState>(`/players/${accountId}/training/missions/${missionId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function confirmMatchPosition(accountId: string | number, matchId: string | number, position: number) {
+  return fetchApi<{
+    match_id: string;
+    position: number;
+    position_key: string;
+    position_name: string;
+    position_source: "user_confirmed";
+    updated_at: number;
+  }>(`/players/${accountId}/matches/${matchId}/position`, {
+    method: "PUT",
+    body: JSON.stringify({ position }),
+  });
 }
 
 export async function getCommercialConfig() {

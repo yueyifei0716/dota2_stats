@@ -36,6 +36,8 @@ import {
 } from "recharts";
 import {
   createCommercialLead,
+  cancelTrainingMission,
+  confirmMatchPosition,
   getCommercialConfig,
   getMetaOverview,
   getPlayerDashboard,
@@ -44,6 +46,7 @@ import {
   getPlayerReview,
   getPlayerReviewPreview,
   searchPlayers,
+  startTrainingMission,
   unlockCommercialAccess,
   verifyCommercialAccess,
 } from "@/lib/api";
@@ -66,14 +69,30 @@ const STORAGE_KEY = "dota2-dashboard-account-id";
 const PRO_ACCESS_STORAGE_PREFIX = "dota2-pro-access-token";
 
 type AppTab = "today" | "lab" | "pool" | "meta" | "progress";
+type LabView = "scorecard" | "report" | "vision" | "history";
 
 const APP_TABS: { key: AppTab; label: string; detail: string; icon: LucideIcon }[] = [
-  { key: "today", label: "Overview", detail: "个人总览", icon: LayoutDashboard },
-  { key: "lab", label: "Matches", detail: "比赛与复盘", icon: Swords },
-  { key: "pool", label: "Heroes", detail: "英雄与视野", icon: BookOpen },
+  { key: "today", label: "我的", detail: "个人总览", icon: LayoutDashboard },
+  { key: "lab", label: "复盘", detail: "比赛与复盘", icon: Swords },
+  { key: "pool", label: "英雄池", detail: "英雄与训练", icon: BookOpen },
   { key: "meta", label: "Meta", detail: "全局环境", icon: Activity },
-  { key: "progress", label: "Progress", detail: "训练进度", icon: TrendingUp },
+  { key: "progress", label: "进步", detail: "训练进度", icon: TrendingUp },
 ];
+
+const LAB_VIEWS: { key: LabView; label: string; icon: LucideIcon }[] = [
+  { key: "scorecard", label: "单局", icon: Target },
+  { key: "report", label: "AI 报告", icon: Activity },
+  { key: "vision", label: "视野", icon: ShieldCheck },
+  { key: "history", label: "比赛列表", icon: ListFilter },
+];
+
+const POSITION_OPTIONS = [
+  { value: 1, label: "1号位", detail: "核心" },
+  { value: 2, label: "2号位", detail: "中单" },
+  { value: 3, label: "3号位", detail: "劣势路" },
+  { value: 4, label: "4号位", detail: "游走" },
+  { value: 5, label: "5号位", detail: "硬辅" },
+] as const;
 
 const COMMERCIAL_OFFERS = [
   {
@@ -491,7 +510,7 @@ function PlayerDataExplorer({ data, equipmentLoading, onOpenMatches }: { data: P
           <div className="flex min-w-0 items-center gap-2">
             <ListFilter size={15} className="shrink-0 text-cyan-300" aria-hidden="true" />
             <h2>筛选比赛</h2>
-            <span className="explorer-depth-note">{data.data_stage === "quick" ? "位置校验中" : `${data.position_coverage.verified_matches} 场真实位置`}</span>
+            <span className="explorer-depth-note">{data.data_stage === "quick" ? "深度数据加载中" : `${data.position_coverage.covered_matches} 场已确认位置`}</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="explorer-result-count">{filteredMatches.length}/{data.recent_matches.length} 场</span>
@@ -606,6 +625,13 @@ function GlobalMetaDashboard({
   const volumeLeader = [...activeHeroes].sort((left, right) => right.matches - left.matches)[0];
   const scoreLeader = [...qualifiedHeroes].sort((left, right) => right.meta_score - left.meta_score)[0];
   const hasMetaData = Boolean(meta?.available && activeHeroes.length);
+  const freshnessState = meta?.freshness?.state || "unknown";
+  const freshnessLabel = {
+    fresh: "数据新鲜",
+    stale: "数据偏旧",
+    expired: "数据已过期",
+    unknown: "日期未核验",
+  }[freshnessState];
 
   return (
     <section id="global-meta" className="meta-workspace">
@@ -615,6 +641,7 @@ function GlobalMetaDashboard({
           <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h1>五位置英雄 Meta</h1>
             <span>{meta?.source || "STRATZ GraphQL heroStats"}</span>
+            {meta && <span className={`meta-freshness meta-freshness-${freshnessState}`}>{freshnessLabel}</span>}
           </div>
         </div>
         <div className="meta-role-tabs" aria-label="位置选择">
@@ -650,6 +677,9 @@ function GlobalMetaDashboard({
 
       {meta && hasMetaData && (
         <>
+          {(freshnessState === "stale" || freshnessState === "expired") && (
+            <div className="meta-warning">当前快照距今天 {meta.freshness?.age_days ?? "-"} 天，只保留历史参考价值，不作为本周上分推荐。</div>
+          )}
           <div className="meta-snapshot-strip">
             <div><span>当前位置</span><strong>{activeRole?.label || "-"}</strong></div>
             <div><span>达标英雄</span><strong>{qualifiedHeroes.length}</strong><small>共 {activeHeroes.length}</small></div>
@@ -703,60 +733,81 @@ function GlobalMetaDashboard({
           {meta.warnings.length > 0 && (
             <div className="meta-warning">STRATZ 当前返回部分警告，榜单仅展示已验证的位置样本。</div>
           )}
-          <div className="meta-footnote">STRATZ · Divine/Immortal · {meta.period_start} 至 {meta.period_end} · {meta.data_freshness === "weekly_snapshot" ? "已验证周快照" : "实时"}。1–5 号位来自 Ranked Roles，不使用 lane_role、GPM 或补刀数推断；默认至少 {compactNumber(minimumSample)} 个位置样本，搜索仍可查看长尾英雄。</div>
+          <div className="meta-footnote">STRATZ · Divine/Immortal · {meta.period_start} 至 {meta.period_end} · {meta.data_freshness === "weekly_snapshot" ? "已验证周快照" : "实时"} · {freshnessLabel}。1–5 号位来自 Ranked Roles，不使用 lane_role、GPM 或补刀数推断；默认至少 {compactNumber(minimumSample)} 个位置样本，搜索仍可查看长尾英雄。</div>
         </>
       )}
     </section>
   );
 }
 
-function ThreeMatchMission({ data, expanded = false }: { data: PlayerDashboardData; expanded?: boolean }) {
-  const storageKey = `dota2-training-mission-${data.profile.account_id}`;
-  const [startedAt, setStartedAt] = useState(() => typeof window === "undefined" ? 0 : Number(window.localStorage.getItem(storageKey) || 0));
-  const step = data.coach.training_plan[0];
-  const recommendedHero = data.coach.signature_hero || data.hero_pool[0];
+function missionValue(value: number | null | undefined, focusKey: string) {
+  if (value === null || value === undefined) return "-";
+  if (focusKey === "gold_per_min") return Math.round(value).toLocaleString("zh-CN");
+  return value.toFixed(focusKey === "kda" ? 2 : 1);
+}
 
-  const challengeMatches = startedAt
-    ? data.recent_matches
-        .filter((match) => match.start_time * 1000 > startedAt)
-        .sort((left, right) => left.start_time - right.start_time)
-        .slice(0, 3)
-    : [];
-  const complete = challengeMatches.length >= 3;
+function ThreeMatchMission({
+  data,
+  expanded = false,
+  busy = false,
+  onStart,
+  onCancel,
+}: {
+  data: PlayerDashboardData;
+  expanded?: boolean;
+  busy?: boolean;
+  onStart: (focusKey: string) => Promise<void>;
+  onCancel: (missionId: string) => Promise<void>;
+}) {
+  const currentRecommendation = data.training.recommendation;
+  const activeMission = data.training.active_mission;
+  const completedMission = data.training.history.find((mission) => mission.status === "completed" && mission.result);
+  const visibleMission = activeMission || completedMission;
+  const recommendation = visibleMission?.recommendation || currentRecommendation;
+  const progress = activeMission?.progress || completedMission?.result || undefined;
+  const challengeMatches = progress?.matches || [];
+  const complete = Boolean(completedMission && !activeMission);
+  const achieved = complete ? progress?.achieved : null;
+  const missionAvailable = currentRecommendation.available;
+  const recommendedHero = recommendation.recommended_hero;
+  const unit = recommendation.unit ? ` ${recommendation.unit}` : "";
+  const baseline = recommendation.baseline_value === null
+    ? "-"
+    : `${missionValue(recommendation.baseline_value, recommendation.focus_key)}${unit}`;
+  const target = recommendation.target_value === null
+    ? "-"
+    : `${recommendation.direction === "lower" ? "≤" : "≥"}${missionValue(recommendation.target_value, recommendation.focus_key)}${unit}`;
 
-  const startMission = () => {
-    const timestamp = Date.now();
-    window.localStorage.setItem(storageKey, String(timestamp));
-    setStartedAt(timestamp);
-  };
-
-  const resetMission = () => {
-    window.localStorage.removeItem(storageKey);
-    setStartedAt(0);
-  };
+  const start = () => missionAvailable ? onStart(currentRecommendation.focus_key) : Promise.resolve();
+  const cancel = () => activeMission ? onCancel(activeMission.id) : Promise.resolve();
 
   if (!expanded) {
     return (
       <section className="mission-compact" aria-label="三局训练挑战">
         <div className="mission-compact-icon"><Target size={18} aria-hidden="true" /></div>
         <div className="mission-compact-copy">
-          <span>下一组三局</span>
-          <strong>{step?.focus || "压缩英雄池"}</strong>
-          <small>{step?.success_metric || "完成三局并留下可比较的数据"}</small>
+          <span>{activeMission ? "三局训练中" : complete ? "上一轮结果" : "下一组三局"}</span>
+          <strong>{recommendation.title}</strong>
+          <small>{activeMission || complete ? `${recommendation.metric_label} ${baseline} → ${target}` : recommendation.reason}</small>
         </div>
-        {recommendedHero && (
+        {recommendedHero.hero_id > 0 && (
           <div className="mission-compact-hero">
             {recommendedHero.hero_icon && <img src={recommendedHero.hero_icon} alt="" />}
             <span>{recommendedHero.hero_name}</span>
           </div>
         )}
-        <div className={`mission-compact-progress ${complete ? "complete" : ""}`}>
-          <span>{complete ? "完成" : "进度"}</span>
-          <strong>{challengeMatches.length}/3</strong>
+        <div className={`mission-compact-progress ${complete && achieved ? "complete" : ""}`}>
+          <span>{complete ? (achieved ? "达标" : "待改进") : "进度"}</span>
+          <strong>{activeMission ? `${progress?.completed_games || 0}/3` : complete ? missionValue(progress?.current_value, recommendation.focus_key) : "0/3"}</strong>
         </div>
-        <button type="button" onClick={startedAt ? resetMission : startMission} className={startedAt ? "mission-secondary" : "mission-primary"}>
-          {startedAt ? <RotateCcw size={15} aria-hidden="true" /> : <Target size={15} aria-hidden="true" />}
-          {startedAt ? "重置" : "开始"}
+        <button
+          type="button"
+          onClick={() => void (activeMission ? cancel() : start())}
+          disabled={busy || (!activeMission && !missionAvailable)}
+          className={activeMission ? "mission-secondary" : "mission-primary"}
+        >
+          {busy ? <LoaderCircle size={15} className="animate-spin" aria-hidden="true" /> : activeMission ? <RotateCcw size={15} aria-hidden="true" /> : <Target size={15} aria-hidden="true" />}
+          {activeMission ? "结束" : !missionAvailable ? "暂无数据" : complete ? "新一轮" : "开始"}
         </button>
       </section>
     );
@@ -766,28 +817,37 @@ function ThreeMatchMission({ data, expanded = false }: { data: PlayerDashboardDa
     <section className="mission-console" aria-label="三局训练挑战">
       <div className="mission-brief">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="evidence-chip evidence-verified"><ShieldCheck size={14} aria-hidden="true" />基于最近 {data.summary.games} 场</span>
-          <span className={`evidence-chip ${complete ? "evidence-parsed" : "evidence-limited"}`}>
-            {complete ? <Check size={14} aria-hidden="true" /> : <Circle size={14} aria-hidden="true" />}
-            {complete ? "挑战完成" : `${challengeMatches.length}/3 场`}
+          <span className="evidence-chip evidence-verified"><ShieldCheck size={14} aria-hidden="true" />最近 {recommendation.baseline_games} 场基线</span>
+          <span className={`evidence-chip ${complete && achieved ? "evidence-parsed" : "evidence-limited"}`}>
+            {complete && achieved ? <Check size={14} aria-hidden="true" /> : <Circle size={14} aria-hidden="true" />}
+            {activeMission ? `${progress?.completed_games || 0}/3 场` : complete ? (achieved ? "目标达成" : "已完成，未达标") : "尚未开始"}
           </span>
         </div>
-        <div className="mt-4 text-xs font-black text-yellow-300">当前训练目标</div>
-        <h1 className="mission-title">{step?.focus || "压缩英雄池"}</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-300">
-          {step?.drill || `连续三局优先使用 ${recommendedHero?.hero_name || "最高熟练度英雄"}，每局记录一次最主要的失误。`}
-        </p>
-        <div className="mt-4 text-sm font-black text-cyan-100">成功标准：{step?.success_metric || "完成三局并留下可比较的数据"}</div>
+        <div className="mt-4 text-xs font-black text-yellow-300">{activeMission ? "当前训练目标" : complete ? "最近一次训练" : "建议训练目标"}</div>
+        <h1 className="mission-title">{recommendation.title}</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-300">{recommendation.reason}</p>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-400">{recommendation.drill}</p>
+        <div className="mission-target-row">
+          <div><span>训练前</span><strong>{baseline}</strong></div>
+          <div><span>三局目标</span><strong>{target}</strong></div>
+          <div><span>当前结果</span><strong>{missionValue(progress?.current_value, recommendation.focus_key)}{progress?.current_value !== null && progress?.current_value !== undefined ? unit : ""}</strong></div>
+        </div>
         <div className="mt-5 flex flex-wrap gap-2">
-          {!startedAt ? (
-            <button type="button" onClick={startMission} className="mission-primary"><Target size={17} aria-hidden="true" />开始三局挑战</button>
+          {!activeMission ? (
+            <button type="button" onClick={() => void start()} disabled={busy || !missionAvailable} className="mission-primary">
+              {busy ? <LoaderCircle size={17} className="animate-spin" aria-hidden="true" /> : <Target size={17} aria-hidden="true" />}
+              {!missionAvailable ? "暂无可用比赛" : complete ? "开始新一轮" : "开始三局挑战"}
+            </button>
           ) : (
-            <button type="button" onClick={resetMission} className="mission-secondary">重新开始</button>
+            <button type="button" onClick={() => void cancel()} disabled={busy} className="mission-secondary">
+              {busy && <LoaderCircle size={15} className="animate-spin" aria-hidden="true" />}
+              结束本轮
+            </button>
           )}
-          {recommendedHero && (
+          {recommendedHero.hero_id > 0 && (
             <span className="mission-hero">
               {recommendedHero.hero_icon && <img src={recommendedHero.hero_icon} alt="" />}
-              推荐：{recommendedHero.hero_name}
+              优先：{recommendedHero.hero_name}
             </span>
           )}
         </div>
@@ -803,56 +863,154 @@ function ThreeMatchMission({ data, expanded = false }: { data: PlayerDashboardDa
                 <>
                   {match.hero_icon && <img src={match.hero_icon} alt="" className="mission-slot-hero" />}
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-black text-stone-100">{match.hero_name}</div>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="truncate text-sm font-black text-stone-100">{match.hero_name}</div>
+                      <div className="shrink-0 text-sm font-black text-yellow-200">{missionValue(match.metric_value, recommendation.focus_key)}{unit}</div>
+                    </div>
                     <div className={`mt-1 text-xs font-black ${match.win ? "text-green-300" : "text-red-300"}`}>
-                      {match.win ? "胜" : "负"} · {match.kills}/{match.deaths}/{match.assists}
+                      {match.win ? "胜" : "负"} · {match.kills}/{match.deaths}/{match.assists} · {match.played_at}
                     </div>
                   </div>
                 </>
               ) : (
-                <div className="mission-slot-empty"><div className="text-sm font-black text-stone-400">等待比赛</div><div className="mt-1 text-xs text-stone-600">刷新后自动记录</div></div>
+                <div className="mission-slot-empty"><div className="text-sm font-black text-stone-400">等待新比赛</div><div className="mt-1 text-xs text-stone-600">仅记录开始任务后的公开比赛</div></div>
               )}
             </div>
           );
         })}
-        {expanded && startedAt > 0 && <div className="mission-started">开始于 {new Date(startedAt).toLocaleString("zh-CN", { hour12: false })}</div>}
+        {visibleMission && <div className="mission-started">开始于 {new Date(visibleMission.started_at * 1000).toLocaleString("zh-CN", { hour12: false })}</div>}
       </div>
     </section>
   );
 }
 
-function EvidenceCoverage({ data, deepLoading }: { data: PlayerDashboardData; deepLoading: boolean }) {
-  const sample = data.recent_matches.slice(0, 20);
+function DataQualityStrip({ data, deepLoading }: { data: PlayerDashboardData; deepLoading: boolean }) {
+  const quality = data.data_quality;
+  const positionMatches = quality.verified_position_matches + quality.confirmed_position_matches;
   const rows = [
-    { label: "比赛结算", value: sample.filter((match) => match.detail_available).length, total: sample.length, tone: "verified" },
-    { label: "英雄百分位", value: sample.filter((match) => match.benchmark_available).length, total: sample.length, tone: "verified" },
-    { label: "Replay 事件", value: sample.filter((match) => match.replay_parsed).length, total: sample.length, tone: "parsed" },
-    { label: "真实位置", value: sample.filter((match) => match.position_source === "stratz").length, total: sample.length, tone: "verified" },
+    { label: "比赛详情", value: quality.detail_matches },
+    { label: "出装记录", value: quality.equipment_matches },
+    { label: "英雄基准", value: quality.benchmark_matches },
+    { label: "事件复盘", value: quality.replay_matches },
+    { label: "位置确认", value: positionMatches },
   ];
 
   return (
-    <section className="evidence-coverage">
-      <div>
-        <div className="flex items-center gap-2 text-sm font-black text-stone-100">
-          {deepLoading ? <LoaderCircle size={16} className="animate-spin text-cyan-300" /> : <ShieldCheck size={16} className="text-green-300" />}
-          {deepLoading ? "正在补全深度证据" : "数据证据覆盖"}
-        </div>
-        <p className="mt-2 text-xs leading-5 text-stone-500">位置来自 STRATZ Ranked Roles；缺少 Replay 时不推断具体事件。</p>
+    <section className="quality-strip" aria-label="数据覆盖">
+      <div className="quality-strip-title">
+        {deepLoading ? <LoaderCircle size={15} className="animate-spin text-cyan-300" /> : <ShieldCheck size={15} className="text-green-300" />}
+        <span>{deepLoading ? "深度数据加载中" : `最近 ${quality.sample_games} 场数据覆盖`}</span>
       </div>
-      <div className="evidence-grid">
-        {rows.map((row) => (
-          <div key={row.label} className="evidence-stat">
-            <div className="text-xs text-stone-500">{row.label}</div>
-            <div className="mt-1 text-lg font-black tabular-nums text-stone-100">{row.value}/{row.total}</div>
-            <div className={`evidence-bar evidence-bar-${row.tone}`} style={{ "--coverage": `${row.total ? (row.value / row.total) * 100 : 0}%` } as React.CSSProperties} />
+      {rows.map((row) => (
+        <div key={row.label} className="quality-strip-stat" title={`${row.label}：${row.value}/${quality.sample_games} 场`}>
+          <span>{row.label}</span>
+          <strong>{row.value}/{quality.sample_games}</strong>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function MatchStoryPanel({ scorecard }: { scorecard: PlayerMatchScorecard }) {
+  const story = scorecard.story;
+  if (!story.available) return null;
+
+  const displayStoryValue = (value: number | undefined, suffix = "") => value === undefined ? "-" : `${value}${suffix}`;
+  const summary = [
+    { label: "英雄击杀", value: displayStoryValue(story.summary.hero_kills) },
+    { label: "参战率", value: displayStoryValue(story.summary.teamfight_participation, "%") },
+    {
+      label: "侦查 / 岗哨",
+      value: story.summary.observer_wards === undefined && story.summary.sentry_wards === undefined
+        ? "-"
+        : `${displayStoryValue(story.summary.observer_wards)} / ${displayStoryValue(story.summary.sentry_wards)}`,
+    },
+    { label: "关键装备时间", value: displayStoryValue(story.summary.major_item_timings) },
+  ];
+  const hasAdvantageSeries = story.economy.some((point) => point.team_advantage !== null);
+  const chapterIcons: Record<string, LucideIcon> = {
+    lane: Activity,
+    combat: Swords,
+    item: BookOpen,
+    vision: ShieldCheck,
+    objective: Target,
+    turning: TrendingUp,
+    result: Check,
+  };
+
+  return (
+    <section className="match-story" aria-label="比赛叙事">
+      <div className="match-story-heading">
+        <div>
+          <div className="text-xs font-black text-green-300">MATCH STORY</div>
+          <h3>关键节点与经济走势</h3>
+        </div>
+        <span className="evidence-chip evidence-parsed"><Check size={13} aria-hidden="true" />Replay 事件</span>
+      </div>
+
+      <div className="match-story-summary">
+        {summary.map((item) => <div key={item.label}><span>{item.label}</span><strong>{item.value}</strong></div>)}
+      </div>
+
+      <div className="match-story-grid">
+        {hasAdvantageSeries && (
+          <div className="story-chart">
+            <div className="story-panel-label">己方经济差</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={story.economy} margin={{ top: 12, right: 8, left: -10, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="storyAdvantage" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="5%" stopColor="#58c4c7" stopOpacity={0.34} />
+                    <stop offset="95%" stopColor="#58c4c7" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="rgba(242,239,230,0.07)" vertical={false} />
+                <XAxis dataKey="minute" tick={{ fill: "#737b74", fontSize: 10 }} tickLine={false} axisLine={false} />
+                <YAxis tickFormatter={(value) => compactNumber(Number(value))} tick={{ fill: "#737b74", fontSize: 10 }} tickLine={false} axisLine={false} />
+                <Tooltip
+                  contentStyle={{ background: "#111512", border: "1px solid rgba(242,239,230,.14)", borderRadius: 6, fontSize: 12 }}
+                  labelFormatter={(value) => `${value} 分钟`}
+                  formatter={(value) => [Number(value).toLocaleString("zh-CN"), "己方经济差"]}
+                />
+                <Area type="monotone" dataKey="team_advantage" stroke="#58c4c7" strokeWidth={2} fill="url(#storyAdvantage)" connectNulls={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+            <p>正值代表己方领先。最大变化为全队事件，不归因于单个操作。</p>
           </div>
-        ))}
+        )}
+
+        <div className={`story-timeline ${hasAdvantageSeries ? "" : "story-timeline-wide"}`}>
+          {story.chapters.map((chapter) => {
+            const ChapterIcon = chapterIcons[chapter.type] || Circle;
+            return (
+              <div key={chapter.key} className={`story-chapter story-chapter-${chapter.tone}`}>
+                <div className="story-time">{chapter.time_text}</div>
+                <div className="story-node"><ChapterIcon size={14} aria-hidden="true" /></div>
+                <div className="story-copy">
+                  <div className="flex items-center gap-2">
+                    {chapter.item?.icon && <img src={chapter.item.icon} alt="" />}
+                    <strong>{chapter.title}</strong>
+                  </div>
+                  <p>{chapter.detail}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
 }
 
-function MatchLab({ data }: { data: PlayerDashboardData }) {
+function MatchLab({
+  data,
+  positionBusy,
+  onConfirmPosition,
+}: {
+  data: PlayerDashboardData;
+  positionBusy: string;
+  onConfirmPosition: (matchId: string, position: number) => Promise<void>;
+}) {
   const candidates = useMemo(() => data.recent_matches.slice(0, 8), [data.recent_matches]);
   const [selectedMatchId, setSelectedMatchId] = useState(candidates[0]?.match_id || "");
   const [scorecard, setScorecard] = useState<PlayerMatchScorecard | null>(null);
@@ -860,6 +1018,7 @@ function MatchLab({ data }: { data: PlayerDashboardData }) {
   const [error, setError] = useState("");
 
   const effectiveMatchId = candidates.some((match) => match.match_id === selectedMatchId) ? selectedMatchId : candidates[0]?.match_id || "";
+  const selectedMatch = candidates.find((match) => match.match_id === effectiveMatchId);
 
   useEffect(() => {
     let active = true;
@@ -869,6 +1028,7 @@ function MatchLab({ data }: { data: PlayerDashboardData }) {
       if (!active) return;
       setLoading(true);
       setError("");
+      setScorecard(null);
       try {
         const result = await getPlayerMatchScorecard(data.profile.account_id, effectiveMatchId);
         if (active) setScorecard(result);
@@ -904,6 +1064,40 @@ function MatchLab({ data }: { data: PlayerDashboardData }) {
           </button>
         ))}
       </div>
+
+      {selectedMatch && (
+        <div className="position-confirm">
+          <div className="position-confirm-copy">
+            <span>本局位置</span>
+            <strong>{selectedMatch.position_name || "选择实际位置"}</strong>
+            <small>
+              {selectedMatch.position_source === "stratz"
+                ? "来源：STRATZ Ranked Roles"
+                : selectedMatch.position_source === "user_confirmed"
+                  ? "来源：玩家确认"
+                  : "来源：待确认"}
+            </small>
+          </div>
+          {selectedMatch.position_source === "stratz" ? (
+            <span className="evidence-chip evidence-verified"><ShieldCheck size={13} aria-hidden="true" />已验证</span>
+          ) : (
+            <div className="position-options" aria-label="确认本局位置">
+              {POSITION_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => void onConfirmPosition(selectedMatch.match_id, option.value)}
+                  disabled={positionBusy === selectedMatch.match_id}
+                  className={selectedMatch.position === option.value && selectedMatch.position_source === "user_confirmed" ? "active" : ""}
+                  title={`${option.label} ${option.detail}`}
+                >
+                  {positionBusy === selectedMatch.match_id && selectedMatch.position === option.value ? <LoaderCircle size={13} className="animate-spin" /> : option.value}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {loading && <div className="match-lab-loading"><LoaderCircle size={18} className="animate-spin" />正在读取比赛与英雄基准...</div>}
       {error && <div className="rounded-lg border border-red-300/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">{error}</div>}
@@ -941,6 +1135,8 @@ function MatchLab({ data }: { data: PlayerDashboardData }) {
               <p className="mt-2 text-sm leading-6 text-stone-400">{scorecard.finding}</p>
               <p className="mt-3 text-sm font-bold leading-6 text-cyan-100">{scorecard.action}</p>
             </div>
+
+            <MatchStoryPanel scorecard={scorecard} />
           </div>
 
           <aside className="scorecard-evidence">
@@ -1941,7 +2137,7 @@ function MatchTable({ matches, equipmentLoading = false }: { matches: PlayerMatc
                       {match.hero_icon && <img src={match.hero_icon} alt="" className="h-8 w-8 rounded object-cover" />}
                       <span>
                         <span className="block font-bold text-stone-100">{match.hero_name}</span>
-                        <span className="text-xs text-stone-500">{match.position_name || "位置未验证"} · Lv {match.level || "-"}</span>
+                        <span className="text-xs text-stone-500">{match.position_name ? `${match.position_name} · ` : ""}Lv {match.level || "-"}</span>
                       </span>
                     </div>
                   </td>
@@ -2017,6 +2213,9 @@ export default function Home() {
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<AppTab>("today");
+  const [labView, setLabView] = useState<LabView>("scorecard");
+  const [missionBusy, setMissionBusy] = useState(false);
+  const [positionBusy, setPositionBusy] = useState("");
   const loadRequestRef = useRef(0);
 
   const loadPlayer = useCallback(async (targetAccountId: string, targetLimit: number) => {
@@ -2141,6 +2340,82 @@ export default function Home() {
     });
   }, [data]);
 
+  const handleStartMission = useCallback(async (focusKey: string) => {
+    if (!data) return;
+    const targetAccountId = data.profile.account_id;
+    setMissionBusy(true);
+    setError("");
+    try {
+      const training = await startTrainingMission(targetAccountId, focusKey);
+      setData((current) => current?.profile.account_id === targetAccountId ? { ...current, training } : current);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "训练任务创建失败");
+    } finally {
+      setMissionBusy(false);
+    }
+  }, [data]);
+
+  const handleCancelMission = useCallback(async (missionId: string) => {
+    if (!data) return;
+    const targetAccountId = data.profile.account_id;
+    setMissionBusy(true);
+    setError("");
+    try {
+      const training = await cancelTrainingMission(targetAccountId, missionId);
+      setData((current) => current?.profile.account_id === targetAccountId ? { ...current, training } : current);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "训练任务更新失败");
+    } finally {
+      setMissionBusy(false);
+    }
+  }, [data]);
+
+  const handleConfirmPosition = useCallback(async (matchId: string, position: number) => {
+    if (!data) return;
+    const targetAccountId = data.profile.account_id;
+    setPositionBusy(matchId);
+    setError("");
+    try {
+      const label = await confirmMatchPosition(targetAccountId, matchId, position);
+      setData((current) => {
+        if (!current || current.profile.account_id !== targetAccountId) return current;
+        const previous = current.recent_matches.find((match) => match.match_id === matchId);
+        if (!previous || previous.position_source === "stratz") return current;
+        const isNewConfirmation = previous.position_source !== "user_confirmed";
+        const confirmedMatches = current.position_coverage.confirmed_matches + (isNewConfirmation ? 1 : 0);
+        const coveredMatches = current.position_coverage.covered_matches + (isNewConfirmation ? 1 : 0);
+        return {
+          ...current,
+          recent_matches: current.recent_matches.map((match) => match.match_id === matchId ? {
+            ...match,
+            position: label.position,
+            position_key: label.position_key,
+            position_name: label.position_name,
+            position_source: "user_confirmed",
+            role_name: label.position_name,
+            role_source: "user_confirmed",
+          } : match),
+          position_coverage: {
+            ...current.position_coverage,
+            confirmed_matches: confirmedMatches,
+            covered_matches: coveredMatches,
+            coverage_rate: current.position_coverage.total_matches
+              ? Math.round(coveredMatches / current.position_coverage.total_matches * 1000) / 10
+              : 0,
+          },
+          data_quality: {
+            ...current.data_quality,
+            confirmed_position_matches: current.data_quality.confirmed_position_matches + (isNewConfirmation ? 1 : 0),
+          },
+        };
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "位置确认失败");
+    } finally {
+      setPositionBusy("");
+    }
+  }, [data]);
+
   const hasCharts = useMemo(() => Boolean(data?.rolling_winrate.length || data?.rank_history.length), [data]);
 
   return (
@@ -2168,8 +2443,16 @@ export default function Home() {
 
             {data && (
               <>
-                <ThreeMatchMission data={data} />
-                <PlayerDataExplorer key={data.profile.account_id} data={data} equipmentLoading={deepLoading} onOpenMatches={() => setActiveTab("lab")} />
+                <ThreeMatchMission data={data} busy={missionBusy} onStart={handleStartMission} onCancel={handleCancelMission} />
+                <PlayerDataExplorer
+                  key={data.profile.account_id}
+                  data={data}
+                  equipmentLoading={deepLoading}
+                  onOpenMatches={() => {
+                    setLabView("history");
+                    setActiveTab("lab");
+                  }}
+                />
                 <div className="pb-4 text-right text-xs text-stone-600">Updated {data.updated_at}</div>
               </>
             )}
@@ -2180,15 +2463,36 @@ export default function Home() {
           <section className="space-y-4">
             {data && (
               <>
-                <MatchLab data={data} />
-                <EvidenceCoverage data={data} deepLoading={deepLoading} />
-                {data.warnings.length > 0 && (
-                  <div className="rounded-lg border border-yellow-300/20 bg-yellow-300/10 px-4 py-3 text-xs text-yellow-100">
-                    OpenDota 部分数据暂时不可用，当前复盘只显示已验证的数据。
-                  </div>
-                )}
-                <AiReviewPanel data={data} commercialConfig={commercialConfig} />
-                <MatchTable matches={data.recent_matches} equipmentLoading={deepLoading} />
+                <nav className="lab-subnav" aria-label="复盘视图">
+                  {LAB_VIEWS.map((view) => {
+                    const Icon = view.icon;
+                    return (
+                      <button
+                        key={view.key}
+                        type="button"
+                        onClick={() => setLabView(view.key)}
+                        className={labView === view.key ? "active" : ""}
+                        aria-current={labView === view.key ? "page" : undefined}
+                      >
+                        <Icon size={15} aria-hidden="true" />
+                        {view.label}
+                      </button>
+                    );
+                  })}
+                </nav>
+
+                {labView === "scorecard" && <>
+                  <MatchLab data={data} positionBusy={positionBusy} onConfirmPosition={handleConfirmPosition} />
+                  <DataQualityStrip data={data} deepLoading={deepLoading} />
+                  {data.warnings.length > 0 && (
+                    <div className="rounded-lg border border-yellow-300/20 bg-yellow-300/10 px-4 py-3 text-xs text-yellow-100">
+                      部分外部数据源暂时不可用，当前复盘只显示已验证的数据。
+                    </div>
+                  )}
+                </>}
+                {labView === "report" && <AiReviewPanel data={data} commercialConfig={commercialConfig} />}
+                {labView === "vision" && <WardMap accountId={data.profile.account_id} />}
+                {labView === "history" && <MatchTable matches={data.recent_matches} equipmentLoading={deepLoading} />}
                 <div className="pb-4 text-right text-xs text-stone-600">Updated {data.updated_at}</div>
               </>
             )}
@@ -2199,7 +2503,6 @@ export default function Home() {
           <section className="space-y-4">
             <div className="page-intro"><div className="text-xs font-black text-yellow-300">HERO POOL</div><h1>英雄池训练室</h1><p>把英雄分成继续上分、专项训练和暂时观察；全局数据只做参照，不冒充分位置 Meta。</p></div>
             <PersonalMetaLab data={data} />
-            <WardMap accountId={data.profile.account_id} />
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_420px]"><HeroStrip title="近期英雄池" heroes={data.hero_pool} /><CountsPanel data={data} /></div>
             <HeroStrip title="生涯常用英雄" heroes={data.lifetime_heroes} />
           </section>
@@ -2208,8 +2511,8 @@ export default function Home() {
         {activeTab === "progress" && (
           <section className="space-y-4">
             {data && <>
-              <div className="page-intro"><div className="text-xs font-black text-green-300">PROGRESS</div><h1>训练进度</h1><p>用同一个目标完成三局，再比较趋势；长期历史和自动周报由 Pro 保存。</p></div>
-              <ThreeMatchMission data={data} expanded />
+              <div className="page-intro"><div className="text-xs font-black text-green-300">PROGRESS</div><h1>训练进度</h1><p>每次只训练一个指标，连续三局后自动比较训练前后的结果。</p></div>
+              <ThreeMatchMission data={data} expanded busy={missionBusy} onStart={handleStartMission} onCancel={handleCancelMission} />
               <SummaryGrid data={data} />
               <CoachBrief data={data} />
               {hasCharts && <Charts data={data} />}

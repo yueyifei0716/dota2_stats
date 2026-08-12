@@ -5,16 +5,18 @@
 ## 功能
 
 - 任意玩家 Dashboard：OpenDota 提供公开战绩、出装与 Replay 事件，STRATZ 提供可验证的 Ranked Roles 位置与 IMP 表现，不依赖 Notion。
-- Overview 个人总览：用近期胜率、趋势、KDA、死亡、主力英雄和段位组成一条决策摘要，紧接三局任务与比赛历史。
+- 我的个人总览：用近期胜率、趋势、KDA、死亡、主力英雄和段位组成一条决策摘要，紧接可追踪的三局训练与比赛历史。
+- Focus Loop 2.0：根据最近可用数据选择一个指标，保存训练前基线，自动记录开始后的三场比赛并判断是否达标；状态可持久化到 PostgreSQL。
 - 个人数据工作台：默认只展示英雄、真实 1–5 号位、胜负和日期；阵营、模式、匹配类型、组队状态收进“更多筛选”。
-- Matches 比赛复盘：单局结算数据、STRATZ IMP/奖项、6 个主装备槽、中立物品、同英雄百分位和证据覆盖清单；不展示背包槽。
-- 五标签工作区：Overview、Matches、Heroes、Meta、Progress，移动端支持横向切换。
+- 复盘：单局结算数据、STRATZ IMP/奖项、6 个主装备槽、中立物品、同英雄百分位和紧凑数据覆盖；不展示背包槽。
+- Match Story：仅对已解析 Replay 展示逐分钟己方经济差、实际装备时间、眼位、肉山盾和关键经济变化；没有事件证据时不生成叙事。
+- 五标签工作区：我的、复盘、英雄池、Meta、进步，移动端支持横向切换。
 - 五位置 Meta：基于 STRATZ GraphQL `heroStats` 的 Ranked Roles，分别展示 1–5 号位的胜率、校准胜率、样本量和位置选取率；实时接口不可用时回退到随版本发布的上一完整周验证快照，不会用分路、经济或补刀数据猜测位置。
 - 最近表现：最近 30/50/80 场胜率、KDA、状态评分、连胜/连败、平均时长。
 - 英雄分析：近期英雄池、生涯常用英雄、胜率和 KDA。
 - 趋势图表：滚动胜率、段位轨迹、时段表现、星期表现。
-- 个人位置表现：只统计 STRATZ 明确返回的 `POSITION_1`–`POSITION_5`；缺失位置不推断，也不进入五位置表现比较。
-- 眼位热图：基于 OpenDota wardmap 展示侦查守卫/岗哨守卫点位。
+- 个人位置表现：优先使用 STRATZ 明确返回的 `POSITION_1`–`POSITION_5`；缺失时允许玩家确认实际位置，不使用分路、GPM 或补刀数推断。
+- 眼位热图：放在复盘工作区，基于 OpenDota wardmap 展示侦查守卫/岗哨守卫点位。
 - 证据化 AI 复盘：免费预览 + Pro 完整报告；没有 Replay 事件时禁止推断具体团战、死亡位置或装备时间。
 - 商业化入口：Founder Pro、单次复盘、战队空间三档付费入口，支持支付链接、访问码解锁和 webhook 线索投递。
 - 保留旧数据能力：Notion 数据抓取、MMR 记录、比赛笔记和旧接口仍在项目中。
@@ -23,7 +25,7 @@
 
 - 后端：FastAPI + OpenDota API + STRATZ GraphQL + Notion API
 - 前端：Next.js 16 + React 19 + TypeScript + Tailwind CSS + Recharts
-- 缓存：后端内存缓存，OpenDota 聚合接口默认 180 秒 TTL
+- 缓存与状态：后端内存缓存；训练任务和玩家位置确认使用 PostgreSQL，未配置时本地回退 SQLite
 
 ## 快速启动
 
@@ -56,7 +58,9 @@ cd ..
 cp .env.example .env
 ```
 
-`OPENDOTA_API_KEY` 是可选项；不填也能用公共 OpenDota API，但限流更低。`STRATZ_API_TOKEN` 用于五位置 Meta、个人真实位置、IMP 与比赛奖项；STRATZ Token 限制为单一出口 IP，因此 Serverless 生产环境必须配置固定出口，或设置 `STRATZ_RUNTIME_MODE=snapshot` 使用验证周快照。快照模式下个人位置字段明确不可用且不回退到推断。Notion 变量只影响旧的数据抓取、MMR 和比赛笔记能力。
+`OPENDOTA_API_KEY` 是可选项；不填也能用公共 OpenDota API，但限流更低。`STRATZ_API_TOKEN` 用于五位置 Meta、个人验证位置、IMP 与比赛奖项；STRATZ Token 限制为单一出口 IP，因此 Serverless 生产环境必须配置固定出口，或设置 `STRATZ_RUNTIME_MODE=snapshot` 使用验证周快照。快照模式下个人位置字段明确不可用且不回退到推断。Notion 变量只影响旧的数据抓取、MMR 和比赛笔记能力。
+
+Vercel 上必须配置 `POSTGRES_URL` 或 `DATABASE_URL`，用于保存 Focus Loop 和玩家确认的位置。未配置时会回退到 `/tmp` SQLite，只适合预览，冷启动后数据可能丢失。长驻服务器和本地开发可以改用 `DOTASENSE_DB_PATH`。
 
 ### 商业化配置
 
@@ -84,8 +88,11 @@ DEEPSEEK_API_KEY="填入 DeepSeek API key"
 - `GET /api/players/search?q=<name>`：搜索玩家。
 - `GET /api/players/{account_id}/dashboard?limit=50`：聚合玩家 Dashboard、STRATZ 真实位置/IMP 和 Coach 数据。
 - `GET /api/players/{account_id}/dashboard/quick?limit=20`：快速返回 Overview 首屏，深度数据可随后补全。
-- `GET /api/meta/overview`：返回 Divine/Immortal 上一完整周的 1–5 号位英雄 Meta；需要免费的 `STRATZ_API_TOKEN`，未配置时返回明确的不可用状态，不回退到位置推断。
-- `GET /api/players/{account_id}/matches/{match_id}/scorecard`：返回单局英雄百分位、训练动作和证据状态。
+- `GET /api/meta/overview`：返回 Divine/Immortal 上一完整周的 1–5 号位英雄 Meta；实时请求不可用时回退到随版本发布的验证快照，并返回新鲜度状态。
+- `GET /api/players/{account_id}/matches/{match_id}/scorecard`：返回单局英雄百分位、训练动作、证据状态和 Match Story。
+- `POST /api/players/{account_id}/training/missions`：以当前数据基线开始三局训练。
+- `DELETE /api/players/{account_id}/training/missions/{mission_id}`：结束当前训练。
+- `PUT /api/players/{account_id}/matches/{match_id}/position`：保存玩家确认的 1–5 号位，不覆盖 STRATZ 已验证位置。
 - `GET /api/players/{account_id}/review/preview`：免费复盘预览。
 - `POST /api/players/{account_id}/review`：Pro 完整 AI 复盘，需要访问 token。
 - `GET /api/wardmap?account_id=<id>`：获取玩家眼位热图数据。
@@ -106,6 +113,9 @@ cd frontend && npx tsc --noEmit
 
 # 后端语法检查
 PYTHONPYCACHEPREFIX=/private/tmp/dota2_stats_pycache python3 -m compileall -q api
+
+# 用 STRATZ Token 更新上一完整周的五位置快照
+PYTHONPATH=api python3 api/scripts/refresh_stratz_snapshot.py
 
 # 单独启动
 cd api && python3 -m uvicorn main:app --host 0.0.0.0 --port 8000
