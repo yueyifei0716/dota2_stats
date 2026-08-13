@@ -1,84 +1,99 @@
-# DotaSense Training Cockpit Design System
+# DotaSense Adaptive Product Design System
 
 ## Product job
 
-DotaSense helps a ranked Dota 2 player decide what to practice in the next three matches, then verifies whether the habit improved. The first screen must answer: should I queue, what should I play, and what is the one behavior to change?
+DotaSense helps a ranked Dota 2 player understand recent form, inspect match evidence, choose a small training objective, and compare it with the current five-position meta. The interface is a working data product, not a marketing page.
 
-## Visual direction
+## Direction
 
-AI-native training workspace with the density of an esports analysis desk. The signature element is the three-match mission strip: one objective, three fixed match slots, one measurable success condition.
+One information architecture, two system-controlled appearances:
 
-## Typography
-
-- Display: `Avenir Next`, 700-900. Use only for page titles and the mission objective.
-- Body: `Microsoft YaHei`, `Segoe UI`, sans-serif, 400-700.
-- Data: `DIN Alternate`, tabular numerals, 700-900.
-- Page title: 28-32px; section title: 18-20px; body: 14px; utility: 11-12px.
-- Letter spacing is always `0`; uppercase utility labels may use normal browser spacing only.
+- Light: Cloud Canvas, based on neutral `#f5f5f7` and white data surfaces.
+- Dark: Graphite Pro, based on neutral `#0b0b0d` and `#1c1c1e` data surfaces.
+- Theme follows `prefers-color-scheme`; there is no application toggle or duplicated preference.
+- Blue is the only interaction accent. Green and red only encode positive and negative outcomes. Amber is reserved for warnings.
+- The signature element is the player command band: identity, recent decision metrics, and verified rank in one continuous surface.
 
 ## Color tokens
 
-- Pitch: `#0d100e` - page background.
-- Panel: `#171b18` - primary surface.
-- Raised: `#202620` - selected or interactive surface.
-- Chalk: `#f2efe6` - primary text.
-- Muted: `#9da49d` - secondary text.
-- Aegis gold: `#f2c94c` - primary action and current mission.
-- Rune cyan: `#58c4c7` - evidence and benchmark data.
-- Victory green: `#55d68b` - success and improvement.
-- Defeat red: `#ef6a61` - risk and regression.
+| Token | Light | Dark | Use |
+| --- | --- | --- | --- |
+| `--background` | `#f5f5f7` | `#0b0b0d` | Page canvas |
+| `--surface` | `#ffffff` | `#1c1c1e` | Primary data surface |
+| `--surface-muted` | `#f0f0f2` | `#242426` | Controls and quiet rows |
+| `--surface-raised` | `#ffffff` | `#2c2c2e` | Selected or floating control |
+| `--text-primary` | `#1d1d1f` | `#f5f5f7` | Titles and data |
+| `--text-secondary` | `#6e6e73` | `#a1a1a6` | Supporting text |
+| `--text-tertiary` | `#9a9aa0` | `#6e6e73` | Metadata |
+| `--accent` | `#0071e3` | `#0a84ff` | Commands, focus, selection |
+| `--positive` | `#17883e` | `#30d158` | Wins and improvement |
+| `--negative` | `#d70015` | `#ff453a` | Losses and regression |
+| `--warning` | `#946b00` | `#ffd60a` | Stale or limited evidence |
 
-Do not use broad gradients. A faint tactical grid may appear only on the page background. Color must encode state, evidence, or action.
+Do not use decorative gradients, colored page backgrounds, grid textures, neon glows, or broad tinted panels.
+
+## Typography
+
+- Family: `-apple-system`, `BlinkMacSystemFont`, `SF Pro Display`, `SF Pro Text`, `PingFang SC`, system sans-serif.
+- Data uses tabular numerals from the same family.
+- Product title: 15px/700. Page title: 26-30px/700. Section title: 14-18px/650. Body: 13-14px/400-600. Utility: 10-12px/500-650.
+- Avoid 800-900 weights. Letter spacing is always `0`.
+- Large type is limited to page-level decisions; compact panels use compact headings.
 
 ## Layout
 
-- Maximum workspace width: 1480px.
-- Desktop navigation uses five equal tracks: Overview, Matches, Heroes, Meta, Progress.
-- Overview starts with a 96px recent-form decision strip, a compact three-match command, and a filterable personal data explorer. Lifetime totals stay secondary.
-- Personal match filters default to hero, STRATZ position 1-5, result, and date range. Side, mode, lobby, and party size stay behind one compact more-filters control.
-- Six decision metrics share one horizontal strip; deep metrics always disclose their valid sample count.
-- Global Meta is segmented into positions 1-5 using STRATZ Ranked Roles data. Lane aggregates and economy-based estimates are never used as position labels.
-- Meta tables show raw win rate, Bayesian-adjusted win rate, position sample count, and within-position pick share.
-- Personal position matrices use only STRATZ `POSITION_1`-`POSITION_5` evidence. Missing positions stay unavailable and never become a chart category.
-- Dense tables stay inside horizontal scroll containers on mobile.
-- Match equipment always reserves six inventory slots plus one visually separated neutral item. Backpack slots are intentionally excluded. Empty slots and unavailable data use different states.
-- Mobile tabs scroll horizontally with 108px minimum targets; no page-level horizontal overflow.
+- Maximum workspace width: 1376px, with 24px desktop and 12px mobile gutters.
+- Desktop header is a 66px translucent system bar: brand, five-view segmented navigation, share and Pro actions.
+- Mobile navigation is a stable five-item bottom bar; page content reserves its safe area.
+- Personal dashboard order: search, player command band, training objective, match filters and history, evidence-based side rail.
+- Desktop dashboard uses a flexible main column plus a 320px rail. At narrower widths the rail becomes a full-width grid, then a vertical stack.
+- Cards are only used for genuine bounded tools. Related table rows share one surface and use hairline separators.
+- Match equipment always reserves six inventory slots plus one separated neutral item. Backpack slots are excluded.
+- Five-position data uses only STRATZ or user-confirmed positions. Missing positions remain unavailable and are not inferred.
+
+## Shape and depth
+
+- Main surfaces: 8px radius.
+- Inputs and segmented controls: 8px radius; inner selected segments: 6px.
+- Chips and small item slots: 4-6px radius.
+- Light mode may use one low-contrast surface shadow. Dark mode relies on tone and hairlines, not glow.
+- Frosted material is limited to the sticky header, mobile navigation, and temporary floating controls.
+
+## Motion
+
+- Hover and press: 140-180ms.
+- Tab content entry: 220ms opacity plus 6px vertical movement.
+- No bouncing, parallax, ornamental motion, or layout-shifting animation.
+- `prefers-reduced-motion: reduce` disables nonessential transitions and animation.
 
 ## Components
 
-- Cards: 1px border, 6-8px radius, no decorative floating sections, minimal shadow.
-- Primary button: gold fill, dark text, 34px in dense command bars and 44px in full workflows.
-- Secondary button: transparent surface, visible border, icon plus concise command.
-- Inputs: 34-36px in dense toolbars, 44px in full forms, dark inset surface, cyan focus border.
-- Status chips: compact, semantic color, never decorative.
-- Icons: Lucide, 16-18px, 1.75-2px stroke. Buttons use familiar icons where possible.
+- Primary command: blue fill, white label, 36px in toolbars and 44px in forms.
+- Secondary command: neutral surface with a hairline border. Familiar icon-only commands require a tooltip and accessible label.
+- Inputs: 36px dense or 44px full form, neutral inset surface, blue focus ring.
+- Segmented controls: one neutral track, one raised selected segment, no colored border around every option.
+- Status chips: compact and semantic; color is never decorative.
+- Icons: Lucide, normally 15-18px, with stable button dimensions.
 
 ## Evidence states
 
-- Verified: final scoreboard, STRATZ Ranked Roles position, or hero benchmark exists.
-- Parsed: replay timelines and event logs exist.
+- Verified: scoreboard, STRATZ Ranked Roles position, or hero benchmark exists.
+- Parsed: replay timeline or event log exists.
 - Limited: only match summary exists.
 - Unavailable: the product explicitly declines to infer.
 
-Every coaching claim must show its evidence state. Missing position data is shown as unavailable, never inferred.
-
-## Product states
-
-- Loading: quick profile and match skeleton first; deep analysis has a separate non-blocking status.
-- Empty: explain how to make Steam match data public or enter another account ID.
-- Error: preserve any already loaded data and identify which layer failed.
-- Success: show mission progress or Pro access state in place, without a modal.
-- Disabled: keep controls visible and explain the prerequisite nearby.
+Every coaching claim preserves its evidence state. Missing values remain missing and are never filled from appearance or economy proxies.
 
 ## Responsive behavior
 
-- At 900px, navigation and mission evidence become horizontal scroll or single-column layouts.
-- At 640px, page padding is 16px, cards are full available width, and metric text is capped at 30px.
-- Fixed-format mission slots and icon buttons have stable dimensions and cannot resize from content changes.
+- At 1100px the dashboard rail moves below the match workspace and uses three columns.
+- At 760px the player metrics and filter controls become horizontally scrollable with stable tracks.
+- At 640px the header simplifies, main padding becomes 12px, navigation moves to the bottom, and match rows use a compact two-column layout without hiding equipment.
+- Fixed-format controls, item slots, tabs, and charts have stable dimensions so labels cannot shift the page.
 
 ## Avoid
 
-- Internal labels such as "commercialization", "revenue checklist", or "start selling".
-- Unsupported claims about exact positioning, fights, ward coverage, or item timing.
-- Nested cards, oversized hero copy, decorative glow blobs, glassmorphism, and excessive gradients.
-- A standalone Pro navigation tab. Paid value is revealed inside Match Lab and Progress.
+- Apple logos, copied Apple marketing composition, oversized hero sections, or landing-page copy.
+- Yellow-dominant, green-tinted, purple, or monochromatic blue interfaces.
+- Cards inside cards, excessive borders, large decorative shadows, and explanatory text about how to use the interface.
+- Unsupported claims about exact position, fight quality, ward coverage, item timing, or AI certainty.

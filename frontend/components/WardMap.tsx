@@ -17,7 +17,7 @@ function WardCanvas({
   glowColor: string;
   maxCount: number;
 }) {
-  if (!dots.length) return <div className="text-gray-500 text-sm">暂无数据</div>;
+  if (!dots.length) return <div className="text-sm text-stone-500">暂无数据</div>;
 
   return (
     <div className="relative mx-auto aspect-square w-full max-w-[360px] overflow-hidden rounded-lg border border-white/10 bg-black/30">
@@ -84,7 +84,7 @@ export default function WardMap({ accountId }: { accountId?: string | number }) 
         <div className="text-xs text-stone-500">OpenDota wardmap</div>
       </div>
       {loading ? (
-        <div className="text-gray-400 text-sm">加载中...</div>
+        <div className="text-sm text-stone-400">加载中...</div>
       ) : (
         <>
           <div className="flex gap-2 mb-4">
@@ -104,8 +104,8 @@ export default function WardMap({ accountId }: { accountId?: string | number }) 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,360px)_1fr] lg:items-center">
             <WardCanvas
               dots={activeDots}
-              color={tab === "obs" ? "#f0c85a" : "#63c7c9"}
-              glowColor={tab === "obs" ? "#fbbf24" : "#22d3ee"}
+              color={tab === "obs" ? "var(--warning)" : "var(--accent)"}
+              glowColor={tab === "obs" ? "var(--warning)" : "var(--accent)"}
               maxCount={maxCount}
             />
             <div className="grid grid-cols-2 gap-3 text-xs">

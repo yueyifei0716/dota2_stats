@@ -9,6 +9,7 @@ import {
   Check,
   Circle,
   Crown,
+  ExternalLink,
   LayoutDashboard,
   ListFilter,
   LoaderCircle,
@@ -177,15 +178,15 @@ function ProductNav({
   onOpenPro: () => void;
 }) {
   return (
-    <header className="product-nav">
-      <div className="flex items-center gap-3">
+    <div className="product-nav">
+      <div className="product-brand">
         <div className="product-mark">DS</div>
-        <div>
-          <div className="text-sm font-black uppercase text-yellow-300">DotaSense</div>
-          <div className="product-tagline text-xs text-stone-500">Player intelligence</div>
+        <div className="min-w-0">
+          <div className="product-name">DotaSense</div>
+          <div className="product-tagline">Player intelligence</div>
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="product-actions">
         <button
           type="button"
           onClick={onCopyProfile}
@@ -205,7 +206,7 @@ function ProductNav({
           升级 Pro
         </button>
       </div>
-    </header>
+    </div>
   );
 }
 
@@ -232,8 +233,9 @@ function WorkspaceTabs({
             disabled={disabled}
             className={`workspace-tab ${active ? "workspace-tab-active" : ""}`}
             aria-current={active ? "page" : undefined}
+            title={tab.detail}
           >
-            <span className="flex items-center gap-2 text-sm font-black"><Icon size={16} aria-hidden="true" />{tab.label}</span>
+            <span><Icon size={16} aria-hidden="true" />{tab.label}</span>
           </button>
         );
       })}
@@ -273,6 +275,10 @@ function ProfileHeader({ data, deepLoading }: { data: PlayerDashboardData | null
   const summary = data?.summary;
   const topHero = data?.hero_pool[0];
   const trend = summary?.trend.win_rate_diff || 0;
+  const gpmSamples = data?.recent_matches.filter((match) => match.gold_per_min > 0) || [];
+  const averageGpm = gpmSamples.length
+    ? Math.round(gpmSamples.reduce((sum, match) => sum + match.gold_per_min, 0) / gpmSamples.length)
+    : null;
   return (
     <section className="player-command-bar" aria-label="玩家近期决策摘要">
       <div className="player-identity-compact">
@@ -283,12 +289,12 @@ function ProfileHeader({ data, deepLoading }: { data: PlayerDashboardData | null
             <div className="player-avatar-compact bg-white/10" />
           )}
           <div className="min-w-0">
-            <div className="flex items-center gap-2 text-[10px] font-black uppercase text-cyan-300">
+            <div className="profile-overline">
               <ShieldCheck size={12} aria-hidden="true" />
               Player overview
             </div>
-            <h1 className="truncate text-xl font-black text-stone-50">{profile?.username || "Dota 2 Dashboard"}</h1>
-            <div className="mt-1 truncate text-[11px] text-stone-500 tabular-nums">
+            <h1 className="player-title">{profile?.username || "Dota 2 Dashboard"}</h1>
+            <div className="player-meta">
               {profile ? `${profile.total_games} 场生涯 · ${profile.lifetime_win_rate}% · ID ${profile.account_id}` : `ID ${DEFAULT_ACCOUNT_ID}`}
             </div>
           </div>
@@ -299,7 +305,7 @@ function ProfileHeader({ data, deepLoading }: { data: PlayerDashboardData | null
         <div><span>近期胜率</span><strong className="text-green-300">{summary ? `${summary.win_rate}%` : "-"}</strong><small>{summary?.games || 0} 场样本</small></div>
         <div><span>胜率趋势</span><strong className={numberClass(trend)}>{summary ? signed(trend, "pp") : "-"}</strong><small>较前一窗口</small></div>
         <div><span>平均 KDA</span><strong>{summary?.avg_kda ?? "-"}</strong><small>{summary ? `${summary.avg_kills}/${summary.avg_deaths}/${summary.avg_assists}` : "-"}</small></div>
-        <div><span>平均死亡</span><strong className="text-red-300">{summary?.avg_deaths ?? "-"}</strong><small>{summary?.streak.label || "-"}</small></div>
+        <div><span>平均 GPM</span><strong>{averageGpm ?? "-"}</strong><small>{gpmSamples.length ? `${gpmSamples.length} 场详情` : "等待详情"}</small></div>
         <div className="player-top-hero">
           <span>近期主力</span>
           <strong>{topHero?.hero_name || "-"}</strong>
@@ -319,6 +325,79 @@ function ProfileHeader({ data, deepLoading }: { data: PlayerDashboardData | null
         </div>
       </div>
     </section>
+  );
+}
+
+function DashboardRail({ data }: { data: PlayerDashboardData }) {
+  const formScore = Math.max(0, Math.min(100, Math.round(data.summary.avg_form_score || 0)));
+  const positionGames = data.role_matrix.reduce((sum, row) => sum + row.games, 0);
+  const positionRows = POSITION_OPTIONS.map((position) => {
+    const row = data.role_matrix.find((item) => item.position === position.value);
+    return {
+      ...position,
+      games: row?.games || 0,
+      share: positionGames && row ? Math.round(row.games / positionGames * 100) : 0,
+    };
+  });
+
+  return (
+    <aside className="dashboard-rail" aria-label="近期数据摘要">
+      <section className="rail-section">
+        <div className="rail-heading">
+          <h2>近期状态</h2>
+          <span>近 {data.summary.games} 场</span>
+        </div>
+        <div className="form-summary">
+          <div
+            className="form-score-ring"
+            style={{ background: `conic-gradient(var(--positive) 0 ${formScore}%, var(--surface-muted) ${formScore}% 100%)` }}
+          >
+            <div><strong>{formScore || "-"}</strong><span>状态分</span></div>
+          </div>
+          <div className="form-facts">
+            <div><span>近期胜率</span><strong className="text-green-300">{data.summary.win_rate}%</strong></div>
+            <div><span>平均 KDA</span><strong>{data.summary.avg_kda}</strong></div>
+            <div><span>平均死亡</span><strong className="text-red-300">{data.summary.avg_deaths}</strong></div>
+          </div>
+        </div>
+      </section>
+
+      <section className="rail-section">
+        <div className="rail-heading">
+          <h2>近期英雄池</h2>
+          <span>胜率</span>
+        </div>
+        {data.hero_pool.length ? (
+          <div className="rail-hero-pool">
+            {data.hero_pool.slice(0, 4).map((hero) => (
+              <div key={hero.hero_id} className="rail-hero">
+                {hero.hero_icon ? <img src={hero.hero_icon} alt="" /> : <div className="rail-hero-placeholder" />}
+                <strong title={hero.hero_name}>{hero.hero_name}</strong>
+                <span>{hero.win_rate}% · {hero.games}场</span>
+              </div>
+            ))}
+          </div>
+        ) : <div className="rail-empty">暂无公开英雄样本</div>}
+      </section>
+
+      <section className="rail-section">
+        <div className="rail-heading">
+          <h2>五位置分布</h2>
+          <span>{positionGames ? `${positionGames} 场已确认` : "无已确认位置"}</span>
+        </div>
+        {positionGames ? (
+          <div className="position-distribution">
+            {positionRows.map((row) => (
+              <div key={row.value} className="position-row">
+                <span>{row.label}</span>
+                <div><i style={{ width: `${row.share}%` }} /></div>
+                <strong>{row.share}%</strong>
+              </div>
+            ))}
+          </div>
+        ) : <div className="rail-empty">仅在 STRATZ 或用户确认位置后显示</div>}
+      </section>
+    </aside>
   );
 }
 
@@ -509,7 +588,7 @@ function PlayerDataExplorer({ data, equipmentLoading, onOpenMatches }: { data: P
         <div className="data-explorer-header">
           <div className="flex min-w-0 items-center gap-2">
             <ListFilter size={15} className="shrink-0 text-cyan-300" aria-hidden="true" />
-            <h2>筛选比赛</h2>
+            <h2>个人比赛历史</h2>
             <span className="explorer-depth-note">{data.data_stage === "quick" ? "深度数据加载中" : `${data.position_coverage.covered_matches} 场已确认位置`}</span>
           </div>
           <div className="flex items-center gap-3">
@@ -960,19 +1039,19 @@ function MatchStoryPanel({ scorecard }: { scorecard: PlayerMatchScorecard }) {
               <AreaChart data={story.economy} margin={{ top: 12, right: 8, left: -10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="storyAdvantage" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="5%" stopColor="#58c4c7" stopOpacity={0.34} />
-                    <stop offset="95%" stopColor="#58c4c7" stopOpacity={0.02} />
+                    <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.28} />
+                    <stop offset="95%" stopColor="var(--accent)" stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke="rgba(242,239,230,0.07)" vertical={false} />
-                <XAxis dataKey="minute" tick={{ fill: "#737b74", fontSize: 10 }} tickLine={false} axisLine={false} />
-                <YAxis tickFormatter={(value) => compactNumber(Number(value))} tick={{ fill: "#737b74", fontSize: 10 }} tickLine={false} axisLine={false} />
+                <CartesianGrid stroke="var(--line)" vertical={false} />
+                <XAxis dataKey="minute" tick={{ fill: "var(--text-tertiary)", fontSize: 10 }} tickLine={false} axisLine={false} />
+                <YAxis tickFormatter={(value) => compactNumber(Number(value))} tick={{ fill: "var(--text-tertiary)", fontSize: 10 }} tickLine={false} axisLine={false} />
                 <Tooltip
-                  contentStyle={{ background: "#111512", border: "1px solid rgba(242,239,230,.14)", borderRadius: 6, fontSize: 12 }}
+                  contentStyle={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--text-primary)", fontSize: 12 }}
                   labelFormatter={(value) => `${value} 分钟`}
                   formatter={(value) => [Number(value).toLocaleString("zh-CN"), "己方经济差"]}
                 />
-                <Area type="monotone" dataKey="team_advantage" stroke="#58c4c7" strokeWidth={2} fill="url(#storyAdvantage)" connectNulls={false} />
+                <Area type="monotone" dataKey="team_advantage" stroke="var(--accent)" strokeWidth={2} fill="url(#storyAdvantage)" connectNulls={false} />
               </AreaChart>
             </ResponsiveContainer>
             <p>正值代表己方领先。最大变化为全队事件，不归因于单个操作。</p>
@@ -1048,7 +1127,6 @@ function MatchLab({
         <div>
           <div className="text-xs font-black text-cyan-300">MATCH LAB</div>
           <h1 className="mt-2 text-3xl font-black text-stone-50">单局证据评分卡</h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-400">先比较同英雄百分位，再决定下一组三局只改哪一项。</p>
         </div>
         <span className="evidence-chip evidence-verified"><ShieldCheck size={14} />不做位置推断</span>
       </div>
@@ -1280,15 +1358,15 @@ function HeroStrip({ title, heroes }: { title: string; heroes: PlayerHeroStat[] 
   if (!heroes.length) return null;
 
   return (
-    <div className="card">
-      <h2 className="section-title">{title}</h2>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <section className="hero-strip">
+      <h2>{title}</h2>
+      <div className="hero-strip-grid">
         {heroes.slice(0, 9).map((hero) => (
-          <div key={hero.hero_id} className="flex items-center gap-3 rounded-lg border border-white/10 bg-black/20 p-3">
-            {hero.hero_icon && <img src={hero.hero_icon} alt="" className="h-10 w-10 rounded object-cover" />}
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-bold text-stone-100">{hero.hero_name}</div>
-              <div className="mt-1 flex items-center gap-2 text-xs text-stone-400">
+          <div key={hero.hero_id} className="hero-strip-item">
+            {hero.hero_icon ? <img src={hero.hero_icon} alt="" /> : <div className="hero-strip-placeholder" />}
+            <div>
+              <strong>{hero.hero_name}</strong>
+              <div>
                 <span>{hero.games}场</span>
                 <span className={hero.win_rate >= 50 ? "text-green-300" : "text-red-300"}>{hero.win_rate}%</span>
                 {hero.avg_kda && <span className="text-cyan-300">KDA {hero.avg_kda}</span>}
@@ -1297,7 +1375,7 @@ function HeroStrip({ title, heroes }: { title: string; heroes: PlayerHeroStat[] 
           </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -1310,15 +1388,15 @@ function Charts({ data }: { data: PlayerDashboardData }) {
           <AreaChart data={data.rolling_winrate}>
             <defs>
               <linearGradient id="winrateFill" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="5%" stopColor="#54d18a" stopOpacity={0.36} />
-                <stop offset="95%" stopColor="#54d18a" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--positive)" stopOpacity={0.30} />
+                <stop offset="95%" stopColor="var(--positive)" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
-            <XAxis dataKey="index" stroke="#9a9589" tick={{ fontSize: 11 }} />
-            <YAxis domain={[0, 100]} stroke="#9a9589" tick={{ fontSize: 11 }} tickFormatter={(value) => `${value}%`} />
-            <Tooltip contentStyle={{ background: "#171813", border: "1px solid rgba(255,255,255,0.16)", borderRadius: 8 }} />
-            <Area type="monotone" dataKey="winrate" stroke="#54d18a" strokeWidth={2} fill="url(#winrateFill)" />
+            <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
+            <XAxis dataKey="index" stroke="var(--text-tertiary)" tick={{ fontSize: 11 }} />
+            <YAxis domain={[0, 100]} stroke="var(--text-tertiary)" tick={{ fontSize: 11 }} tickFormatter={(value) => `${value}%`} />
+            <Tooltip contentStyle={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--text-primary)" }} />
+            <Area type="monotone" dataKey="winrate" stroke="var(--positive)" strokeWidth={2} fill="url(#winrateFill)" />
           </AreaChart>
         </ResponsiveContainer>
       </div>
@@ -1327,11 +1405,11 @@ function Charts({ data }: { data: PlayerDashboardData }) {
         <h2 className="section-title">段位轨迹</h2>
         <ResponsiveContainer width="100%" height={280}>
           <LineChart data={data.rank_history}>
-            <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
-            <XAxis dataKey="date" stroke="#9a9589" tick={{ fontSize: 11 }} />
-            <YAxis stroke="#9a9589" tick={{ fontSize: 11 }} />
-            <Tooltip contentStyle={{ background: "#171813", border: "1px solid rgba(255,255,255,0.16)", borderRadius: 8 }} />
-            <Line type="monotone" dataKey="tier" stroke="#f0c85a" strokeWidth={2} dot={{ r: 3 }} />
+            <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
+            <XAxis dataKey="date" stroke="var(--text-tertiary)" tick={{ fontSize: 11 }} />
+            <YAxis stroke="var(--text-tertiary)" tick={{ fontSize: 11 }} />
+            <Tooltip contentStyle={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--text-primary)" }} />
+            <Line type="monotone" dataKey="tier" stroke="var(--accent)" strokeWidth={2} dot={{ r: 3 }} />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -1340,11 +1418,11 @@ function Charts({ data }: { data: PlayerDashboardData }) {
         <h2 className="section-title">时段表现</h2>
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={data.time_analysis}>
-            <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
-            <XAxis dataKey="label" stroke="#9a9589" tick={{ fontSize: 11 }} />
-            <YAxis stroke="#9a9589" tick={{ fontSize: 11 }} tickFormatter={(value) => `${value}%`} />
-            <Tooltip contentStyle={{ background: "#171813", border: "1px solid rgba(255,255,255,0.16)", borderRadius: 8 }} />
-            <Bar dataKey="winrate" name="胜率" fill="#63c7c9" radius={[6, 6, 0, 0]} />
+            <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
+            <XAxis dataKey="label" stroke="var(--text-tertiary)" tick={{ fontSize: 11 }} />
+            <YAxis stroke="var(--text-tertiary)" tick={{ fontSize: 11 }} tickFormatter={(value) => `${value}%`} />
+            <Tooltip contentStyle={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--text-primary)" }} />
+            <Bar dataKey="winrate" name="胜率" fill="var(--accent)" radius={[6, 6, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -1353,11 +1431,11 @@ function Charts({ data }: { data: PlayerDashboardData }) {
         <h2 className="section-title">星期表现</h2>
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={data.weekday_analysis}>
-            <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
-            <XAxis dataKey="label" stroke="#9a9589" tick={{ fontSize: 11 }} />
-            <YAxis stroke="#9a9589" tick={{ fontSize: 11 }} tickFormatter={(value) => `${value}%`} />
-            <Tooltip contentStyle={{ background: "#171813", border: "1px solid rgba(255,255,255,0.16)", borderRadius: 8 }} />
-            <Bar dataKey="winrate" name="胜率" fill="#f0c85a" radius={[6, 6, 0, 0]} />
+            <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
+            <XAxis dataKey="label" stroke="var(--text-tertiary)" tick={{ fontSize: 11 }} />
+            <YAxis stroke="var(--text-tertiary)" tick={{ fontSize: 11 }} tickFormatter={(value) => `${value}%`} />
+            <Tooltip contentStyle={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--text-primary)" }} />
+            <Bar dataKey="winrate" name="胜率" fill="var(--accent)" radius={[6, 6, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -2008,11 +2086,11 @@ function MatchHistoryList({
   const equipmentCoverage = matches.filter((match) => match.equipment_available).length;
 
   return (
-    <div className="card">
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <section className="match-history-panel">
+      <div className="match-history-header">
         <div>
-          <h2 className="section-title mb-0">个人比赛历史</h2>
-          <div className="mt-2 text-xs text-stone-500">
+          <h2>最近比赛</h2>
+          <div>
             最近 {Math.min(matches.length, limit)} 场，按时间倒序 · {equipmentLoading ? "装备补全中" : `${equipmentCoverage}/${matches.length} 场 6+1 装备`}
           </div>
         </div>
@@ -2020,69 +2098,63 @@ function MatchHistoryList({
           <button
             type="button"
             onClick={onOpenAll}
-            className="w-fit rounded-lg border border-yellow-300/30 bg-yellow-300/10 px-3 py-2 text-xs font-black text-yellow-200 transition hover:bg-yellow-300 hover:text-stone-950"
+            className="match-history-all"
           >
-            查看全部比赛
+            <ListFilter size={14} aria-hidden="true" />
+            <span>查看全部比赛</span>
           </button>
         )}
       </div>
-      <div className="space-y-2">
+      <div className="match-history-list">
         {matches.slice(0, limit).map((match) => {
           const opendotaUrl = match.opendota_url || `https://www.opendota.com/matches/${match.match_id}`;
 
           return (
-            <div
-              key={match.match_id}
-              className="grid grid-cols-1 gap-3 rounded-lg border border-white/10 bg-black/20 p-3 transition hover:border-cyan-300/30 hover:bg-white/[0.035] lg:grid-cols-[minmax(220px,1.2fr)_120px_160px_minmax(160px,0.8fr)_90px]"
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                {match.hero_icon && <img src={match.hero_icon} alt="" className="h-10 w-10 rounded object-cover" />}
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="truncate text-sm font-black text-stone-100">{match.hero_name}</span>
-                    <span className={`rounded px-2 py-0.5 text-[11px] font-black ${match.win ? "bg-green-400/15 text-green-300" : "bg-red-400/15 text-red-300"}`}>
-                      {match.win ? "胜" : "负"}
-                    </span>
-                    {match.position_name && (
-                      <span className="rounded border border-cyan-300/25 bg-cyan-300/10 px-2 py-0.5 text-[11px] font-black text-cyan-200">
-                        {match.position_name}
-                      </span>
-                    )}
+            <article key={match.match_id} className="match-history-row">
+              <div className="match-hero-cell">
+                {match.hero_icon ? <img src={match.hero_icon} alt="" /> : <div className="match-hero-placeholder" />}
+                <div>
+                  <div className="match-hero-name">
+                    <strong>{match.hero_name}</strong>
+                    <span className={match.win ? "match-result match-result-win" : "match-result match-result-loss"}>{match.win ? "胜" : "负"}</span>
+                    {match.position_name && <span className="match-position">{match.position_name}</span>}
                   </div>
-                  <div className="mt-1 text-xs text-stone-500">
+                  <div className="match-row-meta">
                     {match.game_mode} · {match.side}{match.party_size > 1 ? ` · ${match.party_size}人组排` : match.party_size === 1 ? " · 单排" : ""}
                   </div>
                 </div>
               </div>
-              <div className="tabular-nums">
-                <div className="text-sm font-black text-stone-100">{match.kills}/{match.deaths}/{match.assists}</div>
-                <div className="text-xs text-cyan-300">KDA {match.kda}</div>
-                <div className="mt-1 flex flex-wrap gap-1 text-[11px] font-black">
+              <div className="match-stat-cell">
+                <strong>{match.kills}/{match.deaths}/{match.assists}</strong>
+                <span>KDA {match.kda}</span>
+                <div className="match-awards">
                   {match.stratz_imp !== null && <span className={numberClass(match.stratz_imp)}>IMP {signed(match.stratz_imp)}</span>}
                   {stratzAwardLabel(match.stratz_award) && <span className="text-yellow-300">{stratzAwardLabel(match.stratz_award)}</span>}
                 </div>
               </div>
-              <div className="tabular-nums">
-                <div className="text-sm font-black text-yellow-300">{match.gold_per_min || "-"} GPM</div>
-                <div className="text-xs text-stone-500">{match.duration_text} · Lv {match.level || "-"}</div>
+              <div className="match-economy-cell">
+                <strong>{match.gold_per_min || "-"} GPM</strong>
+                <span>{match.duration_text} · Lv {match.level || "-"}</span>
               </div>
-              <EquipmentSlots match={match} compact={compact} loading={equipmentLoading} />
-              <div className="flex items-center justify-between gap-3 lg:block lg:text-right">
-                <div className="text-xs text-stone-500">{match.played_at}</div>
+              <div className="match-equipment-cell"><EquipmentSlots match={match} compact={compact} loading={equipmentLoading} /></div>
+              <div className="match-date-cell">
+                <span>{match.played_at}</span>
                 <a
                   href={opendotaUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-0 inline-block rounded border border-white/10 bg-white/[0.04] px-2 py-1 text-xs font-bold text-stone-300 transition hover:border-yellow-300/50 hover:text-yellow-200 lg:mt-2"
+                  className="match-external-link"
+                  aria-label={`在 OpenDota 查看 ${match.hero_name} 比赛`}
+                  title="在 OpenDota 查看"
                 >
-                  OpenDota
+                  <ExternalLink size={14} aria-hidden="true" />
                 </a>
               </div>
-            </div>
+            </article>
           );
         })}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -2419,10 +2491,15 @@ export default function Home() {
   const hasCharts = useMemo(() => Boolean(data?.rolling_winrate.length || data?.rank_history.length), [data]);
 
   return (
-    <main className="mx-auto max-w-[1480px] px-4 py-3 sm:px-6 lg:px-8">
-      <div className="space-y-3">
+    <div className="app-shell">
+      <header className="app-header">
+        <div className="app-header-inner">
         <ProductNav data={data} copied={copied} onCopyProfile={copyProfileLink} onOpenPro={() => setActiveTab("progress")} />
         <WorkspaceTabs activeTab={activeTab} onChange={setActiveTab} data={data} />
+        </div>
+      </header>
+      <main className="app-main">
+      <div className="app-content">
         <CommandSearch
           query={query}
           setQuery={setQuery}
@@ -2443,17 +2520,22 @@ export default function Home() {
 
             {data && (
               <>
-                <ThreeMatchMission data={data} busy={missionBusy} onStart={handleStartMission} onCancel={handleCancelMission} />
-                <PlayerDataExplorer
-                  key={data.profile.account_id}
-                  data={data}
-                  equipmentLoading={deepLoading}
-                  onOpenMatches={() => {
-                    setLabView("history");
-                    setActiveTab("lab");
-                  }}
-                />
-                <div className="pb-4 text-right text-xs text-stone-600">Updated {data.updated_at}</div>
+                <div className="dashboard-workspace">
+                  <div className="dashboard-primary">
+                    <ThreeMatchMission data={data} busy={missionBusy} onStart={handleStartMission} onCancel={handleCancelMission} />
+                    <PlayerDataExplorer
+                      key={data.profile.account_id}
+                      data={data}
+                      equipmentLoading={deepLoading}
+                      onOpenMatches={() => {
+                        setLabView("history");
+                        setActiveTab("lab");
+                      }}
+                    />
+                  </div>
+                  <DashboardRail data={data} />
+                </div>
+                <div className="updated-at">Updated {data.updated_at}</div>
               </>
             )}
           </section>
@@ -2493,7 +2575,7 @@ export default function Home() {
                 {labView === "report" && <AiReviewPanel data={data} commercialConfig={commercialConfig} />}
                 {labView === "vision" && <WardMap accountId={data.profile.account_id} />}
                 {labView === "history" && <MatchTable matches={data.recent_matches} equipmentLoading={deepLoading} />}
-                <div className="pb-4 text-right text-xs text-stone-600">Updated {data.updated_at}</div>
+                <div className="updated-at">Updated {data.updated_at}</div>
               </>
             )}
           </section>
@@ -2501,9 +2583,9 @@ export default function Home() {
 
         {activeTab === "pool" && data && (
           <section className="space-y-4">
-            <div className="page-intro"><div className="text-xs font-black text-yellow-300">HERO POOL</div><h1>英雄池训练室</h1><p>把英雄分成继续上分、专项训练和暂时观察；全局数据只做参照，不冒充分位置 Meta。</p></div>
+            <div className="page-intro"><div className="text-xs font-black text-yellow-300">HERO POOL</div><h1>英雄池训练室</h1></div>
             <PersonalMetaLab data={data} />
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_420px]"><HeroStrip title="近期英雄池" heroes={data.hero_pool} /><CountsPanel data={data} /></div>
+            <div className="hero-pool-layout"><HeroStrip title="近期英雄池" heroes={data.hero_pool} /><CountsPanel data={data} /></div>
             <HeroStrip title="生涯常用英雄" heroes={data.lifetime_heroes} />
           </section>
         )}
@@ -2511,7 +2593,7 @@ export default function Home() {
         {activeTab === "progress" && (
           <section className="space-y-4">
             {data && <>
-              <div className="page-intro"><div className="text-xs font-black text-green-300">PROGRESS</div><h1>训练进度</h1><p>每次只训练一个指标，连续三局后自动比较训练前后的结果。</p></div>
+              <div className="page-intro"><div className="text-xs font-black text-green-300">PROGRESS</div><h1>训练进度</h1></div>
               <ThreeMatchMission data={data} expanded busy={missionBusy} onStart={handleStartMission} onCancel={handleCancelMission} />
               <SummaryGrid data={data} />
               <CoachBrief data={data} />
@@ -2521,6 +2603,7 @@ export default function Home() {
           </section>
         )}
       </div>
-    </main>
+      </main>
+    </div>
   );
 }
