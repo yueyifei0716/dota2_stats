@@ -4563,3 +4563,78 @@ select option {
     border-bottom: 0;
   }
 }
+
+/* ============================================================
+   动效补充：均只动 transform / opacity / 颜色，不触发布局。
+   ============================================================ */
+
+/* 三局训练格子由空变填充。用 transition 而非 keyframes：挂载时不触发，
+   所以切 Tab 回来不会重放，只有数据真正更新那一刻才动。 */
+.mission-slot {
+  transition: border-color 320ms var(--ease-out-strong), background-color 320ms var(--ease-out-strong);
+}
+
+/* 「更多筛选」展开。@starting-style 让入场不需要 JS；收起是卸载，
+   没有退场动画（纯 CSS 做不到，需要动效库或手动延迟卸载）。 */
+.explorer-filters-advanced {
+  transition: opacity 200ms var(--ease-out-strong), transform 200ms var(--ease-out-strong);
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@starting-style {
+  .explorer-filters-advanced {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* 主操作按钮补按压反馈，数值与已有的 .icon-command:active 一致。 */
+.mission-primary,
+.mission-secondary,
+.position-options button {
+  transition: transform 140ms var(--ease-out-strong);
+}
+
+.mission-primary:active:not(:disabled),
+.mission-secondary:active:not(:disabled),
+.position-options button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* 搜索结果入场。用 keyframes 而非 transition-delay，否则延迟会渗进 hover
+   过渡，让悬停反馈变迟钝。 */
+.search-result-card {
+  animation: search-result-enter 200ms var(--ease-out-strong) both;
+}
+
+.search-result-card:nth-child(2) { animation-delay: 40ms; }
+.search-result-card:nth-child(3) { animation-delay: 80ms; }
+.search-result-card:nth-child(4) { animation-delay: 120ms; }
+
+@keyframes search-result-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 复盘报告从「正在生成」切换到报告本体，桥接这次内容替换。 */
+.ai-review-report {
+  animation: review-report-enter 360ms var(--ease-out-strong) both;
+}
+
+@keyframes review-report-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 减弱动效时保留不透明度变化（它帮助理解内容替换），去掉全部位移与缩放。 */
+@media (prefers-reduced-motion: reduce) {
+  .mission-primary:active:not(:disabled),
+  .mission-secondary:active:not(:disabled),
+  .position-options button:active:not(:disabled),
+  .explorer-filters-advanced,
+  .search-result-card,
+  .ai-review-report {
+    transform: none !important;
+  }
+}

@@ -470,7 +470,7 @@ function SearchResults({ results, onPick }: { results: PlayerSearchResult[]; onP
           <button
             key={player.account_id}
             onClick={() => onPick(player.account_id)}
-            className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/5 p-3 text-left transition hover:border-yellow-300/50 hover:bg-yellow-300/10"
+            className="search-result-card flex items-center gap-3 rounded-lg border border-white/10 bg-white/5 p-3 text-left transition hover:border-yellow-300/50 hover:bg-yellow-300/10"
           >
             {player.avatar ? <img src={player.avatar} alt="" className="h-10 w-10 rounded object-cover" /> : <div className="h-10 w-10 rounded bg-white/10" />}
             <span className="min-w-0">
