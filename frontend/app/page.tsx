@@ -21,6 +21,7 @@ import {
   Swords,
   Target,
   TrendingUp,
+  X,
 } from "lucide-react";
 import {
   Area,
@@ -166,14 +167,22 @@ function checkoutConfigured(config: CommercialConfig | null, planKey: string) {
   return Boolean(config?.plans.find((plan) => plan.key === planKey)?.checkout_configured);
 }
 
+type CopyState = "idle" | "done" | "failed";
+
+const COPY_LABELS: Record<CopyState, string> = {
+  idle: "复制公开页链接",
+  done: "公开页链接已复制",
+  failed: "复制失败，请手动复制地址栏链接",
+};
+
 function ProductNav({
   data,
-  copied,
+  copyState,
   onCopyProfile,
   onOpenPro,
 }: {
   data: PlayerDashboardData | null;
-  copied: boolean;
+  copyState: CopyState;
   onCopyProfile: () => void;
   onOpenPro: () => void;
 }) {
@@ -192,13 +201,14 @@ function ProductNav({
           onClick={onCopyProfile}
           disabled={!data}
           className="icon-command"
-          data-copied={copied}
-          aria-label={copied ? "公开页链接已复制" : "复制公开页链接"}
-          title={copied ? "已复制" : "分享公开页"}
+          data-copy={copyState}
+          aria-label={COPY_LABELS[copyState]}
+          title={COPY_LABELS[copyState]}
         >
           <span className="icon-swap">
-            <Share2 size={15} className="icon-swap-from" aria-hidden="true" />
-            <Check size={15} className="icon-swap-to" aria-hidden="true" />
+            <Share2 size={15} className="icon-swap-idle" aria-hidden="true" />
+            <Check size={15} className="icon-swap-done" aria-hidden="true" />
+            <X size={15} className="icon-swap-failed" aria-hidden="true" />
           </span>
         </button>
         <button
@@ -2287,7 +2297,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [deepLoading, setDeepLoading] = useState(false);
   const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<CopyState>("idle");
   const [activeTab, setActiveTab] = useState<AppTab>("today");
   const [labView, setLabView] = useState<LabView>("scorecard");
   const [missionBusy, setMissionBusy] = useState(false);
@@ -2409,11 +2419,40 @@ export default function Home() {
   const copyProfileLink = useCallback(() => {
     if (!data || typeof window === "undefined") return;
     const url = `${window.location.origin}/p/${data.profile.account_id}`;
-    if (!navigator.clipboard) return;
-    void navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-    });
+
+    // 剪贴板 API 在非安全上下文缺失，被拒时也会 reject（权限、文档失焦、部分浏览器策略）。
+    // 两种情况都要落到 execCommand 降级，再失败就明确告诉用户，不能静默吞掉。
+    const copyViaSelection = () => {
+      try {
+        const field = document.createElement("textarea");
+        field.value = url;
+        field.setAttribute("readonly", "");
+        field.style.position = "fixed";
+        field.style.opacity = "0";
+        field.style.pointerEvents = "none";
+        document.body.appendChild(field);
+        field.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(field);
+        return ok;
+      } catch {
+        return false;
+      }
+    };
+
+    const settle = (ok: boolean) => {
+      setCopyState(ok ? "done" : "failed");
+      window.setTimeout(() => setCopyState("idle"), 1800);
+    };
+
+    if (navigator.clipboard) {
+      void navigator.clipboard.writeText(url).then(
+        () => settle(true),
+        () => settle(copyViaSelection()),
+      );
+      return;
+    }
+    settle(copyViaSelection());
   }, [data]);
 
   const handleStartMission = useCallback(async (focusKey: string) => {
@@ -2498,7 +2537,7 @@ export default function Home() {
     <div className="app-shell">
       <header className="app-header">
         <div className="app-header-inner">
-        <ProductNav data={data} copied={copied} onCopyProfile={copyProfileLink} onOpenPro={() => setActiveTab("progress")} />
+        <ProductNav data={data} copyState={copyState} onCopyProfile={copyProfileLink} onOpenPro={() => setActiveTab("progress")} />
         <WorkspaceTabs activeTab={activeTab} onChange={setActiveTab} data={data} />
         </div>
       </header>
