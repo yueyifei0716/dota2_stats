@@ -5054,3 +5054,43 @@ nav.workspace-tabs {
   margin-top: 3px;
   white-space: nowrap;
 }
+
+/* --- 再收一轮：数值 16px，格内留白收紧 -------------------------------------- */
+
+/* 16px 对 12px 标签 = 1:1.33，贴近 Dotabuff 的比例 */
+.player-kpi-strip strong {
+  font-size: 1rem;
+}
+
+/* 格内留白原来是 14/16，文字离边太远，格子读起来比内容宽 */
+.player-kpi-strip > div {
+  padding: 12px 14px;
+}
+
+/* 比赛历史下面那排指标同样的问题：16px 上下 + 22px 左右 */
+.explorer-metric {
+  min-height: 0;
+  padding: 12px 14px;
+}
+
+.explorer-metric > strong {
+  font-size: 1rem;
+  line-height: 1.25;
+  letter-spacing: -0.012em;
+}
+
+.explorer-metric span,
+.explorer-metric small {
+  font-size: 0.75rem;
+}
+
+.explorer-metric small {
+  color: var(--text-quiet);
+}
+
+/* 原生 select 的值默认靠左、箭头靠右，76px 列宽把两者拉开，看起来就是没居中。
+   text-align-last 是唯一能让收起态的值居中的属性。 */
+.command-select {
+  text-align: center;
+  text-align-last: center;
+}
