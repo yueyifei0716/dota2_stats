@@ -2155,6 +2155,7 @@ select option {
 /* Adaptive Apple-inspired product layer */
 :root {
   color-scheme: dark;
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
   --background: #0b0b0d;
   --foreground: #f5f5f7;
   --surface: #1c1c1e;
@@ -2420,6 +2421,39 @@ a {
 .icon-command:active:not(:disabled),
 .pro-command:active {
   transform: scale(0.97);
+}
+
+.icon-swap {
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+}
+
+.icon-swap > svg {
+  grid-area: 1 / 1;
+  transition: opacity 160ms var(--ease-out-strong), transform 160ms var(--ease-out-strong);
+}
+
+.icon-swap-from {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.icon-swap-to {
+  opacity: 0;
+  transform: scale(0.9);
+  color: var(--positive);
+}
+
+[data-copied="true"] .icon-swap-from {
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+[data-copied="true"] .icon-swap-to {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .app-main {
@@ -3775,6 +3809,15 @@ select option {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* 复制反馈是这个按钮唯一的视觉确认，减弱动效时保留淡入淡出，只去掉缩放位移。 */
+@media (prefers-reduced-motion: reduce) {
+  .icon-swap > svg {
+    transition-property: opacity !important;
+    transition-duration: 160ms !important;
+    transform: none !important;
   }
 }
 

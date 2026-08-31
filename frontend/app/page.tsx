@@ -192,10 +192,14 @@ function ProductNav({
           onClick={onCopyProfile}
           disabled={!data}
           className="icon-command"
+          data-copied={copied}
           aria-label={copied ? "公开页链接已复制" : "复制公开页链接"}
           title={copied ? "已复制" : "分享公开页"}
         >
-          <Share2 size={15} aria-hidden="true" />
+          <span className="icon-swap">
+            <Share2 size={15} className="icon-swap-from" aria-hidden="true" />
+            <Check size={15} className="icon-swap-to" aria-hidden="true" />
+          </span>
         </button>
         <button
           type="button"
