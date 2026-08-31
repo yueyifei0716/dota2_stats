@@ -5064,13 +5064,13 @@ nav.workspace-tabs {
 
 /* 格内留白原来是 14/16，文字离边太远，格子读起来比内容宽 */
 .player-kpi-strip > div {
-  padding: 12px 14px;
+  padding: 10px 12px;
 }
 
 /* 比赛历史下面那排指标同样的问题：16px 上下 + 22px 左右 */
 .explorer-metric {
   min-height: 0;
-  padding: 12px 14px;
+  padding: 10px 12px;
 }
 
 .explorer-metric > strong {
