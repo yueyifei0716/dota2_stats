@@ -148,6 +148,30 @@ function stratzAwardLabel(award: string) {
   }[award] || "";
 }
 
+// OpenDota 的 /search 长期超时，所以除了名字搜索之外，要能直接吃下用户手里
+// 已有的标识：Steam64 ID、Steam 个人主页链接，以及 Dotabuff / OpenDota /
+// STRATZ 的选手页链接。全部是本地换算，不依赖任何上游接口。
+// Steam64 超过 Number.MAX_SAFE_INTEGER，必须用 BigInt，否则减法会丢精度。
+const STEAM64_BASE = BigInt("76561197960265728");
+const PLAYER_URL_PATTERN = /(?:steamcommunity\.com\/profiles\/|(?:dotabuff\.com|opendota\.com|stratz\.com)\/players\/)(\d+)/i;
+
+function resolveAccountId(input: string): string | null {
+  const text = input.trim();
+  if (!text) return null;
+
+  const fromUrl = text.match(PLAYER_URL_PATTERN);
+  const digits = fromUrl ? fromUrl[1] : (/^\d+$/.test(text) ? text : null);
+  if (!digits) return null;
+
+  try {
+    const value = BigInt(digits);
+    const accountId = value >= STEAM64_BASE ? value - STEAM64_BASE : value;
+    return accountId > BigInt(0) ? accountId.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 function compactNumber(value: number) {
   if (!value) return "-";
   if (value >= 1000) return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}k`;
@@ -437,7 +461,7 @@ function CommandSearch({
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search players or account id"
+          placeholder="玩家名、account id、Steam 链接或 Steam64 ID"
           className="min-w-0 flex-1 bg-transparent text-sm font-bold text-stone-100 outline-none placeholder:text-stone-500"
         />
       </div>
@@ -2412,9 +2436,11 @@ export default function Home() {
       if (!trimmed) return;
       setActiveTab("today");
 
-      if (/^\d+$/.test(trimmed)) {
+      const resolved = resolveAccountId(trimmed);
+      if (resolved) {
         setSearchResults([]);
-        setAccountId(trimmed);
+        setError("");
+        setAccountId(resolved);
         return;
       }
 
@@ -2426,8 +2452,8 @@ export default function Home() {
         if (!result.results.length) {
           // 后端 warning 是给日志看的，不直接展示；用户只需要知道该怎么办。
           setError(result.warnings.length
-            ? "搜索服务暂时不可用，请稍后重试，或直接输入 account_id 查看"
-            : "没有找到匹配玩家，也可以直接输入 account_id 查看");
+            ? "搜索服务暂时不可用。可以粘贴 Steam 个人主页链接或 account id 直接查看。"
+            : "没有找到匹配玩家。可以粘贴 Steam 个人主页链接或 account id 直接查看。");
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "搜索失败");
