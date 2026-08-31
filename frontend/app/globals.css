@@ -4639,3 +4639,243 @@ select option {
   }
 }
 
+
+/* ============================================================================
+   Apple 设计系统层
+   排版尺度、材质与深度、无障碍。只调整字体属性、材质属性，不改布局。
+   ========================================================================= */
+
+:root {
+  /* 字距随字号变化：大字负字距，正文归零，小字正字距。
+     固定 letter-spacing 一定在某个尺寸上是错的。 */
+  --tracking-display: -0.022em;
+  --tracking-title: -0.014em;
+  --tracking-heading: -0.006em;
+  --tracking-body: 0em;
+  --tracking-caption: 0.008em;
+  --tracking-overline: 0.07em;
+
+  /* 行高与字号反向：大字紧，正文松 */
+  --leading-display: 1.08;
+  --leading-title: 1.2;
+  --leading-heading: 1.3;
+  --leading-body: 1.5;
+
+  /* 材质与深度：面积越大读起来越厚，模糊更强、阴影更深 */
+  --material-blur-chrome: blur(24px) saturate(180%);
+  --material-blur-panel: blur(16px) saturate(160%);
+  --elevation-card: 0 1px 2px rgba(0, 0, 0, 0.16), 0 6px 20px rgba(0, 0, 0, 0.10);
+  --elevation-panel: 0 2px 6px rgba(0, 0, 0, 0.20), 0 16px 44px rgba(0, 0, 0, 0.16);
+  --header-edge: rgba(0, 0, 0, 0.22);
+  --material-top-edge: rgba(255, 255, 255, 0.10);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --elevation-card: 0 1px 2px rgba(0, 0, 0, 0.05), 0 6px 20px rgba(0, 0, 0, 0.05);
+    --elevation-panel: 0 2px 6px rgba(0, 0, 0, 0.07), 0 16px 44px rgba(0, 0, 0, 0.08);
+    --header-edge: rgba(0, 0, 0, 0.09);
+    --material-top-edge: rgba(255, 255, 255, 0.72);
+  }
+}
+
+/* 顶栏一直没有真正吸顶：html/body 上的 overflow-x: hidden 会让 overflow-y 计算成
+   auto，body 因此成为滚动容器，position: sticky 随之失效。overflow-x: clip 同样
+   能防止横向溢出，但不创建滚动容器，sticky 得以工作。 */
+html,
+body {
+  overflow-x: clip;
+  overflow-y: visible;
+}
+
+html {
+  font-optical-sizing: auto;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- 排版尺度 ------------------------------------------------------------ */
+
+/* 展示级：≥1.375rem。字重从 700 降到 640——大字本来就有存在感，
+   700 在 SF 上会显得笨重，字距收紧才是让它显大的方式。 */
+.page-intro h1,
+.player-title,
+.mission-title,
+.player-kpi-strip strong,
+.form-score-ring strong {
+  letter-spacing: var(--tracking-display);
+  line-height: var(--leading-display);
+  font-weight: 640;
+}
+
+/* 标题级：1.125rem 上下 */
+.explorer-metric > strong,
+.match-economy-cell > strong {
+  letter-spacing: var(--tracking-title);
+  line-height: var(--leading-title);
+  font-weight: 620;
+}
+
+/* 小标题级：0.8125–1rem */
+.section-title,
+.product-name,
+.data-explorer-header h2,
+.match-history-header h2,
+.hero-strip > h2,
+.rail-heading h2,
+.meta-toolbar h1 {
+  letter-spacing: var(--tracking-heading);
+  line-height: var(--leading-heading);
+  font-weight: 600;
+}
+
+/* 正文 */
+.page-intro p,
+.card p,
+.mission-brief p {
+  letter-spacing: var(--tracking-body);
+  line-height: var(--leading-body);
+}
+
+/* 微型标签：小字需要正字距才好认 */
+.player-meta,
+.product-tagline,
+.form-facts span,
+.rail-empty,
+.explorer-metric small,
+.player-kpi-strip small {
+  letter-spacing: var(--tracking-caption);
+}
+
+/* 全大写的眉标必须给足字距，否则挤成一团 */
+.profile-overline,
+.page-intro > div:first-child {
+  letter-spacing: var(--tracking-overline);
+  font-weight: 590;
+}
+
+/* 数字对齐：仪表盘里的数字必须等宽，否则刷新时会跳动 */
+.player-kpi-strip strong,
+.explorer-metric > strong,
+.form-score-ring strong,
+.match-economy-cell > strong,
+.meta-table td {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- 材质与深度 ---------------------------------------------------------- */
+
+/* 顶栏是浮在内容之上的功能层：内容从下面穿过，而不是被一条硬线切断。 */
+.app-header {
+  position: sticky;
+  border-bottom: 0;
+  backdrop-filter: var(--material-blur-chrome);
+  -webkit-backdrop-filter: var(--material-blur-chrome);
+  box-shadow: inset 0 1px 0 var(--material-top-edge);
+}
+
+/* 滚动边缘效果：只在内容真的滚到顶栏下面时才出现，而且是渐隐不是硬线 */
+.app-header::after {
+  content: "";
+  position: absolute;
+  inset: 100% 0 auto 0;
+  height: 10px;
+  background: linear-gradient(to bottom, var(--header-edge), transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 240ms var(--ease-out-strong);
+}
+
+.app-header[data-scrolled="true"]::after {
+  opacity: 1;
+}
+
+.card {
+  box-shadow: var(--elevation-card);
+}
+
+.pro-panel,
+.mission-console {
+  box-shadow: var(--elevation-panel);
+}
+
+/* --- 无障碍 -------------------------------------------------------------- */
+
+/* 降低透明度：材质变实，去掉模糊，而不是保持半透明硬撑 */
+@media (prefers-reduced-transparency: reduce) {
+  .app-header {
+    background: var(--surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .icon-command {
+    background: var(--surface-raised);
+  }
+}
+
+/* 高对比：接近纯色的背景配明确的描边 */
+@media (prefers-contrast: more) {
+  :root {
+    --line: rgba(128, 128, 128, 0.55);
+    --line-strong: rgba(128, 128, 128, 0.8);
+    --text-secondary: var(--text-primary);
+  }
+
+  .app-header {
+    background: var(--surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-bottom: 1px solid var(--line-strong);
+  }
+
+  .card,
+  .icon-command,
+  .workspace-tab {
+    border: 1px solid var(--line-strong);
+  }
+}
+
+/* Tab 滑动指示器。指示器接管选中态的背景，.workspace-tab-active 只保留文字颜色，
+   否则会出现两块高亮。 */
+nav.workspace-tabs {
+  position: relative;
+}
+
+.workspace-tab-pill {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  width: 0;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-soft);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* 首帧不过渡（指示器加载时就该在正确位置），之后才跟随。
+   Apple 的「移动/重定位」手感：临界阻尼、不过冲——这不是手势带来的动量。 */
+.workspace-tab-pill[data-ready="true"] {
+  transition: transform 400ms var(--ease-out-strong), width 400ms var(--ease-out-strong);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-tab-pill {
+    transition: none !important;
+  }
+}
+
+.workspace-tab {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+}
+
+.workspace-tab-active {
+  background: transparent;
+  border-color: transparent;
+  color: var(--accent);
+}

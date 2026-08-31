@@ -257,8 +257,47 @@ function WorkspaceTabs({
   onChange: (tab: AppTab) => void;
   data: PlayerDashboardData | null;
 }) {
+  const navRef = useRef<HTMLElement | null>(null);
+  const pillRef = useRef<HTMLSpanElement | null>(null);
+
+  // 滑动指示器。位置用相对 nav 的 getBoundingClientRect 计算，不依赖 offsetParent。
+  // 整个逻辑放在同一个 effect 里并以 activeTab 为依赖——用 ref 转发会在 StrictMode
+  // 的双调用下把回调置空，导致指示器慢一拍。
+  useEffect(() => {
+    const nav = navRef.current;
+    const pill = pillRef.current;
+    if (!nav || !pill) return;
+
+    const place = () => {
+      const target = nav.querySelector<HTMLButtonElement>(".workspace-tab-active");
+      if (!target) {
+        pill.style.opacity = "0";
+        return;
+      }
+      const navBox = nav.getBoundingClientRect();
+      const box = target.getBoundingClientRect();
+      pill.style.width = `${box.width}px`;
+      pill.style.height = `${box.height}px`;
+      pill.style.opacity = "1";
+      pill.style.transform = `translate(${box.left - navBox.left}px, ${box.top - navBox.top}px)`;
+    };
+
+    place();
+    // 首帧不过渡：页面刚加载时指示器就该在正确位置，不该从左边滑进来。
+    if (!pill.dataset.ready) {
+      requestAnimationFrame(() => {
+        pill.dataset.ready = "true";
+      });
+    }
+
+    const observer = new ResizeObserver(place);
+    observer.observe(nav);
+    return () => observer.disconnect();
+  }, [activeTab]);
+
   return (
-    <nav className="workspace-tabs" aria-label="DotaSense sections">
+    <nav ref={navRef} className="workspace-tabs" aria-label="DotaSense sections">
+      <span ref={pillRef} className="workspace-tab-pill" aria-hidden="true" />
       {APP_TABS.map((tab) => {
         const Icon = tab.icon;
         const active = activeTab === tab.key;
@@ -2472,6 +2511,26 @@ export default function Home() {
     setActiveTab("today");
   }, []);
 
+  // 滚动边缘效果：顶栏是浮层，只有内容真的走到它下面时才显示那道渐隐边。
+  const headerRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    // 不做 rAF 节流：读 scrollY 和写 dataset 都不触发重排，节流只会在 rAF
+    // 被暂停时（后台标签页）让状态卡住。只在值真的变化时写。
+    let scrolled: boolean | null = null;
+    const sync = () => {
+      const next = window.scrollY > 2;
+      if (next === scrolled) return;
+      scrolled = next;
+      header.dataset.scrolled = next ? "true" : "false";
+    };
+    sync();
+    window.addEventListener("scroll", sync, { passive: true });
+    return () => window.removeEventListener("scroll", sync);
+  }, []);
+
   const copyProfileLink = useCallback(() => {
     if (!data || typeof window === "undefined") return;
     const url = `${window.location.origin}/p/${data.profile.account_id}`;
@@ -2591,7 +2650,7 @@ export default function Home() {
 
   return (
     <div className="app-shell">
-      <header className="app-header">
+      <header ref={headerRef} className="app-header">
         <div className="app-header-inner">
         <ProductNav data={data} copyState={copyState} onCopyProfile={copyProfileLink} onOpenPro={() => setActiveTab("progress")} />
         <WorkspaceTabs activeTab={activeTab} onChange={setActiveTab} data={data} />
