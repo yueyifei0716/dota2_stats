@@ -123,7 +123,7 @@ def _signed(value: float, suffix: str = "") -> str:
     return f"{prefix}{value}{suffix}"
 
 
-def _cached_get(path: str, params: Optional[Dict[str, Any]] = None, timeout: int = 12) -> Tuple[Any, Optional[str]]:
+def _cached_get(path: str, params: Optional[Dict[str, Any]] = None, timeout: int = 12, attempts: int = 2) -> Tuple[Any, Optional[str]]:
     params = dict(params or {})
     api_key = os.getenv("OPENDOTA_API_KEY")
     if api_key and "api_key" not in params:
@@ -136,12 +136,12 @@ def _cached_get(path: str, params: Optional[Dict[str, Any]] = None, timeout: int
         return cached["data"], None
 
     warning = ""
-    for attempt in range(2):
+    for attempt in range(attempts):
         try:
             response = requests.get(f"{BASE_URL}{path}", params=params, timeout=timeout)
             if response.status_code == 429 or response.status_code >= 500:
                 warning = f"{path} returned HTTP {response.status_code}"
-                if attempt == 0:
+                if attempt + 1 < attempts:
                     time.sleep(0.35)
                     continue
             response.raise_for_status()
@@ -158,12 +158,12 @@ def _cached_get(path: str, params: Optional[Dict[str, Any]] = None, timeout: int
                 f"{path} 请求超时" if isinstance(exc, requests.Timeout)
                 else f"{path} 网络请求失败"
             )
-            if attempt == 0:
+            if attempt + 1 < attempts:
                 time.sleep(0.35)
                 continue
         except ValueError:
             warning = f"{path} returned invalid JSON"
-            if attempt == 0:
+            if attempt + 1 < attempts:
                 time.sleep(0.2)
                 continue
     return None, warning or f"{path} request failed"
@@ -1593,7 +1593,7 @@ def _profile(account_id: int, raw_profile: Any, wl: Any) -> Dict[str, Any]:
 
 @router.get("/players/search")
 def search_players(q: str = Query(..., min_length=2), limit: int = Query(8, ge=1, le=20)):
-    data, warning = _cached_get("/search", {"q": q}, timeout=6)
+    data, warning = _cached_get("/search", {"q": q}, timeout=6, attempts=1)
     results = []
     if isinstance(data, list):
         for player in data[:limit]:
