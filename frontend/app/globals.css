@@ -4725,7 +4725,6 @@ html {
 .page-intro h1,
 .player-title,
 .mission-title,
-.player-kpi-strip strong,
 .form-score-ring strong {
   letter-spacing: var(--tracking-display);
   line-height: var(--leading-display);
@@ -4945,5 +4944,113 @@ nav.workspace-tabs {
 }
 
 .player-kpi-strip strong {
+  white-space: nowrap;
+}
+
+/* ============================================================================
+   玩家总览条 · 方向 A「紧凑指标行」
+   原来数值 22px、标签与副标同为 13px 同色，整条 126px——那是给主标题的规格，
+   给了一个辅助指标。OpenDota / Dotabuff / STRATZ 的通行比例是标签:数值≈1:1.4，
+   副标比标签更暗一级。
+   ========================================================================= */
+
+.player-command-bar {
+  min-height: 84px;
+  border-radius: 16px;
+  grid-template-columns: minmax(250px, 0.7fr) minmax(0, 1.9fr) minmax(160px, 0.42fr);
+}
+
+.player-identity-compact {
+  padding: 16px 20px;
+}
+
+.player-avatar-compact {
+  width: 46px;
+  height: 46px;
+  flex-basis: 46px;
+  border-radius: 11px;
+}
+
+.player-title {
+  margin-top: 0;
+  font-size: 1.25rem;
+  line-height: 1.1;
+  letter-spacing: -0.018em;
+}
+
+.player-meta {
+  margin-top: 4px;
+  font-size: 0.75rem;
+}
+
+.player-kpi-strip > div {
+  gap: 3px;
+  padding: 14px 16px;
+  /* 格内分隔线比卡片外框更轻，否则五个格子读起来像五张卡片 */
+  border-right-color: rgba(128, 128, 128, 0.14);
+}
+
+.player-kpi-strip span {
+  font-size: 0.75rem;
+}
+
+/* 数值只比标签大 1.4 倍。这是辅助指标该有的分量，不是主标题。 */
+.player-kpi-strip strong {
+  margin-top: 0;
+  font-size: 1.0625rem;
+  font-weight: 620;
+  line-height: 1.25;
+  letter-spacing: -0.012em;
+}
+
+/* 副标必须比标签更暗一级：原来两行同为 13px 同色，眼睛不知道先读哪个。 */
+.player-kpi-strip small {
+  margin-top: 0;
+  color: var(--text-quiet);
+  font-size: 0.75rem;
+}
+
+.player-rank-compact {
+  gap: 11px;
+  padding: 14px 18px;
+}
+
+.player-rank-compact strong {
+  margin-top: 3px;
+  font-size: 0.875rem;
+  font-weight: 620;
+}
+
+.player-rank-compact span,
+.player-rank-compact small {
+  font-size: 0.75rem;
+}
+
+:root {
+  --text-quiet: #48484a;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --text-quiet: #b0b0b6;
+  }
+}
+
+/* 段位列原本是整条最高的一列：图标 52px、副标「N 场已载入」折成两行占 29px，
+   把整条从 85px 撑到 108px。副标带着深度数据的加载状态，不删，改为不折行。 */
+.player-rank-compact > img,
+.player-rank-placeholder {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+}
+
+.player-rank-compact small {
+  /* 早先的规则把它设成 display:block，覆盖了标记里的 Tailwind flex：
+     行内 SVG 于是按基线排版，把 18px 的行盒撑成 29px。按标记原意还原。 */
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
   white-space: nowrap;
 }

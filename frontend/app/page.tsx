@@ -366,13 +366,9 @@ function ProfileHeader({ data, deepLoading }: { data: PlayerDashboardData | null
             <div className="player-avatar-compact bg-white/10" />
           )}
           <div className="min-w-0">
-            <div className="profile-overline">
-              <ShieldCheck size={12} aria-hidden="true" />
-              Player overview
-            </div>
             <h1 className="player-title">{profile?.username || "Dota 2 Dashboard"}</h1>
             <div className="player-meta">
-              {profile ? `${profile.total_games} 场生涯 · ${profile.lifetime_win_rate}% · ID ${profile.account_id}` : `ID ${DEFAULT_ACCOUNT_ID}`}
+              {profile ? `${profile.total_games} 场 · ${profile.lifetime_win_rate}% · ${profile.account_id}` : `ID ${DEFAULT_ACCOUNT_ID}`}
             </div>
           </div>
         </div>

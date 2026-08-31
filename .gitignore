@@ -43,3 +43,7 @@ cache/
 api.json
 .vercel
 .playwright-cli/
+
+# 设计稿工作文件（画布已发布为 Artifact）
+.design/
+.claude/launch.json
