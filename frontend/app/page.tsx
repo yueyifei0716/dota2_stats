@@ -390,7 +390,7 @@ function ProfileHeader({ data, deepLoading }: { data: PlayerDashboardData | null
         {profile?.rank_icon ? <img src={profile.rank_icon} alt="" /> : <div className="player-rank-placeholder" />}
         <div>
           <span>当前段位</span>
-          <strong>{profile?.rank_name || "未校准"}</strong>
+          <strong>{profile?.rank_name || (profile?.profile_available === false ? "资料暂不可用" : "未校准")}</strong>
           <small className="flex items-center gap-1">
             {deepLoading ? <LoaderCircle size={11} className="animate-spin" aria-hidden="true" /> : <Check size={11} aria-hidden="true" />}
             {deepLoading ? "补全详情" : `${data?.recent_matches.length || 0} 场已载入`}

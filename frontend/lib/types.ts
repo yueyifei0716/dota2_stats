@@ -275,6 +275,8 @@ export interface PlayerProfile {
   total_losses: number;
   total_games: number;
   lifetime_win_rate: number;
+  /** false 表示 profile 接口取不到数据——此时 username 和 rank_name 是兜底值，不是事实 */
+  profile_available?: boolean;
 }
 
 export interface PlayerTrendBucket {

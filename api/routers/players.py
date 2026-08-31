@@ -166,6 +166,11 @@ def _cached_get(path: str, params: Optional[Dict[str, Any]] = None, timeout: int
             if attempt + 1 < attempts:
                 time.sleep(0.2)
                 continue
+    # 全部尝试都失败。这里返回 None 会让调用方拼出一个「看起来正常但是错的」结果——
+    # profile 取不到时用户名会退成 "Player <id>"、段位退成「未校准」，而胜负数据来自
+    # 另一个接口照常显示，用户看不出这是故障。过期数据比假数据好。
+    if cached:
+        return cached["data"], f"{path} 暂时不可用，显示的是缓存数据"
     return None, warning or f"{path} request failed"
 
 
@@ -1569,6 +1574,9 @@ def _coach_pack(
 
 def _profile(account_id: int, raw_profile: Any, wl: Any) -> Dict[str, Any]:
     profile = raw_profile.get("profile", {}) if isinstance(raw_profile, dict) else {}
+    # profile 请求失败与「该玩家确实没有资料」在下游长得一模一样，必须区分：
+    # 前者不该显示「未校准」这种确定性陈述。
+    profile_available = bool(profile) or isinstance(raw_profile, dict) and raw_profile.get("rank_tier") is not None
     rank_tier = _safe_int(raw_profile.get("rank_tier") if isinstance(raw_profile, dict) else None)
     rank_name, rank_icon = get_rank_name(rank_tier)
     wins = _safe_int(wl.get("win") if isinstance(wl, dict) else 0)
@@ -1588,6 +1596,7 @@ def _profile(account_id: int, raw_profile: Any, wl: Any) -> Dict[str, Any]:
         "total_losses": losses,
         "total_games": total,
         "lifetime_win_rate": _round(wins / total * 100) if total else 0,
+        "profile_available": profile_available,
     }
 
 
