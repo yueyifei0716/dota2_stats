@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import Counter
 from datetime import datetime, timezone, timedelta
 import json
+import logging
 import math
 import os
 from pathlib import Path
@@ -20,6 +21,8 @@ from services.stats import get_item_icon_url, get_rank_name, get_rank_name_simpl
 from services.training import load_position_labels, normalize_client_id, training_state
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 BASE_URL = "https://api.opendota.com/api"
 STRATZ_API_URL = "https://api.stratz.com/graphql"
@@ -149,7 +152,12 @@ def _cached_get(path: str, params: Optional[Dict[str, Any]] = None, timeout: int
             status = exc.response.status_code if exc.response is not None else "unknown"
             return None, f"{path} returned HTTP {status}"
         except requests.RequestException as exc:
-            warning = f"{path} request failed: {exc}"
+            # 异常原文包含主机名与连接池细节，只写日志；warning 会渲染给用户。
+            logger.warning("OpenDota %s request failed: %s", path, exc)
+            warning = (
+                f"{path} 请求超时" if isinstance(exc, requests.Timeout)
+                else f"{path} 网络请求失败"
+            )
             if attempt == 0:
                 time.sleep(0.35)
                 continue
@@ -1585,7 +1593,7 @@ def _profile(account_id: int, raw_profile: Any, wl: Any) -> Dict[str, Any]:
 
 @router.get("/players/search")
 def search_players(q: str = Query(..., min_length=2), limit: int = Query(8, ge=1, le=20)):
-    data, warning = _cached_get("/search", {"q": q}, timeout=18)
+    data, warning = _cached_get("/search", {"q": q}, timeout=6)
     results = []
     if isinstance(data, list):
         for player in data[:limit]:

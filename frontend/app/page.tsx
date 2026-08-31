@@ -874,6 +874,33 @@ function ThreeMatchMission({
   const start = () => missionAvailable ? onStart(currentRecommendation.focus_key) : Promise.resolve();
   const cancel = () => activeMission ? onCancel(activeMission.id) : Promise.resolve();
 
+  // 达标只庆祝「这一次真的从未达标变成达标」。首次渲染仅记录基线，
+  // 否则每次组件挂载（切 Tab 回来、重新拉数据）都会重放一遍。
+  // 用 WAAPI 直接驱动，避免在 effect 里 setState 触发级联渲染。
+  const celebrateRef = useRef<HTMLElement | null>(null);
+  const achievedBefore = useRef<boolean | null>(null);
+
+  useEffect(() => {
+    const nowAchieved = Boolean(complete && achieved);
+    const previous = achievedBefore.current;
+    achievedBefore.current = nowAchieved;
+    if (previous === null || previous || !nowAchieved) return;
+
+    const node = celebrateRef.current;
+    if (!node || typeof node.animate !== "function") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const pop = node.animate(
+      [
+        { transform: "scale(1)" },
+        { transform: "scale(1.06)", offset: 0.38 },
+        { transform: "scale(1)" },
+      ],
+      { duration: 420, easing: "cubic-bezier(0.34, 1.4, 0.64, 1)" },
+    );
+    return () => pop.cancel();
+  }, [complete, achieved]);
+
   if (!expanded) {
     return (
       <section className="mission-compact" aria-label="三局训练挑战">
@@ -889,7 +916,7 @@ function ThreeMatchMission({
             <span>{recommendedHero.hero_name}</span>
           </div>
         )}
-        <div className={`mission-compact-progress ${complete && achieved ? "complete" : ""}`}>
+        <div ref={celebrateRef as React.RefObject<HTMLDivElement>} className={`mission-compact-progress ${complete && achieved ? "complete" : ""}`}>
           <span>{complete ? (achieved ? "达标" : "待改进") : "进度"}</span>
           <strong>{activeMission ? `${progress?.completed_games || 0}/3` : complete ? missionValue(progress?.current_value, recommendation.focus_key) : "0/3"}</strong>
         </div>
@@ -911,7 +938,7 @@ function ThreeMatchMission({
       <div className="mission-brief">
         <div className="flex flex-wrap items-center gap-2">
           <span className="evidence-chip evidence-verified"><ShieldCheck size={14} aria-hidden="true" />最近 {recommendation.baseline_games} 场基线</span>
-          <span className={`evidence-chip ${complete && achieved ? "evidence-parsed" : "evidence-limited"}`}>
+          <span ref={celebrateRef as React.RefObject<HTMLSpanElement>} className={`evidence-chip ${complete && achieved ? "evidence-parsed" : "evidence-limited"}`}>
             {complete && achieved ? <Check size={14} aria-hidden="true" /> : <Circle size={14} aria-hidden="true" />}
             {activeMission ? `${progress?.completed_games || 0}/3 场` : complete ? (achieved ? "目标达成" : "已完成，未达标") : "尚未开始"}
           </span>
@@ -2397,7 +2424,10 @@ export default function Home() {
         const result = await searchPlayers(trimmed);
         setSearchResults(result.results);
         if (!result.results.length) {
-          setError(result.warnings[0] || "没有找到匹配玩家，也可以直接输入 account_id 查看");
+          // 后端 warning 是给日志看的，不直接展示；用户只需要知道该怎么办。
+          setError(result.warnings.length
+            ? "搜索服务暂时不可用，请稍后重试，或直接输入 account_id 查看"
+            : "没有找到匹配玩家，也可以直接输入 account_id 查看");
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "搜索失败");
