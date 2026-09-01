@@ -8,7 +8,7 @@
 - **前端**: Next.js 16 / React 19 / Tailwind CSS / Recharts
 - **数据**: Notion Databases (4 个: Matches, Hero Stats, MMR History, Profile)
 - **外部 API**: OpenDota API
-- **环境**: Miniconda (`dota2` env)
+- **环境**: 项目根目录的 `.venv`（`./start.sh` 会自动创建并安装依赖）
 
 ## 目录结构
 
@@ -36,7 +36,7 @@ dota2_stats/
 ## 常用命令
 
 ```bash
-# 启动/停止服务 (同时启动 FastAPI + Next.js)
+# 启动/停止服务（自动补齐依赖 + 同时启动 FastAPI + Next.js）
 ./start.sh
 ./stop.sh
 
@@ -112,8 +112,16 @@ cd frontend && npm run build              # 生产构建
 
 ### 环境配置
 
+`./start.sh` 会自动完成全部准备：缺 `.venv` 就创建、缺 Python 依赖就装、缺
+`frontend/node_modules` 就 `npm install`，然后才启动服务。**不需要手动激活环境或
+预装依赖。**
+
+单独跑脚本（抓数据、日报）时用 `.venv` 里的解释器：
+
 ```bash
-conda activate dota2
-# .env 中需配置: NOTION_TOKEN, NOTION_MATCHES_DB_ID, NOTION_HERO_STATS_DB_ID,
-#                NOTION_MMR_HISTORY_DB_ID, NOTION_PROFILE_DB_ID
+./.venv/bin/python fetch_dota_stats.py
 ```
+
+`.env` 中需配置: NOTION_TOKEN, NOTION_MATCHES_DB_ID, NOTION_HERO_STATS_DB_ID,
+NOTION_MMR_HISTORY_DB_ID, NOTION_PROFILE_DB_ID。不配也能用 —— 只影响 Notion
+抓取、MMR 记录和比赛笔记，OpenDota 部分正常。
