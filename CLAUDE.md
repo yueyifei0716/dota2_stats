@@ -61,7 +61,7 @@ cd frontend && npm run build              # 生产构建
 
 ## 验证变更
 
-- **后端修改**: 重启 FastAPI — `./stop.sh && ./start.sh`
+- **后端修改**：先运行受影响的测试或接口检查。只有本次验证需要且不会打断其他任务时才重启本地服务（`./stop.sh && ./start.sh`）；该脚本可能补装依赖，重启成功本身不证明业务行为正确。
 - **前端修改**: Next.js 支持热重载，无需重启
 - **前端 lint**: `cd frontend && npm run lint`
 
