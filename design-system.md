@@ -4,6 +4,8 @@
 
 DotaSense helps a ranked Dota 2 player understand recent form, inspect match evidence, choose a small training objective, and compare it with the current five-position meta. The interface is a working data product, not a marketing page.
 
+Before a match, hero search leads directly to two evidence-backed equipment candidates and skill mechanics. This reference must work without waiting for a player dashboard. League samples are explicitly distinguished from high-MMR ranked games; unknown positions and patch revisions stay unknown.
+
 ## Direction
 
 One information architecture, two system-controlled appearances:
@@ -45,7 +47,11 @@ Do not use decorative gradients, colored page backgrounds, grid textures, neon g
 - Maximum workspace width: 1376px, with 24px desktop and 12px mobile gutters.
 - Desktop header is a 66px translucent system bar: brand, five-view segmented navigation, share and Pro actions.
 - Mobile navigation is a stable five-item bottom bar; page content reserves its safe area.
-- Personal dashboard order: search, player command band, training objective, match filters and history, evidence-based side rail.
+- Personal dashboard order: search, player command band, latest session recap, match filters and history. The side rail starts with the player's next-match reminder.
+- The fifth tab is the local review notebook. Notes, reminders, and self-reported check-ins belong together; older metric training and charts are secondary disclosures.
+- A session is a sequence of loaded matches with no more than 90 minutes of rest between one match ending and the next starting. Unknown timing does not establish continuity.
+- Reviews are stored per account on this device, with JSON export and non-overwriting import. Never imply cloud synchronization or automatic proof of improvement.
+- Hero reference uses unframed equipment, mechanics, and match sections. Only the two repeated equipment candidates are cards. Skill sequences use actual ability/item icons and state their prerequisites; official notes stay available for every hero. Mobile hero choices form a single scrolling strip, with direct section links.
 - Desktop dashboard uses a flexible main column plus a 320px rail. At narrower widths the rail becomes a full-width grid, then a vertical stack.
 - Cards are only used for genuine bounded tools. Related table rows share one surface and use hairline separators.
 - Match equipment always reserves six inventory slots plus one separated neutral item. Backpack slots are excluded.

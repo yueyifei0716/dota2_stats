@@ -18,7 +18,7 @@ sys.path.insert(0, str(API_DIR))
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import dashboard, matches, heroes, mmr, actions, opendota, players, commercial, training
+from routers import dashboard, matches, heroes, mmr, actions, opendota, players, commercial, training, hero_guides
 
 app = FastAPI(title="Dota 2 Stats API", version="1.0.0")
 
@@ -34,6 +34,7 @@ app.add_middleware(
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(matches.router, prefix="/api")
 app.include_router(heroes.router, prefix="/api")
+app.include_router(hero_guides.router, prefix="/api")
 app.include_router(mmr.router, prefix="/api")
 app.include_router(actions.router, prefix="/api")
 app.include_router(opendota.router, prefix="/api")

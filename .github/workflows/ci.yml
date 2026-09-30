@@ -40,6 +40,9 @@ jobs:
       - name: Typecheck
         run: npm exec -- tsc --noEmit --pretty false
 
+      - name: Frontend behavior tests
+        run: npm test
+
       - name: Build
         run: npm run build
 

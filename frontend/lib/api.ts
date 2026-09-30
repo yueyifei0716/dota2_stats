@@ -100,6 +100,18 @@ export async function getAllHeroes() {
   return fetchApi<import("./types").AllHero[]>("/all_heroes");
 }
 
+export async function getGuideHeroes(signal?: AbortSignal) {
+  return fetchApi<import("./types").HeroGuideCatalog>("/hero-guides/heroes", { signal });
+}
+
+export async function getHeroMechanics(heroId: number, signal?: AbortSignal) {
+  return fetchApi<import("./types").HeroMechanics>(`/hero-guides/${heroId}`, { signal });
+}
+
+export async function getHeroBuilds(heroId: number, signal?: AbortSignal) {
+  return fetchApi<import("./types").HeroBuilds>(`/hero-guides/${heroId}/builds`, { signal });
+}
+
 export async function getWardMap(accountId?: string | number) {
   const query = accountId ? `?account_id=${encodeURIComponent(String(accountId))}` : "";
   return fetchApi<import("./types").WardMapData>(`/wardmap${query}`);

@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   ListFilter,
   LoaderCircle,
+  NotebookPen,
   RotateCcw,
   Search,
   Share2,
@@ -65,6 +66,9 @@ import type {
   PlayerSearchResult,
 } from "@/lib/types";
 import WardMap from "@/components/WardMap";
+import HeroGuide from "@/components/HeroGuide";
+import { JournalStatus, NextMatchReminder, ReviewEditor, ReviewHistory, ReviewNotebook, SessionRecap, useReviewJournal } from "@/components/ReviewJournal";
+import type { MatchMemory } from "@/lib/review-journal";
 
 const DEFAULT_ACCOUNT_ID = "894447460";
 const STORAGE_KEY = "dota2-dashboard-account-id";
@@ -76,9 +80,9 @@ type LabView = "scorecard" | "report" | "vision" | "history";
 const APP_TABS: { key: AppTab; label: string; detail: string; icon: LucideIcon }[] = [
   { key: "today", label: "我的", detail: "个人总览", icon: LayoutDashboard },
   { key: "lab", label: "复盘", detail: "比赛与复盘", icon: Swords },
-  { key: "pool", label: "英雄池", detail: "英雄与训练", icon: BookOpen },
+  { key: "pool", label: "英雄", detail: "装备与技能速查", icon: BookOpen },
   { key: "meta", label: "Meta", detail: "全局环境", icon: Activity },
-  { key: "progress", label: "进步", detail: "训练进度", icon: TrendingUp },
+  { key: "progress", label: "复盘本", detail: "笔记与下局提醒", icon: NotebookPen },
 ];
 
 const LAB_VIEWS: { key: LabView; label: string; icon: LucideIcon }[] = [
@@ -126,7 +130,9 @@ const COMMERCIAL_OFFERS = [
 function initialAccountId() {
   if (typeof window === "undefined") return DEFAULT_ACCOUNT_ID;
   const params = new URLSearchParams(window.location.search);
-  return params.get("player") || window.localStorage.getItem(STORAGE_KEY) || DEFAULT_ACCOUNT_ID;
+  if (params.get("player")) return params.get("player")!;
+  try { return window.localStorage.getItem(STORAGE_KEY) || DEFAULT_ACCOUNT_ID; }
+  catch { return DEFAULT_ACCOUNT_ID; }
 }
 
 function numberClass(value: number) {
@@ -178,14 +184,6 @@ function compactNumber(value: number) {
   return String(value);
 }
 
-function toneClasses(tone: "gold" | "green" | "red" | "cyan") {
-  return {
-    gold: "border-yellow-300/25 bg-yellow-300/10 text-yellow-200",
-    green: "border-green-300/25 bg-green-300/10 text-green-200",
-    red: "border-red-300/25 bg-red-300/10 text-red-200",
-    cyan: "border-cyan-300/25 bg-cyan-300/10 text-cyan-200",
-  }[tone];
-}
 
 function checkoutConfigured(config: CommercialConfig | null, planKey: string) {
   return Boolean(config?.plans.find((plan) => plan.key === planKey)?.checkout_configured);
@@ -301,7 +299,7 @@ function WorkspaceTabs({
       {APP_TABS.map((tab) => {
         const Icon = tab.icon;
         const active = activeTab === tab.key;
-        const disabled = !data && (tab.key === "lab" || tab.key === "pool" || tab.key === "progress");
+        const disabled = !data && (tab.key === "lab" || tab.key === "progress");
         return (
           <button
             key={tab.key}
@@ -320,32 +318,6 @@ function WorkspaceTabs({
   );
 }
 
-function MetricCard({
-  label,
-  value,
-  detail,
-  tone = "gold",
-}: {
-  label: string;
-  value: string;
-  detail?: ReactNode;
-  tone?: "gold" | "green" | "red" | "cyan";
-}) {
-  const toneClass = {
-    gold: "text-yellow-300",
-    green: "text-green-300",
-    red: "text-red-300",
-    cyan: "text-cyan-300",
-  }[tone];
-
-  return (
-    <div className="stat-box min-h-[116px]">
-      <div className="text-xs text-stone-400">{label}</div>
-      <div className={`mt-3 text-3xl font-black tabular-nums ${toneClass}`}>{value}</div>
-      {detail && <div className="mt-2 text-xs text-stone-400">{detail}</div>}
-    </div>
-  );
-}
 
 function ProfileHeader({ data, deepLoading }: { data: PlayerDashboardData | null; deepLoading: boolean }) {
   const profile = data?.profile;
@@ -401,8 +373,7 @@ function ProfileHeader({ data, deepLoading }: { data: PlayerDashboardData | null
   );
 }
 
-function DashboardRail({ data }: { data: PlayerDashboardData }) {
-  const formScore = Math.max(0, Math.min(100, Math.round(data.summary.avg_form_score || 0)));
+function DashboardRail({ data, reminder }: { data: PlayerDashboardData; reminder: ReactNode }) {
   const positionGames = data.role_matrix.reduce((sum, row) => sum + row.games, 0);
   const positionRows = POSITION_OPTIONS.map((position) => {
     const row = data.role_matrix.find((item) => item.position === position.value);
@@ -416,23 +387,7 @@ function DashboardRail({ data }: { data: PlayerDashboardData }) {
   return (
     <aside className="dashboard-rail" aria-label="近期数据摘要">
       <section className="rail-section">
-        <div className="rail-heading">
-          <h2>近期状态</h2>
-          <span>近 {data.summary.games} 场</span>
-        </div>
-        <div className="form-summary">
-          <div
-            className="form-score-ring"
-            style={{ background: `conic-gradient(var(--positive) 0 ${formScore}%, var(--surface-muted) ${formScore}% 100%)` }}
-          >
-            <div><strong>{formScore || "-"}</strong><span>状态分</span></div>
-          </div>
-          <div className="form-facts">
-            <div><span>近期胜率</span><strong className="text-green-300">{data.summary.win_rate}%</strong></div>
-            <div><span>平均 KDA</span><strong>{data.summary.avg_kda}</strong></div>
-            <div><span>平均死亡</span><strong className="text-red-300">{data.summary.avg_deaths}</strong></div>
-          </div>
-        </div>
+        {reminder}
       </section>
 
       <section className="rail-section">
@@ -586,7 +541,7 @@ function ExplorerSelect({
   );
 }
 
-function PlayerDataExplorer({ data, equipmentLoading, onOpenMatches }: { data: PlayerDashboardData; equipmentLoading: boolean; onOpenMatches: () => void }) {
+function PlayerDataExplorer({ data, equipmentLoading, onOpenMatches, onReview }: { data: PlayerDashboardData; equipmentLoading: boolean; onOpenMatches: () => void; onReview: (match: MatchMemory) => void }) {
   const [filters, setFilters] = useState<MatchExplorerFilters>(DEFAULT_MATCH_FILTERS);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
@@ -707,7 +662,7 @@ function PlayerDataExplorer({ data, equipmentLoading, onOpenMatches }: { data: P
       </section>
 
       {filteredMatches.length ? (
-        <MatchHistoryList matches={filteredMatches} limit={8} equipmentLoading={equipmentLoading} onOpenAll={onOpenMatches} />
+        <MatchHistoryList matches={filteredMatches} limit={8} equipmentLoading={equipmentLoading} onOpenAll={onOpenMatches} onReview={onReview} />
       ) : (
         <div className="card explorer-empty">
           <div><strong>没有符合条件的比赛</strong><span>当前已加载 {data.recent_matches.length} 场公开比赛。</span></div>
@@ -1185,19 +1140,23 @@ function MatchLab({
   data,
   positionBusy,
   onConfirmPosition,
+  initialMatchId,
+  onReview,
 }: {
   data: PlayerDashboardData;
   positionBusy: string;
   onConfirmPosition: (matchId: string, position: number) => Promise<void>;
+  initialMatchId?: string;
+  onReview: (match: MatchMemory) => void;
 }) {
   const candidates = useMemo(() => data.recent_matches.slice(0, 8), [data.recent_matches]);
-  const [selectedMatchId, setSelectedMatchId] = useState(candidates[0]?.match_id || "");
+  const [selectedMatchId, setSelectedMatchId] = useState(initialMatchId || candidates[0]?.match_id || "");
   const [scorecard, setScorecard] = useState<PlayerMatchScorecard | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const effectiveMatchId = candidates.some((match) => match.match_id === selectedMatchId) ? selectedMatchId : candidates[0]?.match_id || "";
-  const selectedMatch = candidates.find((match) => match.match_id === effectiveMatchId);
+  const effectiveMatchId = selectedMatchId || candidates[0]?.match_id || "";
+  const selectedMatch = data.recent_matches.find((match) => match.match_id === effectiveMatchId);
 
   useEffect(() => {
     let active = true;
@@ -1226,7 +1185,7 @@ function MatchLab({
       <div className="match-lab-header">
         <div>
           <div className="text-xs font-black text-cyan-300">MATCH LAB</div>
-          <h1 className="mt-2 text-3xl font-black text-stone-50">单局证据评分卡</h1>
+          <h1 className="mt-2 text-3xl font-black text-stone-50">回看这一局</h1>
         </div>
         <span className="evidence-chip evidence-verified"><ShieldCheck size={14} />不做位置推断</span>
       </div>
@@ -1308,10 +1267,9 @@ function MatchLab({
             </div>
 
             <div className="scorecard-callout">
-              <div className="text-xs font-black text-yellow-300">下一组三局只改这一项</div>
-              <h3 className="mt-2 text-xl font-black text-stone-50">{scorecard.headline}</h3>
-              <p className="mt-2 text-sm leading-6 text-stone-400">{scorecard.finding}</p>
-              <p className="mt-3 text-sm font-bold leading-6 text-cyan-100">{scorecard.action}</p>
+              <div className="text-xs font-black text-yellow-300">自己的观察</div>
+              <p className="mt-2 text-sm leading-6 text-stone-400">英雄百分位是结算对照，不代表具体决策对错。</p>
+              {selectedMatch && <button type="button" className="journal-inline-action" onClick={() => onReview(selectedMatch)}><NotebookPen size={16} />记下这局与下局提醒</button>}
             </div>
 
             <MatchStoryPanel scorecard={scorecard} />
@@ -1332,127 +1290,6 @@ function MatchLab({
   );
 }
 
-function CoachBrief({ data }: { data: PlayerDashboardData }) {
-  const { coach, summary } = data;
-  const signature = coach.signature_hero;
-
-  return (
-    <section className="grid grid-cols-1 gap-4 xl:grid-cols-[420px_1fr]">
-      <div className="card relative overflow-hidden">
-        <div className="coach-radar" />
-        <div className="relative">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="section-title mb-0">今日指挥台</h2>
-            <span className={`rounded-lg border px-2.5 py-1 text-xs font-black ${toneClasses(coach.readiness.tone)}`}>
-              {coach.readiness.label}
-            </span>
-          </div>
-          <div className="mt-6 flex items-end gap-3">
-            <div className="text-6xl font-black tabular-nums text-stone-50">{coach.readiness.score}</div>
-            <div className="pb-2 text-xs uppercase tracking-[0.22em] text-stone-500">coach score</div>
-          </div>
-          <p className="mt-4 max-w-[34rem] text-sm leading-6 text-stone-300">{coach.readiness.reason}</p>
-
-          <div className="mt-6 grid grid-cols-2 gap-3">
-            <div className="rounded-lg border border-white/10 bg-black/20 p-3">
-              <div className="text-xs text-stone-500">近期死亡均值</div>
-              <div className="mt-2 text-2xl font-black text-red-300">{coach.recent_deaths}</div>
-            </div>
-            <div className="rounded-lg border border-white/10 bg-black/20 p-3">
-              <div className="text-xs text-stone-500">主打资产</div>
-              <div className="mt-2 truncate text-lg font-black text-cyan-200">{signature?.hero_name || "积累样本"}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {coach.insights.map((insight) => (
-          <div key={insight.title} className="card">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-xs font-black uppercase tracking-[0.18em] text-stone-500">{insight.title}</div>
-                <div className="mt-2 text-2xl font-black text-stone-50">{insight.metric}</div>
-              </div>
-              <span className={`rounded-lg border px-2 py-1 text-[11px] font-black ${toneClasses(insight.tone)}`}>live</span>
-            </div>
-            <p className="mt-4 text-sm leading-6 text-stone-300">{insight.body}</p>
-            <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.04] p-3 text-xs leading-5 text-yellow-100">
-              {insight.action}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="card xl:col-span-2">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="section-title mb-0">三步训练计划</h2>
-            <div className="mt-2 text-sm text-stone-400">基于最近 {summary.games} 场生成</div>
-          </div>
-          <span className="w-fit rounded-lg border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-xs font-black text-cyan-200">Coach Preview</span>
-        </div>
-        <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-3">
-          {coach.training_plan.map((step, index) => (
-            <div key={step.label} className="rounded-lg border border-white/10 bg-black/20 p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black uppercase text-stone-500">{step.label}</span>
-                <span className="text-sm font-black text-yellow-300">0{index + 1}</span>
-              </div>
-              <div className="mt-3 text-lg font-black text-stone-100">{step.focus}</div>
-              <p className="mt-3 text-sm leading-6 text-stone-300">{step.drill}</p>
-              <div className="mt-4 border-t border-white/10 pt-3 text-xs text-green-200">{step.success_metric}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function SummaryGrid({ data }: { data: PlayerDashboardData }) {
-  const { summary, profile } = data;
-  const trend = summary.trend;
-  return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
-      <MetricCard
-        label={`最近 ${summary.games} 场胜率`}
-        value={`${summary.win_rate}%`}
-        detail={`${summary.wins}胜 / ${summary.losses}负`}
-        tone={summary.win_rate >= 50 ? "green" : "red"}
-      />
-      <MetricCard
-        label="近期 KDA"
-        value={String(summary.avg_kda)}
-        detail={`${summary.avg_kills}/${summary.avg_deaths}/${summary.avg_assists}`}
-        tone="cyan"
-      />
-      <MetricCard
-        label="状态评分"
-        value={String(summary.avg_form_score)}
-        detail={<span className={numberClass(trend.form_diff)}>{signed(trend.form_diff)} vs 前 10 场</span>}
-      />
-      <MetricCard
-        label="当前走势"
-        value={summary.streak.count ? `${summary.streak.count}${summary.streak.label}` : "-"}
-        detail={`最近对局 ${summary.last_played || "-"}`}
-        tone={summary.streak.label === "连胜" ? "green" : "red"}
-      />
-      <MetricCard
-        label="生涯胜率"
-        value={`${profile.lifetime_win_rate}%`}
-        detail={`${profile.total_wins}胜 / ${profile.total_losses}负`}
-        tone={profile.lifetime_win_rate >= 50 ? "green" : "red"}
-      />
-      <MetricCard
-        label="平均时长"
-        value={`${summary.avg_duration_min}m`}
-        detail={<span className={numberClass(trend.win_rate_diff)}>{signed(trend.win_rate_diff, "%")} 胜率变化</span>}
-        tone="cyan"
-      />
-    </div>
-  );
-}
 
 function HeroStrip({ title, heroes }: { title: string; heroes: PlayerHeroStat[] }) {
   if (!heroes.length) return null;
@@ -2088,54 +1925,6 @@ function AiReviewPanel({
   );
 }
 
-function ProPanel({ data, commercialConfig }: { data: PlayerDashboardData; commercialConfig: CommercialConfig | null }) {
-  const benefits = [
-    { title: "训练记忆", detail: "保存每次目标、三局结果与成功标准，形成个人长期样本。" },
-    { title: "证据化复盘", detail: "区分结算数据、英雄基准和 Replay 事件，不用推断冒充事实。" },
-    { title: "英雄池计划", detail: "按继续上分、专项训练和暂时停用管理英雄池。" },
-    { title: "每周总结", detail: "把本周最稳定优势和最大短板整理成下一周计划。" },
-  ];
-
-  return (
-    <section className="space-y-4">
-      <div className="pro-panel">
-        <div className="max-w-2xl">
-          <div className="text-xs font-black uppercase text-yellow-300">DotaSense Pro</div>
-          <h2 className="mt-3 text-3xl font-black text-stone-50">把每组三局变成长期进步</h2>
-          <p className="mt-3 text-sm leading-6 text-stone-300">免费版帮助你找到一次问题；Pro 保存挑战、复盘与长期趋势，让下一次训练建立在上一次结果之上。</p>
-          <div className="mt-5 flex flex-wrap gap-2 text-xs">
-            <span className="evidence-chip evidence-verified">90 天训练历史</span>
-            <span className="evidence-chip evidence-verified">无限深度复盘</span>
-            <span className="evidence-chip evidence-parsed">自适应三局挑战</span>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {benefits.map((feature) => (
-            <div key={feature.title} className="rounded-lg border border-white/10 bg-black/20 p-4">
-              <div className="flex items-center justify-between gap-2"><div className="font-black text-stone-100">{feature.title}</div><Crown size={15} className="text-yellow-300" /></div>
-              <p className="mt-3 text-sm leading-6 text-stone-400">{feature.detail}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <div className="commercial-pricing">
-          {COMMERCIAL_OFFERS.map((offer) => (
-            <div key={offer.key} className="commercial-plan">
-              <div className="flex items-start justify-between gap-4">
-                <div><div className="text-xs font-black uppercase text-stone-500">{offer.buyer}</div><h3 className="mt-2 text-2xl font-black text-stone-50">{offer.title}</h3></div>
-                <div className="text-right"><div className="text-2xl font-black text-yellow-200">{offer.price}</div><div className={`mt-2 rounded border px-2 py-1 text-[11px] font-black ${checkoutConfigured(commercialConfig, offer.key) ? "border-green-300/25 bg-green-300/10 text-green-200" : "border-stone-500/25 bg-white/[0.035] text-stone-400"}`}>{checkoutConfigured(commercialConfig, offer.key) ? "可直接付款" : "申请开通"}</div></div>
-              </div>
-              <p className="mt-4 text-sm leading-6 text-stone-400">{offer.promise}</p>
-            </div>
-          ))}
-        </div>
-        <ProLeadForm data={data} commercialConfig={commercialConfig} />
-      </div>
-    </section>
-  );
-}
 function EquipmentSlots({ match, compact = false, loading = false }: { match: PlayerMatch; compact?: boolean; loading?: boolean }) {
   if (!match.equipment_available) {
     if (loading) {
@@ -2175,12 +1964,14 @@ function MatchHistoryList({
   compact = false,
   equipmentLoading = false,
   onOpenAll,
+  onReview,
 }: {
   matches: PlayerMatch[];
   limit?: number;
   compact?: boolean;
   equipmentLoading?: boolean;
   onOpenAll?: () => void;
+  onReview?: (match: MatchMemory) => void;
 }) {
   if (!matches.length) return null;
   const equipmentCoverage = matches.filter((match) => match.equipment_available).length;
@@ -2239,6 +2030,7 @@ function MatchHistoryList({
               <div className="match-equipment-cell"><EquipmentSlots match={match} compact={compact} loading={equipmentLoading} /></div>
               <div className="match-date-cell">
                 <span>{match.played_at}</span>
+                {onReview && <button type="button" className="match-external-link" title="记录这局复盘" aria-label={`记录比赛 ${match.match_id} 的复盘`} onClick={() => onReview(match)}><NotebookPen size={15} /></button>}
                 <a
                   href={opendotaUrl}
                   target="_blank"
@@ -2376,6 +2168,9 @@ export default function Home() {
   const [limit, setLimit] = useState(50);
   const [meta, setMeta] = useState<GlobalMetaOverview | null>(null);
   const [data, setData] = useState<PlayerDashboardData | null>(null);
+  const journal = useReviewJournal(data?.profile.account_id ?? 0);
+  const [reviewMatch, setReviewMatch] = useState<{ accountId: number; match: MatchMemory } | null>(null);
+  const [detailMatch, setDetailMatch] = useState<{ accountId: number; matchId: string } | null>(null);
   const [commercialConfig, setCommercialConfig] = useState<CommercialConfig | null>(null);
   const [searchResults, setSearchResults] = useState<PlayerSearchResult[]>([]);
   const [metaLoading, setMetaLoading] = useState(true);
@@ -2390,6 +2185,13 @@ export default function Home() {
   const [positionBusy, setPositionBusy] = useState("");
   const loadRequestRef = useRef(0);
 
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      if (new URLSearchParams(window.location.search).has("hero")) setActiveTab("pool");
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
   const loadPlayer = useCallback(async (targetAccountId: string, targetLimit: number) => {
     const requestId = ++loadRequestRef.current;
     setLoading(true);
@@ -2402,7 +2204,7 @@ export default function Home() {
       if (requestId !== loadRequestRef.current) return;
       setData(quick);
       quickLoaded = true;
-      window.localStorage.setItem(STORAGE_KEY, targetAccountId);
+      try { window.localStorage.setItem(STORAGE_KEY, targetAccountId); } catch { /* Public match data remains usable without browser storage. */ }
     } catch (err) {
       if (requestId === loadRequestRef.current) setError(err instanceof Error ? err.message : "快速数据加载失败");
     } finally {
@@ -2414,7 +2216,7 @@ export default function Home() {
       if (requestId !== loadRequestRef.current) return;
       setData(deep);
       setError("");
-      window.localStorage.setItem(STORAGE_KEY, targetAccountId);
+      try { window.localStorage.setItem(STORAGE_KEY, targetAccountId); } catch { /* Public match data remains usable without browser storage. */ }
     } catch (err) {
       if (requestId === loadRequestRef.current) {
         setError(quickLoaded ? "已显示快速数据，深度比赛证据暂时未能补全。" : err instanceof Error ? err.message : "加载失败");
@@ -2643,18 +2445,27 @@ export default function Home() {
   }, [data]);
 
   const hasCharts = useMemo(() => Boolean(data?.rolling_winrate.length || data?.rank_history.length), [data]);
+  const openReview = (match: MatchMemory) => {
+    if (data) setReviewMatch({ accountId: data.profile.account_id, match });
+  };
+  const openMatchDetails = (match: MatchMemory) => {
+    if (data) setDetailMatch({ accountId: data.profile.account_id, matchId: match.match_id });
+    setLabView("scorecard");
+    setActiveTab("lab");
+  };
+  const requestedMatchId = detailMatch?.accountId === data?.profile.account_id ? detailMatch?.matchId : undefined;
 
   return (
     <div className="app-shell">
       <header ref={headerRef} className="app-header">
         <div className="app-header-inner">
-        <ProductNav data={data} copyState={copyState} onCopyProfile={copyProfileLink} onOpenPro={() => setActiveTab("progress")} />
+        <ProductNav data={data} copyState={copyState} onCopyProfile={copyProfileLink} onOpenPro={() => { setActiveTab("lab"); setLabView("report"); }} />
         <WorkspaceTabs activeTab={activeTab} onChange={setActiveTab} data={data} />
         </div>
       </header>
       <main className="app-main">
       <div className="app-content">
-        <CommandSearch
+        {activeTab !== "pool" && <><CommandSearch
           query={query}
           setQuery={setQuery}
           limit={limit}
@@ -2664,7 +2475,7 @@ export default function Home() {
         />
         {error && <div className="rounded-lg border border-red-300/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">{error}</div>}
         <SearchResults results={searchResults} onPick={pickPlayer} />
-        {!data && loading && <div className="cockpit-loading"><LoaderCircle size={20} className="animate-spin" /><div><div className="font-black text-stone-200">正在读取最近比赛</div><div className="mt-1 text-xs text-stone-500">先显示今日任务，深度证据随后补全。</div></div></div>}
+        {!data && loading && <div className="cockpit-loading"><LoaderCircle size={20} className="animate-spin" /><div><div className="font-black text-stone-200">正在读取最近比赛</div><div className="mt-1 text-xs text-stone-500">比赛详情随后补全。</div></div></div>}</>}
 
         {activeTab === "meta" && <GlobalMetaDashboard meta={meta} loading={metaLoading} error={metaError} />}
 
@@ -2676,18 +2487,20 @@ export default function Home() {
               <>
                 <div className="dashboard-workspace">
                   <div className="dashboard-primary">
-                    <ThreeMatchMission data={data} busy={missionBusy} onStart={handleStartMission} onCancel={handleCancelMission} />
+                    <JournalStatus journal={journal} />
+                    <SessionRecap matches={data.recent_matches} journal={journal} loading={deepLoading} onReview={openReview} onDetails={openMatchDetails} onNotebook={() => setActiveTab("progress")} />
                     <PlayerDataExplorer
                       key={data.profile.account_id}
                       data={data}
                       equipmentLoading={deepLoading}
+                      onReview={openReview}
                       onOpenMatches={() => {
                         setLabView("history");
                         setActiveTab("lab");
                       }}
                     />
                   </div>
-                  <DashboardRail data={data} />
+                  <DashboardRail data={data} reminder={<NextMatchReminder journal={journal} matches={data.recent_matches} onReview={openReview} />} />
                 </div>
                 <div className="updated-at">Updated {data.updated_at}</div>
               </>
@@ -2718,7 +2531,7 @@ export default function Home() {
                 </nav>
 
                 {labView === "scorecard" && <>
-                  <MatchLab data={data} positionBusy={positionBusy} onConfirmPosition={handleConfirmPosition} />
+                  <MatchLab key={`${data.profile.account_id}:${requestedMatchId || "latest"}`} data={data} positionBusy={positionBusy} onConfirmPosition={handleConfirmPosition} initialMatchId={requestedMatchId} onReview={openReview} />
                   <DataQualityStrip data={data} deepLoading={deepLoading} />
                   {data.warnings.length > 0 && (
                     <div className="rounded-lg border border-yellow-300/20 bg-yellow-300/10 px-4 py-3 text-xs text-yellow-100">
@@ -2726,7 +2539,7 @@ export default function Home() {
                     </div>
                   )}
                 </>}
-                {labView === "report" && <AiReviewPanel data={data} commercialConfig={commercialConfig} />}
+                {labView === "report" && <><AiReviewPanel data={data} commercialConfig={commercialConfig} /><details className="journal-secondary"><summary>开通与联系</summary><ProLeadForm data={data} commercialConfig={commercialConfig} /></details></>}
                 {labView === "vision" && <WardMap accountId={data.profile.account_id} />}
                 {labView === "history" && <MatchTable matches={data.recent_matches} equipmentLoading={deepLoading} />}
                 <div className="updated-at">Updated {data.updated_at}</div>
@@ -2735,29 +2548,30 @@ export default function Home() {
           </section>
         )}
 
-        {activeTab === "pool" && data && (
-          <section className="space-y-4">
-            <div className="page-intro"><div className="text-xs font-black text-yellow-300">HERO POOL</div><h1>英雄池训练室</h1></div>
-            <PersonalMetaLab data={data} />
-            <div className="hero-pool-layout"><HeroStrip title="近期英雄池" heroes={data.hero_pool} /><CountsPanel data={data} /></div>
-            <HeroStrip title="生涯常用英雄" heroes={data.lifetime_heroes} />
+        {activeTab === "pool" && (
+          <section className="hero-guide-workspace space-y-4">
+            <HeroGuide recentHeroIds={data?.hero_pool.map((hero) => hero.hero_id)} />
+            {data && <details className="journal-secondary"><summary>我的英雄池与训练</summary>
+              <PersonalMetaLab data={data} />
+              <div className="hero-pool-layout"><HeroStrip title="近期英雄池" heroes={data.hero_pool} /><CountsPanel data={data} /></div>
+              <HeroStrip title="生涯常用英雄" heroes={data.lifetime_heroes} />
+            </details>}
           </section>
         )}
 
         {activeTab === "progress" && (
           <section className="space-y-4">
             {data && <>
-              <div className="page-intro"><div className="text-xs font-black text-green-300">PROGRESS</div><h1>训练进度</h1></div>
-              <ThreeMatchMission data={data} expanded busy={missionBusy} onStart={handleStartMission} onCancel={handleCancelMission} />
-              <SummaryGrid data={data} />
-              <CoachBrief data={data} />
-              {hasCharts && <Charts data={data} />}
-              <ProPanel data={data} commercialConfig={commercialConfig} />
+              <ReviewNotebook key={data.profile.account_id} journal={journal} matches={data.recent_matches} onReview={openReview} onDetails={openMatchDetails} />
+              <details className="journal-secondary"><summary>从比赛记录新复盘</summary><ReviewHistory journal={journal} matches={data.recent_matches} onReview={openReview} /></details>
+              {hasCharts && <details className="journal-secondary"><summary>近期表现趋势</summary><Charts data={data} /></details>}
+              <details className="journal-secondary"><summary>指标训练</summary><p className="journal-training-note">这里只追踪结算指标，不代表某项决策已经改善。{!data.training.storage?.persistent ? "当前训练服务未启用持久化存储，记录可能丢失。" : ""}</p><ThreeMatchMission data={data} expanded busy={missionBusy} onStart={handleStartMission} onCancel={handleCancelMission} /></details>
             </>}
           </section>
         )}
       </div>
       </main>
+      {data && journal.ready && reviewMatch?.accountId === data.profile.account_id && <ReviewEditor key={`${reviewMatch.accountId}:${reviewMatch.match.match_id}`} match={reviewMatch.match} journal={journal} onClose={() => setReviewMatch(null)} onDetails={openMatchDetails} />}
     </div>
   );
 }

@@ -248,6 +248,87 @@ export interface AllHero {
   hero_icon: string;
 }
 
+export interface HeroGuideCatalog {
+  heroes: AllHero[];
+  source: string;
+  fetched_at: number | null;
+  stale: boolean;
+}
+
+export interface GuideAbility {
+  id: number;
+  slug: string;
+  name: string;
+  icon: string;
+  kind: string;
+  description: string;
+  notes: string[];
+  scepter: string;
+  shard: string;
+  cooldowns: number[];
+  mana_costs: number[];
+}
+
+export interface HeroMechanics {
+  hero: AllHero;
+  summary: string;
+  abilities: GuideAbility[];
+  practice: {
+    title: string;
+    skills: string[];
+    steps: string[];
+    use_when: string;
+    watch_out: string;
+  } | null;
+  source: { label: string; url: string; fetched_at: number | null; stale: boolean };
+}
+
+export interface GuideItem {
+  item_id: number | null;
+  slug: string;
+  name: string;
+  icon: string;
+  cost: number | null;
+}
+
+export interface HeroBuilds {
+  candidates: (GuideItem & {
+    matches: number;
+    sample: number;
+    pick_rate: number;
+    win_rate: number | null;
+    purchase_minute: number | null;
+    timing_sample: number;
+    example_matches: string[];
+    context: string;
+  })[];
+  matches: {
+    match_id: string;
+    start_time: number;
+    duration: number | null;
+    player: string;
+    league: string;
+    win: boolean | null;
+    kills: number | null;
+    deaths: number | null;
+    assists: number | null;
+    items: GuideItem[];
+    neutral: GuideItem;
+  }[];
+  sample: number;
+  patch_id: number | null;
+  patch_name: string | null;
+  source: {
+    label: string;
+    url: string;
+    fetched_at: number;
+    window_days: number;
+    attempted: number;
+    position_verified: boolean;
+    status: "ready" | "partial" | "unavailable";
+  };
+}
+
 export interface PlayerSearchResult {
   account_id: number;
   username: string;
