@@ -3,8 +3,9 @@
 import unittest
 from unittest.mock import patch
 from fastapi import HTTPException
+import requests
 
-from routers.hero_guides import _abilities, _catalog, _description, _verified_rank, aggregate_builds, hero_builds, hero_mechanics
+from routers.hero_guides import _abilities, _catalog, _description, _public_get, _verified_rank, aggregate_builds, hero_builds, hero_mechanics
 
 
 CATALOG = _catalog({
@@ -33,6 +34,14 @@ def profile(account_id, rank=80, leaderboard=100):
 
 
 class HeroGuideTests(unittest.TestCase):
+    def test_hero_read_does_not_send_a_configured_paid_api_key(self):
+        with patch.dict("os.environ", {"OPENDOTA_API_KEY": "unused-test-credential"}), patch("routers.players._cache", {}), patch("routers.players.requests.get") as get:
+            get.return_value.status_code = 200
+            get.return_value.json.return_value = {"ok": True}
+            self.assertEqual(_public_get("/rankings", {"hero_id": 7}, attempts=1), ({"ok": True}, None))
+        prepared = requests.Request("GET", get.call_args.args[0], params=get.call_args.kwargs["params"]).prepare()
+        self.assertEqual(prepared.url, "https://api.opendota.com/api/rankings?hero_id=7")
+
     def test_patch_isolation_does_not_blend_old_builds(self):
         result = aggregate_builds(2, [match(1, 41), match(2), match(3), match(4)], CATALOG)
         self.assertEqual(result["sample"], 3)
@@ -194,7 +203,8 @@ class HeroGuideTests(unittest.TestCase):
         self.assertNotIn("/matches/9", paths)
         for call in request.call_args_list:
             if call.args[0].startswith("/players/") and call.args[0].endswith("/matches"):
-                self.assertEqual(call.args[1], {"hero_id": 2, "lobby_type": 7, "date": 14, "limit": 4})
+                self.assertEqual(call.args[1], {"hero_id": 2, "lobby_type": 7, "date": 14, "limit": 4, "api_key": None})
+            self.assertIsNone(call.args[1]["api_key"])
 
     def test_stale_or_missing_rank_cannot_be_promoted_by_league_appearance(self):
         now = 2_000_000

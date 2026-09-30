@@ -233,6 +233,11 @@ def _recent_ranked(match, hero_id, now):
             isinstance(match.get("duration"), (int, float)) and match["duration"] > 0 and match.get("match_id"))
 
 
+def _public_get(path, params=None, **options):
+    # Disable the shared client's key injection; requests omits None parameters.
+    return _cached_get(path, {**(params or {}), "api_key": None}, **options)
+
+
 def aggregate_builds(hero_id, details, catalog, ranked_players=None, now=None):
     now = time.time() if now is None else now
     rows = []
@@ -318,10 +323,10 @@ def hero_builds(hero_id: int = Path(ge=1, le=2000)):
         with ThreadPoolExecutor(max_workers=4) as pool:
             # League appearances find recently active accounts; they never enter
             # the ranked inventory sample or establish a player's rank.
-            recent_future = pool.submit(_cached_get, f"/heroes/{hero_id}/matches", timeout=10, attempts=1)
-            rankings_future = pool.submit(_cached_get, "/rankings", {"hero_id": hero_id}, timeout=10, attempts=1)
-            catalog_future = pool.submit(_cached_get, "/constants/items", timeout=10, attempts=1)
-            patch_future = pool.submit(_cached_get, "/constants/patch", timeout=10, attempts=1)
+            recent_future = pool.submit(_public_get, f"/heroes/{hero_id}/matches", timeout=10, attempts=1)
+            rankings_future = pool.submit(_public_get, "/rankings", {"hero_id": hero_id}, timeout=10, attempts=1)
+            catalog_future = pool.submit(_public_get, "/constants/items", timeout=10, attempts=1)
+            patch_future = pool.submit(_public_get, "/constants/patch", timeout=10, attempts=1)
             recent, recent_warning = recent_future.result()
             rankings, rankings_warning = rankings_future.result()
             active = [row for row in recent if isinstance(row, dict) and row.get("leagueid") and
@@ -330,7 +335,7 @@ def hero_builds(hero_id: int = Path(ge=1, le=2000)):
             leaders = rankings.get("rankings", []) if isinstance(rankings, dict) and isinstance(rankings.get("rankings"), list) else []
             account_ids = list(dict.fromkeys(row["account_id"] for row in [*active, *leaders]
                                             if isinstance(row, dict) and type(row.get("account_id")) is int and row["account_id"] > 0))[:PLAYER_LIMIT]
-            rank_futures = {account_id: pool.submit(_cached_get, f"/players/{account_id}", timeout=10, attempts=1) for account_id in account_ids}
+            rank_futures = {account_id: pool.submit(_public_get, f"/players/{account_id}", timeout=10, attempts=1) for account_id in account_ids}
             ranks, rank_warning = {}, False
             for account_id, future in rank_futures.items():
                 profile, warning = future.result()
@@ -338,7 +343,7 @@ def hero_builds(hero_id: int = Path(ge=1, le=2000)):
                 if not warning and _verified_rank(profile, account_id):
                     ranks[account_id] = {**profile, "checked_at": int(time.time())}
             params = {"hero_id": hero_id, "lobby_type": 7, "date": WINDOW_DAYS, "limit": 4}
-            history_futures = {account_id: pool.submit(_cached_get, f"/players/{account_id}/matches", params, timeout=10, attempts=1) for account_id in ranks}
+            history_futures = {account_id: pool.submit(_public_get, f"/players/{account_id}/matches", params, timeout=10, attempts=1) for account_id in ranks}
             eligible, history_warning = {}, False
             for account_id, future in history_futures.items():
                 history, warning = future.result()
@@ -347,7 +352,7 @@ def hero_builds(hero_id: int = Path(ge=1, le=2000)):
                     if _recent_ranked(row, hero_id, now):
                         eligible.setdefault(str(row["match_id"]), {**row, "expected_account_id": account_id})
             selected = sorted(eligible.values(), key=lambda row: row["start_time"], reverse=True)[:SAMPLE_LIMIT]
-            futures = [pool.submit(_cached_get, f"/matches/{row['match_id']}", timeout=10, attempts=1) for row in selected]
+            futures = [pool.submit(_public_get, f"/matches/{row['match_id']}", timeout=10, attempts=1) for row in selected]
             results = [future.result() for future in futures]
             details = [data for row, (data, _) in zip(selected, results) if isinstance(data, dict) and
                        str(data.get("match_id")) == str(row["match_id"]) and any(
