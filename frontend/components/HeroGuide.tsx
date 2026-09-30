@@ -103,7 +103,15 @@ function Mechanics({ mechanics, onRetry }: { mechanics: Resource<HeroMechanics>;
         })}</ol>
         <p>{practice.use_when}</p><p className={styles.watchOut}>{practice.watch_out}</p>
         {practice.steps.some((slug) => !data.abilities.some((ability) => ability.slug === slug) && slug !== "attack") && <div className={styles.disclaimer}>物品步骤以已经持有对应装备为前提，不是本局购买要求。</div>}
-      </div> : <p className={styles.disclaimer}>该英雄暂未整理实战连招，以下为官方技能机制。</p>}
+      </div> : null}
+      {data.usage_tips.length > 0 ? <div className={styles.usage}>
+        <div className={styles.practiceHeading}><h3>实际用法</h3><span>依据官方机制推导 · 非比赛统计</span></div>
+        <ol className={styles.usageList}>{data.usage_tips.map((tip) => {
+          const ability = data.abilities.find((entry) => entry.slug === tip.skill);
+          return <li key={tip.skill}><div className={styles.usageHeading}>{ability && <Image unoptimized src={ability.icon} alt="" width={28} height={28} />}<h4>{tip.title}</h4></div><p>{tip.action}</p><details className={styles.tipEvidence}><summary>官方机制依据</summary>{tip.evidence.map((evidence) => <p key={evidence.skill}><strong>{evidence.name}</strong>{evidence.text}</p>)}<a href={data.source.url} target="_blank" rel="noreferrer">查看官方来源<ExternalLink size={12} /></a></details></li>;
+        })}</ol>
+        {!practice && <p className={styles.disclaimer}>深度连招尚未整理；以上为有当前机制依据的操作建议。</p>}
+      </div> : <p className={styles.disclaimer}>{data.source.stale ? "当前官方机制未核验，暂不生成新的操作建议。" : "当前技能资料尚不足以支持操作建议，技巧暂缺。"}</p>}
       <div className={styles.abilities}>{data.abilities.map((ability) => <article key={ability.slug} className={styles.ability}>
         <div className={styles.abilityHeading}>{ability.kind === "先天" ? <span className={styles.innateIcon} title="先天能力"><Sparkles size={21} /></span> : <Image unoptimized src={ability.icon} alt="" width={40} height={40} />}<div><h3>{ability.name}</h3><span>{ability.kind}</span></div></div>
         <p>{ability.description}</p>

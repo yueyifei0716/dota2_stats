@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException, Path
 
 from fetch_dota_stats import HEROES_CN, HEROES_EN, get_hero_icon_url
 from routers.players import _cached_get, _safe_int
+from services.hero_tips import usage_tips
 
 router = APIRouter()
 VALVE_URL = "https://www.dota2.com/datafeed"
@@ -179,6 +180,7 @@ def hero_mechanics(hero_id: int = Path(ge=1, le=2000)):
         "hero": {"hero_id": hero_id, "hero_cn": hero.get("name_loc"), "hero_en": HEROES_EN.get(hero_id, ""), "hero_icon": f"{CDN}/heroes/{hero['name'].removeprefix('npc_dota_hero_')}.png"},
         "summary": _description(hero.get("npe_desc_loc") or hero.get("hype_loc"), {}),
         "abilities": abilities, "practice": practice,
+        "usage_tips": usage_tips(hero, abilities) if not stale else [],
         "source": {"label": "Valve 官方中文技能资料", "url": f"{VALVE_URL}/herodata?language=schinese&hero_id={hero_id}", "fetched_at": fetched, "stale": stale},
     }
 

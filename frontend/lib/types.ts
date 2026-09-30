@@ -273,6 +273,12 @@ export interface HeroMechanics {
   hero: AllHero;
   summary: string;
   abilities: GuideAbility[];
+  usage_tips: {
+    skill: string;
+    title: string;
+    action: string;
+    evidence: { skill: string; name: string; text: string }[];
+  }[];
   practice: {
     title: string;
     skills: string[];

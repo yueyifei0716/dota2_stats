@@ -65,6 +65,19 @@
 .practice > p, .ability > p { margin: 8px 0; font-size: 13px; line-height: 1.85; }
 .watchOut { color: var(--text-secondary); }
 .practice .disclaimer { margin: 10px 0 0; }
+.usage { padding: 12px 0 4px; border-bottom: 1px solid var(--line); }
+.usageList { list-style: none; padding: 0; margin: 12px 0; }
+.usageList > li { padding: 12px 0; }
+.usageList > li + li { border-top: 1px solid var(--line); }
+.usageHeading { display: flex; align-items: center; gap: 9px; }
+.usageHeading img { width: 28px; height: 28px; flex-shrink: 0; border-radius: 4px; background: var(--surface-muted); }
+.usageHeading h4 { font-size: 13px; font-weight: 600; line-height: 1.6; margin: 0; overflow-wrap: anywhere; }
+.usageList > li > p { font-size: 13px; line-height: 1.85; margin: 8px 0; }
+.tipEvidence { font-size: 11px; line-height: 1.8; color: var(--text-secondary); }
+.tipEvidence summary { color: var(--accent); cursor: pointer; }
+.tipEvidence p { margin: 8px 0; }
+.tipEvidence strong { color: var(--text-primary); margin-right: 8px; }
+.tipEvidence a { color: var(--accent); display: inline-flex; align-items: center; gap: 5px; }
 .abilities { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 22px; }
 .ability { padding: 16px 0; border-bottom: 1px solid var(--line); min-width: 0; }
 .abilityHeading { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
