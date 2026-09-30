@@ -1,4 +1,4 @@
-"""Quick hero reference: Valve mechanics and recent OpenDota league builds."""
+"""Quick hero reference: Valve mechanics and verified Immortal players' builds."""
 
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
@@ -19,7 +19,9 @@ router = APIRouter()
 VALVE_URL = "https://www.dota2.com/datafeed"
 CDN = "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react"
 SAMPLE_LIMIT = 8
+PLAYER_LIMIT = 8
 WINDOW_DAYS = 14
+RANKED_MODES = {1, 2, 3, 4, 16, 22}
 _cache = {}
 _locks = {}
 _guard = Lock()
@@ -216,7 +218,23 @@ def _candidate(slug, catalog_by_slug):
                 _safe_int(item.get("cost")) >= 1800 and (item.get("created") or slug == "blink"))
 
 
-def aggregate_builds(hero_id, details, catalog):
+def _verified_rank(profile, account_id):
+    if not isinstance(profile, dict) or not isinstance(profile.get("profile"), dict):
+        return False
+    rank, leaderboard = profile.get("rank_tier"), profile.get("leaderboard_rank")
+    return (profile["profile"].get("account_id") == account_id and
+            type(rank) is int and rank == 80 and type(leaderboard) is int and leaderboard > 0)
+
+
+def _recent_ranked(match, hero_id, now):
+    return (isinstance(match, dict) and match.get("hero_id") == hero_id and match.get("lobby_type") == 7 and
+            match.get("game_mode") in RANKED_MODES and isinstance(match.get("start_time"), (int, float)) and
+            now - WINDOW_DAYS * 86400 <= match["start_time"] <= now and
+            isinstance(match.get("duration"), (int, float)) and match["duration"] > 0 and match.get("match_id"))
+
+
+def aggregate_builds(hero_id, details, catalog, ranked_players=None, now=None):
+    now = time.time() if now is None else now
     rows = []
     seen = set()
     for detail in details:
@@ -226,9 +244,13 @@ def aggregate_builds(hero_id, details, catalog):
         player = next((player for player in detail.get("players") or [] if isinstance(player, dict) and player.get("hero_id") == hero_id), None)
         if not player or not all(isinstance(player.get(f"item_{index}"), int) and player[f"item_{index}"] >= 0 for index in range(6)):
             continue
+        evidence = (ranked_players or {}).get(player.get("account_id"))
+        if ranked_players is not None and (not evidence or not _verified_rank(evidence, player.get("account_id")) or
+                                          not _recent_ranked({**detail, "hero_id": player["hero_id"]}, hero_id, now)):
+            continue
         slot = player.get("player_slot")
         win = (slot < 128) == detail["radiant_win"] if isinstance(slot, int) and slot in {0, 1, 2, 3, 4, 128, 129, 130, 131, 132} and isinstance(detail.get("radiant_win"), bool) else None
-        rows.append({"detail": detail, "player": player, "win": win})
+        rows.append({"detail": detail, "player": player, "win": win, "rank": evidence})
     rows.sort(key=lambda row: row["detail"]["start_time"], reverse=True)
     patch = rows[0]["detail"].get("patch") if rows else None
     rows = [row for row in rows if row["detail"].get("patch") == patch]
@@ -236,7 +258,7 @@ def aggregate_builds(hero_id, details, catalog):
     counts, wins, outcomes, timings, examples = Counter(), Counter(), Counter(), {}, {}
     matches = []
     for row in rows:
-        detail, player, win = row["detail"], row["player"], row["win"]
+        detail, player, win, rank = row["detail"], row["player"], row["win"], row["rank"]
         items = [_item(player[f"item_{index}"], catalog) for index in range(6)]
         held = {"blink" if item["slug"] in BLINK_FAMILY else item["slug"] for item in items}
         held = {slug for slug in held if _candidate(slug, by_slug)}
@@ -259,8 +281,11 @@ def aggregate_builds(hero_id, details, catalog):
             timings.setdefault(slug, []).append(seconds)
         matches.append({
             "match_id": str(detail["match_id"]), "start_time": detail["start_time"], "duration": detail.get("duration"),
-            "player": player.get("name") or player.get("personaname") or f"玩家 {player.get('account_id') or '匿名'}",
-            "league": (detail.get("league") or {}).get("name") or "联赛比赛", "win": win,
+            "player": (rank or {}).get("profile", {}).get("name") or (rank or {}).get("profile", {}).get("personaname") or player.get("name") or player.get("personaname") or f"玩家 {player.get('account_id') or '匿名'}",
+            "match_type": "天梯排位" if detail.get("lobby_type") == 7 else (detail.get("league") or {}).get("name") or "比赛类型未核验", "win": win,
+            "account_id": player.get("account_id"), "rank_tier": rank.get("rank_tier") if rank else None,
+            "leaderboard_rank": rank.get("leaderboard_rank") if rank else None,
+            "rank_checked_at": rank.get("checked_at") if rank else None,
             "kills": player.get("kills"), "deaths": player.get("deaths"), "assists": player.get("assists"),
             "items": items, "neutral": _item(player.get("item_neutral") if isinstance(player.get("item_neutral"), int) else None, catalog),
         })
@@ -281,36 +306,68 @@ def aggregate_builds(hero_id, details, catalog):
 
 @router.get("/hero-guides/{hero_id}/builds")
 def hero_builds(hero_id: int = Path(ge=1, le=2000)):
-    key = f"builds:{hero_id}"
+    key = f"ranked_builds:{hero_id}"
     cached = _cache.get(key)
-    if cached and time.time() - cached["time"] < 600:
+    if cached and time.time() - cached["time"] < cached["ttl"]:
         return cached["data"]
     with _lock(key):
         cached = _cache.get(key)
-        if cached and time.time() - cached["time"] < 600:
+        if cached and time.time() - cached["time"] < cached["ttl"]:
             return cached["data"]
-        recent, warning = _cached_get(f"/heroes/{hero_id}/matches", timeout=10, attempts=1)
-        if not isinstance(recent, list):
-            recent, warning = [], warning or "比赛列表不可用"
         now = int(time.time())
-        eligible = {str(row["match_id"]): row for row in recent or [] if isinstance(row, dict) and row.get("match_id") and
-                    now - WINDOW_DAYS * 86400 <= _safe_int(row.get("start_time")) <= now and row.get("leagueid")}
-        selected = sorted(eligible.values(), key=lambda row: row["start_time"], reverse=True)[:SAMPLE_LIMIT]
         with ThreadPoolExecutor(max_workers=4) as pool:
+            # League appearances find recently active accounts; they never enter
+            # the ranked inventory sample or establish a player's rank.
+            recent_future = pool.submit(_cached_get, f"/heroes/{hero_id}/matches", timeout=10, attempts=1)
+            rankings_future = pool.submit(_cached_get, "/rankings", {"hero_id": hero_id}, timeout=10, attempts=1)
             catalog_future = pool.submit(_cached_get, "/constants/items", timeout=10, attempts=1)
             patch_future = pool.submit(_cached_get, "/constants/patch", timeout=10, attempts=1)
+            recent, recent_warning = recent_future.result()
+            rankings, rankings_warning = rankings_future.result()
+            active = [row for row in recent if isinstance(row, dict) and row.get("leagueid") and
+                      now - WINDOW_DAYS * 86400 <= _safe_int(row.get("start_time")) <= now] if isinstance(recent, list) else []
+            active.sort(key=lambda row: row["start_time"], reverse=True)
+            leaders = rankings.get("rankings", []) if isinstance(rankings, dict) and isinstance(rankings.get("rankings"), list) else []
+            account_ids = list(dict.fromkeys(row["account_id"] for row in [*active, *leaders]
+                                            if isinstance(row, dict) and type(row.get("account_id")) is int and row["account_id"] > 0))[:PLAYER_LIMIT]
+            rank_futures = {account_id: pool.submit(_cached_get, f"/players/{account_id}", timeout=10, attempts=1) for account_id in account_ids}
+            ranks, rank_warning = {}, False
+            for account_id, future in rank_futures.items():
+                profile, warning = future.result()
+                rank_warning = rank_warning or bool(warning)
+                if not warning and _verified_rank(profile, account_id):
+                    ranks[account_id] = {**profile, "checked_at": int(time.time())}
+            params = {"hero_id": hero_id, "lobby_type": 7, "date": WINDOW_DAYS, "limit": 4}
+            history_futures = {account_id: pool.submit(_cached_get, f"/players/{account_id}/matches", params, timeout=10, attempts=1) for account_id in ranks}
+            eligible, history_warning = {}, False
+            for account_id, future in history_futures.items():
+                history, warning = future.result()
+                history_warning = history_warning or bool(warning)
+                for row in history if isinstance(history, list) else []:
+                    if _recent_ranked(row, hero_id, now):
+                        eligible.setdefault(str(row["match_id"]), {**row, "expected_account_id": account_id})
+            selected = sorted(eligible.values(), key=lambda row: row["start_time"], reverse=True)[:SAMPLE_LIMIT]
             futures = [pool.submit(_cached_get, f"/matches/{row['match_id']}", timeout=10, attempts=1) for row in selected]
             results = [future.result() for future in futures]
-            details = [data for data, _ in results]
+            details = [data for row, (data, _) in zip(selected, results) if isinstance(data, dict) and
+                       str(data.get("match_id")) == str(row["match_id"]) and any(
+                           isinstance(player, dict) and player.get("hero_id") == hero_id and
+                           player.get("account_id") == row["expected_account_id"] for player in data.get("players") or [])]
             detail_warning = any(warning for _, warning in results)
             catalog_raw, catalog_warning = catalog_future.result()
             patches, patch_warning = patch_future.result()
-        payload = aggregate_builds(hero_id, details, _catalog(catalog_raw))
+        payload = aggregate_builds(hero_id, details, _catalog(catalog_raw), ranks, now)
         patch = next((patch for patch in (patches if isinstance(patches, list) else []) if isinstance(patch, dict) and patch.get("id") == payload["patch_id"]), None)
         payload["patch_name"] = patch.get("name") if patch else None
-        payload["source"] = {"label": "OpenDota 近期联赛样本", "url": f"https://www.opendota.com/heroes/{hero_id}/matches",
-                             "fetched_at": now, "window_days": WINDOW_DAYS, "attempted": len(selected), "position_verified": False,
-                             "status": "unavailable" if warning and not recent else "partial" if warning or detail_warning or catalog_warning or patch_warning or payload["sample"] < len(selected) else "ready"}
-        if payload["sample"]:
-            _cache[key] = {"data": payload, "time": now}
+        used = {match["account_id"] for match in payload["matches"]}
+        players = [{"account_id": account_id, "name": rank["profile"].get("name") or rank["profile"].get("personaname") or str(account_id),
+                    "rank_tier": rank["rank_tier"], "leaderboard_rank": rank["leaderboard_rank"], "checked_at": rank["checked_at"],
+                    "url": f"https://www.opendota.com/players/{account_id}"} for account_id, rank in ranks.items() if account_id in used]
+        warned = bool(recent_warning or rankings_warning or rank_warning or history_warning or detail_warning or catalog_warning or patch_warning)
+        status = "unavailable" if warned and not payload["sample"] else "insufficient" if payload["sample"] < 3 else "partial" if warned or payload["sample"] < len(selected) else "ready"
+        payload["source"] = {"label": "OpenDota 冠绝选手近期天梯", "url": "https://docs.opendota.com/#tag/players",
+                             "scope": "ranked_immortal_players", "fetched_at": now, "window_days": WINDOW_DAYS,
+                             "attempted": len(selected), "players_checked": len(account_ids), "players_verified": len(ranks),
+                             "players": players, "position_verified": False, "status": status}
+        _cache[key] = {"data": payload, "time": now, "ttl": 600 if payload["sample"] >= 3 else 60}
         return payload

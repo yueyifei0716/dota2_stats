@@ -45,6 +45,12 @@
 .examples a, .source a { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--accent); }
 .source { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin-top: 16px; line-height: 1.8; }
 .source span { font-size: 10px; color: var(--text-secondary); }
+.rankSources { font-size: 11px; line-height: 1.8; margin: 12px 0; }
+.rankSources summary { color: var(--accent); cursor: pointer; }
+.rankSources ul { list-style: none; padding: 0; margin: 10px 0; }
+.rankSources li { display: grid; gap: 3px; padding: 7px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.rankSources a { display: inline-flex; align-items: center; gap: 5px; color: var(--accent); }
+.rankSources span { color: var(--text-secondary); }
 .practice { padding-bottom: 16px; margin-bottom: 8px; border-bottom: 1px solid var(--line); }
 .practiceHeading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
 .practiceHeading h3 { margin: 0; font-size: 14px; font-weight: 600; }

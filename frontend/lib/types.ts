@@ -307,7 +307,11 @@ export interface HeroBuilds {
     start_time: number;
     duration: number | null;
     player: string;
-    league: string;
+    match_type: string;
+    account_id: number | null;
+    rank_tier: number | null;
+    leaderboard_rank: number | null;
+    rank_checked_at: number | null;
     win: boolean | null;
     kills: number | null;
     deaths: number | null;
@@ -324,8 +328,19 @@ export interface HeroBuilds {
     fetched_at: number;
     window_days: number;
     attempted: number;
+    scope: "ranked_immortal_players";
+    players_checked: number;
+    players_verified: number;
+    players: {
+      account_id: number;
+      name: string;
+      rank_tier: number;
+      leaderboard_rank: number;
+      checked_at: number;
+      url: string;
+    }[];
     position_verified: boolean;
-    status: "ready" | "partial" | "unavailable";
+    status: "ready" | "partial" | "unavailable" | "insufficient";
   };
 }
 

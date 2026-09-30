@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 from fastapi import HTTPException
 
-from routers.hero_guides import _abilities, _catalog, _description, aggregate_builds, hero_builds, hero_mechanics
+from routers.hero_guides import _abilities, _catalog, _description, _verified_rank, aggregate_builds, hero_builds, hero_mechanics
 
 
 CATALOG = _catalog({
@@ -25,6 +25,11 @@ def match(match_id=1, patch_id=42, time=100, items=None):
               "purchase_log": [{"key": "blink", "time": time}], "name": "Example"}
     return {"match_id": match_id, "start_time": 10000 + match_id, "duration": 3000, "patch": patch_id,
             "radiant_win": True, "players": [player]}
+
+
+def profile(account_id, rank=80, leaderboard=100):
+    return {"profile": {"account_id": account_id, "personaname": f"Player {account_id}"},
+            "rank_tier": rank, "leaderboard_rank": leaderboard, "computed_mmr": 99999}
 
 
 class HeroGuideTests(unittest.TestCase):
@@ -118,22 +123,57 @@ class HeroGuideTests(unittest.TestCase):
                 hero_mechanics(146)
         self.assertEqual(raised.exception.status_code, 503)
 
-    def test_build_endpoint_excludes_old_future_and_nonleague_records(self):
-        now = 2_000_000
-        recent = [{"match_id": index, "start_time": now - index, "leagueid": 100} for index in range(1, 11)]
-        recent.extend([recent[0], {"match_id": 20, "start_time": now + 10, "leagueid": 100},
-                       {"match_id": 21, "start_time": now - 15 * 86400, "leagueid": 100},
-                       {"match_id": 22, "start_time": now, "leagueid": 0}])
+    def test_rank_evidence_requires_identity_immortal_and_a_real_leaderboard_place(self):
+        self.assertTrue(_verified_rank(profile(1), 1))
+        for record in [profile(2), profile(1, 75), profile(1, None), profile(1, "80"),
+                       profile(1, leaderboard=None), profile(1, leaderboard=0), profile(1, leaderboard=True)]:
+            with self.subTest(record=record):
+                self.assertFalse(_verified_rank(record, 1))
 
-        def get(path, **kwargs):
+    def test_ordinary_players_and_nonranked_details_cannot_enter_high_rank_inventory(self):
+        details, ranks = [], {}
+        for index in range(1, 6):
+            detail = match(index)
+            detail.update(lobby_type=7, game_mode=22)
+            detail["players"][0]["account_id"] = index
+            ranks[index] = profile(index, rank=75 if index == 1 else 80)
+            details.append(detail)
+        details[-1]["lobby_type"] = 1
+        result = aggregate_builds(2, details, CATALOG, ranks, now=20000)
+        self.assertEqual(result["sample"], 3)
+        self.assertEqual([row["account_id"] for row in result["matches"]], [4, 3, 2])
+        self.assertTrue(all(row["rank_tier"] == 80 for row in result["matches"]))
+        self.assertNotIn("computed_mmr", result["matches"][0])
+
+    def test_build_endpoint_rechecks_ranked_hero_time_and_account_instead_of_trusting_query_filters(self):
+        now = 2_000_000
+        recent = [{"match_id": index, "account_id": index, "start_time": now - index, "leagueid": 100} for index in range(1, 11)]
+
+        def get(path, params=None, **kwargs):
             if path == "/heroes/2/matches":
                 return recent, None
+            if path == "/rankings":
+                return {"rankings": []}, None
             if path == "/constants/items":
                 return {item["slug"]: item for item in CATALOG.values()}, None
             if path == "/constants/patch":
                 return [{"id": 42, "name": "test"}], None
+            if path.startswith("/players/"):
+                account_id = int(path.split("/")[2])
+                if not path.endswith("/matches"):
+                    return profile(account_id), None
+                row = {"match_id": account_id, "hero_id": 2, "lobby_type": 7, "game_mode": 22,
+                       "start_time": now - account_id, "duration": 3000}
+                invalid = [{**row, "match_id": 20, "start_time": now + 10},
+                           {**row, "match_id": 21, "start_time": now - 15 * 86400},
+                           {**row, "match_id": 22, "lobby_type": 1},
+                           {**row, "match_id": 23, "hero_id": 7},
+                           {**row, "match_id": 24, "game_mode": 23}]
+                return [row, row, *invalid], None
             detail = match(int(path.split("/")[-1]))
             detail["start_time"] = now - detail["match_id"]
+            detail.update(lobby_type=7, game_mode=22)
+            detail["players"][0]["account_id"] = detail["match_id"]
             return detail, "显示的是缓存数据" if detail["match_id"] == 1 else None
 
         with patch("routers.hero_guides._cache", {}), patch("routers.hero_guides.time.time", return_value=now), patch("routers.hero_guides._cached_get", side_effect=get) as request:
@@ -141,11 +181,68 @@ class HeroGuideTests(unittest.TestCase):
         self.assertEqual(result["sample"], 8)
         self.assertEqual(result["source"]["attempted"], 8)
         self.assertEqual(result["source"]["status"], "partial")
+        self.assertEqual(result["source"]["scope"], "ranked_immortal_players")
+        self.assertEqual(result["source"]["players_verified"], 8)
+        self.assertEqual(len(result["source"]["players"]), 8)
+        self.assertEqual(result["matches"][0]["match_type"], "天梯排位")
         paths = {call.args[0] for call in request.call_args_list}
         self.assertNotIn("/matches/20", paths)
         self.assertNotIn("/matches/21", paths)
         self.assertNotIn("/matches/22", paths)
+        self.assertNotIn("/matches/23", paths)
+        self.assertNotIn("/matches/24", paths)
         self.assertNotIn("/matches/9", paths)
+        for call in request.call_args_list:
+            if call.args[0].startswith("/players/") and call.args[0].endswith("/matches"):
+                self.assertEqual(call.args[1], {"hero_id": 2, "lobby_type": 7, "date": 14, "limit": 4})
+
+    def test_stale_or_missing_rank_cannot_be_promoted_by_league_appearance(self):
+        now = 2_000_000
+
+        def get(path, params=None, **kwargs):
+            if path == "/heroes/2/matches":
+                return [{"match_id": account, "account_id": account, "start_time": now - account, "leagueid": 100}
+                        for account in [1, 2, 3]], None
+            if path.startswith("/players/"):
+                account = int(path.split("/")[-1])
+                return profile(account, rank=75 if account == 1 else None if account == 2 else 80), "缓存数据" if account == 3 else None
+            return {}, None
+
+        with patch("routers.hero_guides._cache", {}) as cache, patch("routers.hero_guides.time.time", return_value=now), patch("routers.hero_guides._cached_get", side_effect=get) as request:
+            result = hero_builds(2)
+            calls = request.call_count
+            self.assertEqual(hero_builds(2), result)
+            self.assertEqual(request.call_count, calls)
+            self.assertEqual(cache["ranked_builds:2"]["ttl"], 60)
+        self.assertEqual(result["sample"], 0)
+        self.assertEqual(result["candidates"], [])
+        self.assertEqual(result["source"]["players_verified"], 0)
+        self.assertEqual(result["source"]["status"], "unavailable")
+        self.assertFalse(any(call.args[0].endswith("/matches") and call.args[0].startswith("/players/") for call in request.call_args_list))
+
+    def test_match_detail_identity_mismatch_cannot_supply_equipment(self):
+        now = 2_000_000
+
+        def get(path, params=None, **kwargs):
+            if path == "/rankings":
+                return {"rankings": [{"account_id": 1}]}, None
+            if path == "/players/1":
+                return profile(1), None
+            if path == "/players/1/matches":
+                return [{"match_id": 1, "hero_id": 2, "lobby_type": 7, "game_mode": 22, "start_time": now - 1, "duration": 3000}], None
+            if path == "/matches/1":
+                detail = match()
+                detail.update(start_time=now - 1, lobby_type=7, game_mode=22)
+                detail["players"][0]["account_id"] = 99
+                return detail, None
+            return {}, None
+
+        with patch("routers.hero_guides._cache", {}), patch("routers.hero_guides.time.time", return_value=now), patch("routers.hero_guides._cached_get", side_effect=get):
+            result = hero_builds(2)
+        self.assertEqual(result["sample"], 0)
+        self.assertEqual(result["candidates"], [])
+        self.assertEqual(result["source"]["players"], [])
+        self.assertEqual(result["source"]["status"], "insufficient")
 
     def test_build_endpoint_unavailable_source_does_not_fabricate_candidates(self):
         with patch("routers.hero_guides._cache", {}), patch("routers.hero_guides._cached_get", return_value=(None, "请求超时")):

@@ -69,7 +69,7 @@ function Equipment({ builds, onRetry }: { builds: Resource<HeroBuilds>; onRetry:
   return <section className={styles.section} aria-labelledby="equipment-heading">
     <div className={styles.sectionHeading}><h2 id="equipment-heading"><Coins size={18} />两件装备候选</h2><Retry onClick={onRetry} label="重新读取出装样本" /></div>
     {builds.loading ? <Loading>正在读取近期出装记录</Loading> : builds.error ? <p className={styles.status} role="alert">{builds.error}</p> : data && <>
-      <p className={styles.evidence}>近 {data.source.window_days} 天 · {data.sample} 场装备完整样本 · {data.patch_name ? `主版本 ${data.patch_name}` : "版本号未核验"}</p>
+      <p className={styles.evidence}>近 {data.source.window_days} 天 · {data.source.players.length} 名榜内冠绝选手 · {data.sample} 场天梯完整样本 · {data.patch_name ? `主版本 ${data.patch_name}` : "版本号未核验"}</p>
       {data.candidates.length > 0 ? <div className={styles.candidates}>
         {data.candidates.map((item) => <article key={item.slug} className={styles.candidate}>
           <div className={styles.itemHeading}><Image unoptimized src={item.icon} alt="" width={64} height={46} /><div><h3 title={item.name}>{itemName(item)}</h3><span><Coins size={12} />{item.cost?.toLocaleString() ?? "价格未核验"}</span></div></div>
@@ -78,8 +78,9 @@ function Equipment({ builds, onRetry }: { builds: Resource<HeroBuilds>; onRetry:
           {item.purchase_minute !== null && <div className={styles.timing}>购入时间中位数 {item.purchase_minute} 分钟 <span>（{item.timing_sample} 场有购买记录）</span></div>}
           <div className={styles.examples}>{item.example_matches.slice(0, 2).map((id, index) => <a key={id} href={`https://www.opendota.com/matches/${id}`} target="_blank" rel="noreferrer">比赛 {index + 1}<ExternalLink size={12} /></a>)}</div>
         </article>)}
-      </div> : <p className={styles.empty}>{data.source.status === "unavailable" ? "近期比赛接口暂时不可用，暂无可核验的装备候选。" : data.sample < 3 ? "装备完整样本少于 3 场，暂不生成候选。" : "这批样本没有足够的成装记录。"}</p>}
-      <p className={styles.disclaimer}>近期联赛样本，非高分天梯；位置与小版本未核验。按结算成装持有频次选取，不代表最优顺序或胜率提升。</p>
+      </div> : <p className={styles.empty}>{data.source.status === "unavailable" ? "高分选手或近期天梯接口暂时不可用，暂无可核验的装备候选。" : data.sample < 3 ? "核验到的高分选手天梯完整样本少于 3 场，暂不生成候选。" : "这批样本没有足够的成装记录。"}</p>}
+      <p className={styles.disclaimer}>仅纳入 OpenDota 记录为冠绝一世且有榜位的选手，以及他们的近期天梯排位。段位为资料读取结果，不是该场比赛时点的精确 MMR；位置与小版本未核验。持有频次不代表最优顺序或胜率提升。</p>
+      {data.source.players.length > 0 && <details className={styles.rankSources}><summary>选手段位来源</summary><ul>{data.source.players.map((player) => <li key={player.account_id}><a href={player.url} target="_blank" rel="noreferrer">{player.name}<ExternalLink size={12} /></a><span>冠绝一世 · 榜位 #{player.leaderboard_rank} · 读取于 {dateLabel(player.checked_at)}</span></li>)}</ul></details>}
       {data.source.status === "partial" && <p className={styles.disclaimer}>部分上游数据暂不可用或来自缓存：读取 {data.source.attempted} 场，采用 {data.sample} 场同主版本记录。</p>}
       <div className={styles.source}><a href={data.source.url} target="_blank" rel="noreferrer">{data.source.label}<ExternalLink size={12} /></a><span>读取于 {dateLabel(data.source.fetched_at)}</span></div>
     </>}
@@ -118,9 +119,9 @@ function Mechanics({ mechanics, onRetry }: { mechanics: Resource<HeroMechanics>;
 function Matches({ builds }: { builds: Resource<HeroBuilds> }) {
   if (!builds.data?.matches.length) return null;
   return <section className={styles.section} aria-labelledby="guide-matches-heading">
-    <div className={styles.sectionHeading}><h2 id="guide-matches-heading"><BookOpen size={18} />近期比赛记录</h2><span>{builds.data.sample} 场</span></div>
+    <div className={styles.sectionHeading}><h2 id="guide-matches-heading"><BookOpen size={18} />冠绝选手近期天梯</h2><span>{builds.data.sample} 场</span></div>
     <div className={styles.matchList}>{builds.data.matches.map((match) => <a key={match.match_id} className={styles.match} href={`https://www.opendota.com/matches/${match.match_id}`} target="_blank" rel="noreferrer">
-      <div className={styles.matchPlayer}><strong>{match.player}</strong><span>{match.league} · {dateLabel(match.start_time)}</span></div>
+      <div className={styles.matchPlayer}><strong>{match.player}</strong><span>{match.match_type} · 冠绝一世 · 榜位 #{match.leaderboard_rank} · {dateLabel(match.start_time)}</span></div>
       <div className={styles.matchResult}><span className={match.win === true ? styles.win : match.win === false ? styles.loss : ""}>{match.win === null ? "结果未核验" : match.win ? "胜利" : "失败"}</span><span>{match.kills ?? "?"} / {match.deaths ?? "?"} / {match.assists ?? "?"}</span></div>
       <div className={styles.inventory}>{match.items.map((item, index) => <ItemIcon key={index} item={item} />)}<ItemIcon item={match.neutral} neutral /></div>
       <ExternalLink size={13} className={styles.matchLink} />
