@@ -300,6 +300,7 @@ export interface GuideItem {
 
 export interface HeroOperatingGuide {
   kind: "editorial_practice";
+  preferred_lane_role?: number | null;
   source_urls: string[];
   build_plan: {
     label: string;
@@ -365,6 +366,7 @@ export interface HeroBuilds {
   sample: number;
   patch_id: number | null;
   patch_name: string | null;
+  patch_names?: Record<string, string>;
   source: {
     label: string;
     url: string;

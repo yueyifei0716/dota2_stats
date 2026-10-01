@@ -108,8 +108,8 @@ export async function getHeroMechanics(heroId: number, signal?: AbortSignal) {
   return fetchApi<import("./types").HeroMechanics>(`/hero-guides/${heroId}`, { signal });
 }
 
-export async function getHeroBuilds(heroId: number, signal?: AbortSignal) {
-  return fetchApi<import("./types").HeroBuilds>(`/hero-guides/${heroId}/builds`, { signal });
+export async function getHeroBuilds(heroId: number, signal?: AbortSignal, preferCached = true) {
+  return fetchApi<import("./types").HeroBuilds>(`/hero-guides/${heroId}/builds${preferCached ? "?prefer_cached=true" : ""}`, { signal });
 }
 
 export async function getWardMap(accountId?: string | number) {

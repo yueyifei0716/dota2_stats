@@ -10,7 +10,7 @@ import tempfile
 from copy import deepcopy
 from pathlib import Path
 
-from routers.hero_guides import BUILD_SNAPSHOT_DIR, _read_saved_build, _valid_saved_build, _write_saved_build, _public_feed, _select_matches, _abilities, _catalog, _description, _public_get, _verified_rank, aggregate_builds, hero_builds, hero_mechanics
+from routers.hero_guides import BUILD_SNAPSHOT_DIR, _read_saved_build, _valid_saved_build, _write_saved_build, _public_feed, _select_matches, _abilities, _catalog, _description, _public_get, _verified_rank, aggregate_builds, hero_builds, hero_mechanics, guide_heroes
 
 
 CATALOG = _catalog({
@@ -39,6 +39,27 @@ def profile(account_id, rank=80, leaderboard=100):
 
 
 class HeroGuideTests(unittest.TestCase):
+    def test_english_catalog_uses_verified_display_names_instead_of_missing_valve_field(self):
+        raw = {"heroes": [{"id": 113, "name": "npc_dota_hero_arc_warden", "name_loc": "天穹守望者"}]}
+        with patch("routers.hero_guides._valve", return_value=(raw, 100, False)):
+            result = guide_heroes()
+        self.assertEqual(result["heroes"][0]["hero_en"], "Arc Warden")
+
+    def test_arc_default_group_prefers_six_logged_mid_matches_over_seven_unknown(self):
+        details = [match(index, patch_id=60) for index in range(1, 14)]
+        for index, detail in enumerate(details):
+            player = detail["players"][0]
+            player.update(hero_id=113, account_id=index % 3 + 1)
+            if index < 7:
+                player.pop("purchase_log")
+            else:
+                player["lane_role"] = 2
+        result = aggregate_builds(113, details, CATALOG)
+        self.assertEqual(result["primary_lane_role"], 2)
+        self.assertEqual(result["groups"][0]["sample"], 6)
+        self.assertEqual(result["groups"][0]["purchase_log_sample"], 6)
+        self.assertEqual(result["groups"][1]["sample"], 7)
+
     def setUp(self):
         self.saved_directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
         self.enterContext(patch("routers.hero_guides.BUILD_CACHE_DIR", self.saved_directory))
@@ -59,7 +80,7 @@ class HeroGuideTests(unittest.TestCase):
         with patch("routers.hero_guides._cache", {}), patch("routers.hero_guides.time.time", return_value=now), patch("routers.hero_guides._cached_get", return_value=(None, "HTTP 429")):
             result = hero_builds(113)
         self.assertEqual(result["sample"], snapshot["sample"])
-        self.assertEqual(result["players_count"], 1)
+        self.assertEqual(result["players_count"], snapshot["players_count"])
         self.assertEqual(result["matches"], snapshot["matches"])
         self.assertEqual(result["groups"], snapshot["groups"])
         self.assertEqual(result["source"]["fetched_at"], fetched)
@@ -76,6 +97,21 @@ class HeroGuideTests(unittest.TestCase):
             result = hero_builds(113)
         self.assertEqual(result["sample"], 0)
         self.assertEqual(result["source"]["status"], "unavailable")
+
+    def test_failed_partial_refresh_preserves_better_same_patch_evidence_without_mixing_dates(self):
+        snapshot = json.loads((BUILD_SNAPSHOT_DIR / "113.json").read_text())["payload"]
+        fetched = snapshot["source"]["fetched_at"]
+        fresh = {"candidates": [], "matches": [], "groups": [], "sample": 1,
+                 "players_count": 1, "purchase_log_sample": 0, "patch_id": snapshot["patch_id"]}
+        with patch("routers.hero_guides._cache", {}), patch("routers.hero_guides.time.time", return_value=fetched + 600), patch("routers.hero_guides._cached_get", return_value=(None, "HTTP 429")), patch("routers.hero_guides.aggregate_builds", return_value=fresh):
+            result = hero_builds(113)
+        self.assertEqual(result["matches"], snapshot["matches"])
+        self.assertEqual(result["source"]["fetched_at"], fetched)
+        self.assertEqual(result["source"]["refresh_sample"], 1)
+        self.assertEqual(result["source"]["refresh_purchase_log_sample"], 0)
+        self.assertEqual(result["source"]["status"], "stale")
+        self.assertFalse(result["source"]["rank_reverified_on_refresh"])
+        self.assertEqual(list(self.saved_directory.iterdir()), [])
 
     def test_stale_memory_ttl_cannot_extend_rank_evidence_past_twenty_four_hours(self):
         snapshot = json.loads((BUILD_SNAPSHOT_DIR / "113.json").read_text())["payload"]

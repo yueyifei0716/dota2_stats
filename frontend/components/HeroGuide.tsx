@@ -4,18 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { ArrowRight, BookOpen, Coins, ExternalLink, LoaderCircle, RotateCcw, Search, Sparkles, Swords, X } from "lucide-react";
 import { getGuideHeroes, getHeroBuilds, getHeroMechanics } from "@/lib/api";
+import { defaultBuildGroup, patchLabel } from "@/lib/hero-evidence";
 import type { AllHero, GuideItem, HeroBuilds, HeroGuideCatalog, HeroMechanics } from "@/lib/types";
 import styles from "./HeroGuide.module.css";
 
 const CDN = "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react";
 const ALIASES: Record<number, string[]> = {
   2: ["axe", "斧头"], 7: ["es", "小牛", "牛头"], 8: ["jugg", "剑圣"],
-  11: ["sf", "影魔"], 14: ["pudge", "屠夫"], 19: ["sven", "流浪剑客"],
+  11: ["sf", "影魔"], 14: ["pudge", "屠夫"], 18: ["sven", "流浪剑客"],
   22: ["zeus", "宙斯"], 25: ["lina", "火女"], 26: ["lion", "莱恩"],
   35: ["sniper", "火枪"], 39: ["qop", "女王"], 49: ["dk", "龙骑"],
   71: ["sb", "白牛"], 74: ["invo", "卡尔"], 76: ["od", "黑鸟"],
-  97: ["magnus", "猛犸"], 104: ["lc", "军团"], 107: ["es", "火猫"],
-  108: ["es", "土猫"], 119: ["dw", "小仙女"], 120: ["pango", "滚滚"],
+  97: ["magnus", "猛犸"], 104: ["lc", "军团"], 106: ["es", "火猫"],
+  107: ["es", "土猫"], 119: ["dw", "小仙女"], 120: ["pango", "滚滚"],
 };
 const ITEM_NAMES: Record<string, string> = {
   hand_of_midas: "迈达斯之手", orchid: "紫怨", bloodthorn: "血棘", travel_boots: "远行鞋", travel_boots_2: "远行鞋2级", aghanim_shard: "阿哈利姆魔晶", aghanims_shard: "阿哈利姆魔晶", bottle: "魔瓶", power_treads: "动力鞋",
@@ -73,15 +74,15 @@ function OperatingGuide({ mechanics }: { mechanics: Resource<HeroMechanics> }) {
     <div className={styles.sectionHeading}><h2 id="operating-heading"><Swords size={18} />选到这个英雄，先这样打</h2><span>编辑教学 · 当前机制校核</span></div>
     {guide.build_plan && <div className={styles.starterPlan}>
       <h3 id="starter-items-heading">{guide.build_plan.label}</h3>
-      <ol className={styles.itemRoute}>{guide.build_plan.steps.map((step, index) => <li key={step.item}>
+      <ol className={styles.itemRoute}>{guide.build_plan.steps.map((step, index) => <li key={`${step.item}:${index}`}>
         <span className={styles.stepNumber}>{index + 1}</span><Image unoptimized src={`${CDN}/items/${step.item}.png`} alt="" width={40} height={30} />
         <div><strong>{step.label}</strong><p>{step.reason}</p></div>
       </li>)}</ol>
-      <div className={styles.branchGrid}>{guide.build_plan.branches.map((branch) => <article key={branch.item}>
+      <div className={styles.branchGrid}>{guide.build_plan.branches.map((branch, index) => <article key={`${branch.item}:${index}`}>
         <Image unoptimized src={`${CDN}/items/${branch.item}.png`} alt="" width={34} height={25} /><div><strong>{branch.label}</strong><p>{branch.when}</p><small>{branch.reason}</small></div>
       </article>)}</div>
       <p className={styles.disclaimer}>{guide.build_plan.note}</p>
-      <a className={styles.referenceLink} href={guide.build_plan.source_url} target="_blank" rel="noreferrer">高分构筑参考来源<ExternalLink size={12} /></a>
+      <a className={styles.referenceLink} href={guide.build_plan.source_url} target="_blank" rel="noreferrer">出装教学依据<ExternalLink size={12} /></a>
     </div>}
     <div className={styles.playbookGrid} id="playbook-flows">{guide.sequences.map((sequence) => <article key={sequence.title} className={styles.playbook}>
       <h3>{sequence.title}</h3><p className={styles.when}>{sequence.when}</p>
@@ -98,18 +99,18 @@ function OperatingGuide({ mechanics }: { mechanics: Resource<HeroMechanics> }) {
   </section>;
 }
 
-function Equipment({ builds, onRetry }: { builds: Resource<HeroBuilds>; onRetry: () => void }) {
+function Equipment({ builds, onRetry, learningLane }: { builds: Resource<HeroBuilds>; onRetry: () => void; learningLane?: number | null }) {
   const data = builds.data;
   const [groupKey, setGroupKey] = useState("");
   const groups = data?.groups || [];
   const key = (group: typeof groups[number]) => `${group.patch_id}:${group.lane_role}`;
-  const group = groups.find((entry) => key(entry) === groupKey) || groups.find((entry) => entry.patch_id === data?.patch_id && entry.lane_role === data?.primary_lane_role) || groups[0];
+  const group = groups.find((entry) => key(entry) === groupKey) || (data ? defaultBuildGroup(data, builds.heroId, learningLane) : undefined);
   const candidates = group?.candidates || data?.candidates || [];
   return <section className={styles.section} aria-labelledby="equipment-heading">
     <div className={styles.sectionHeading}><h2 id="equipment-heading"><Coins size={18} />高分选手实际怎么买</h2><Retry onClick={onRetry} label="重新读取出装样本" /></div>
     {builds.loading ? <Loading>正在核验选手与近期天梯出装，首次读取可能需要约 20 秒</Loading> : builds.error ? <p className={styles.status} role="alert">{builds.error}</p> : data && <>
-      <p className={styles.evidence}>近 {data.source.window_days} 天 · {data.source.players.length} 名榜内冠绝选手 · {data.sample} 场天梯完整样本 · {data.patch_name ? `主版本 ${data.patch_name}` : "版本号未核验"}</p>
-      {groups.length > 0 && <label className={styles.groupPicker}>分别查看分路与版本<select aria-label="出装样本分组" value={group ? key(group) : ""} onChange={(event) => setGroupKey(event.target.value)}>{groups.map((entry) => <option key={key(entry)} value={key(entry)}>{entry.patch_id === data.patch_id && data.patch_name ? data.patch_name : `版本 ${entry.patch_id ?? "未知"}`} · {entry.lane_name} · {entry.sample} 场 / {entry.players_count} 人</option>)}</select></label>}
+      <p className={styles.evidence}>近 {data.source.window_days} 天 · {data.source.players.length} 名榜内冠绝选手 · {data.sample} 场天梯完整样本 · 主版本 {patchLabel(data.patch_id, data)}</p>
+      {groups.length > 0 && <label className={styles.groupPicker}>分别查看分路与版本<select aria-label="出装样本分组" value={group ? key(group) : ""} onChange={(event) => setGroupKey(event.target.value)}>{groups.map((entry) => <option key={key(entry)} value={key(entry)}>版本 {patchLabel(entry.patch_id, data)} · {entry.lane_name} · {entry.sample} 场 / {entry.players_count} 人 · {entry.purchase_log_sample} 场购买日志</option>)}</select></label>}
       {group && <p className={styles.evidence}>{group.lane_name}：{group.inventory_sample} 场完整装备，{group.players_count} 名选手；{group.purchase_log_sample} 场有购买事件。Replay 分路不等于 1–5 号位。{group.status === "small_sample" ? "本组样本稀少，仅作逐局参考。" : ""}</p>}
       {group && group.purchase_branches.length > 0 && <div className={styles.observedRoutes}><h3>真实购买记录中的分支</h3>{group.purchase_branches.map((branch) => <article key={branch.slugs.join(":")}>
         <div className={styles.observedItems}>{branch.items.map((item, index) => <span key={`${item.slug}:${index}`}><ItemIcon item={item} /><b>{itemName(item)}</b>{index < branch.items.length - 1 && <ArrowRight size={12} />}</span>)}</div>
@@ -181,7 +182,7 @@ function Matches({ builds }: { builds: Resource<HeroBuilds> }) {
   return <section className={styles.section} aria-labelledby="guide-matches-heading">
     <div className={styles.sectionHeading}><h2 id="guide-matches-heading"><BookOpen size={18} />高分对局，直接看出装</h2><span>{builds.data.sample} 场</span></div>
     <div className={styles.matchList}>{builds.data.matches.slice(0, visible).map((match) => <a key={match.match_id} className={styles.match} href={`https://www.opendota.com/matches/${match.match_id}`} target="_blank" rel="noreferrer">
-      <div className={styles.matchPlayer}><strong>{match.player}</strong><span>{match.match_type} · 冠绝一世 · 榜位 #{match.leaderboard_rank} · {dateLabel(match.start_time)} · {match.lane_name || "分路未记录"} · 版本 {match.patch_id ?? builds.data?.patch_name ?? "未记录"}</span></div>
+      <div className={styles.matchPlayer}><strong>{match.player}</strong><span>{match.match_type} · 冠绝一世 · 榜位 #{match.leaderboard_rank} · {dateLabel(match.start_time)} · {match.lane_name || "分路未记录"} · 版本 {patchLabel(match.patch_id, builds.data!)}</span></div>
       <div className={styles.matchResult}><span className={match.win === true ? styles.win : match.win === false ? styles.loss : ""}>{match.win === null ? "结果未核验" : match.win ? "胜利" : "失败"}</span><span>{match.kills ?? "?"} / {match.deaths ?? "?"} / {match.assists ?? "?"}</span></div>
       <div className={styles.inventory}>{match.items.map((item, index) => <ItemIcon key={index} item={item} />)}<ItemIcon item={match.neutral} neutral /></div>
       <ExternalLink size={13} className={styles.matchLink} />
@@ -219,7 +220,7 @@ export default function HeroGuide({ recentHeroIds = [] }: { recentHeroIds?: numb
 
   useEffect(() => {
     const controller = new AbortController();
-    getHeroBuilds(heroId, controller.signal).then((result) => {
+    getHeroBuilds(heroId, controller.signal, buildsRetry === 0).then((result) => {
       if (!controller.signal.aborted) setBuilds({ heroId, data: result, error: "", loading: false });
     }).catch((error) => {
       if (!controller.signal.aborted) setBuilds({ heroId, data: null, error: error instanceof Error ? error.message : "出装样本读取失败", loading: false });
@@ -245,6 +246,7 @@ export default function HeroGuide({ recentHeroIds = [] }: { recentHeroIds?: numb
     if (selected.hero_id !== heroId) {
       setMechanics(emptyResource(selected.hero_id));
       setBuilds(emptyResource(selected.hero_id));
+      setBuildsRetry(0);
     }
     setHeroId(selected.hero_id);
     setQuery("");
@@ -265,7 +267,7 @@ export default function HeroGuide({ recentHeroIds = [] }: { recentHeroIds?: numb
     <header className={styles.heroHeader}>{hero?.hero_icon && <Image unoptimized src={hero.hero_icon} alt="" width={116} height={82} />}<div><h1>{hero?.hero_cn || "英雄"}</h1><span>{hero?.hero_en || `#${heroId}`}</span></div><nav className={styles.sectionNav} aria-label="英雄资料"><a href={currentMechanics.data?.operating_guide?.build_plan ? "#starter-items-heading" : "#equipment-heading"}><Coins size={14} />装备</a><a href={currentMechanics.data?.operating_guide ? "#playbook-flows" : "#mechanics-heading"}><Swords size={14} />操作</a>{currentBuilds.data?.matches.length ? <a href="#guide-matches-heading"><BookOpen size={14} />比赛</a> : null}</nav></header>
     <OperatingGuide mechanics={currentMechanics} />
     <div className={styles.quickReference}>
-      <Equipment builds={currentBuilds} onRetry={() => { setBuilds(emptyResource(heroId)); setBuildsRetry((value) => value + 1); }} />
+      <Equipment key={heroId} builds={currentBuilds} learningLane={currentMechanics.data?.operating_guide?.preferred_lane_role} onRetry={() => { setBuilds(emptyResource(heroId)); setBuildsRetry((value) => value + 1); }} />
     </div>
     <Matches key={heroId} builds={currentBuilds} />
     <Mechanics mechanics={currentMechanics} onRetry={() => { setMechanics(emptyResource(heroId)); setMechanicsRetry((value) => value + 1); }} />

@@ -1,4 +1,4 @@
-"""Editorial, mechanism-gated instructions for a few explicitly reviewed heroes.
+"""Authored hero teaching, gated against current official mechanics.
 
 This module does not infer a combo from arbitrary skill descriptions or claim
 that these learning plans were measured in matches. Call only with fresh Valve
@@ -6,6 +6,8 @@ mechanics. Unknown heroes and changed/upgrade-only mechanisms remain a gap.
 """
 
 from copy import deepcopy
+import json
+from pathlib import Path
 import re
 
 
@@ -40,6 +42,34 @@ def _eligible(hero, abilities):
         if not isinstance(notes, list):
             notes = []
         result[ability["slug"]] = " ".join([description, *[n for n in notes if isinstance(n, str)]])
+    # Invoked spells are deliberately hidden until placed in a skill slot.
+    # This reviewed exception requires current, usable orb + Invoke mechanics;
+    # it never makes an item/upgrade-only or arbitrary hidden skill eligible.
+    if hero.get("id") == 74:
+        orb_requirements = {
+            "invoker_cold_snap": ("quas",), "invoker_ghost_walk": ("quas", "wex"),
+            "invoker_tornado": ("quas", "wex"), "invoker_emp": ("wex",),
+            "invoker_alacrity": ("wex", "exort"), "invoker_chaos_meteor": ("wex", "exort"),
+            "invoker_sun_strike": ("exort",), "invoker_forge_spirit": ("quas", "exort"),
+            "invoker_ice_wall": ("quas", "exort"), "invoker_deafening_blast": ("quas", "wex", "exort"),
+        }
+        elements = {"quas": "冰元素", "wex": "雷元素", "exort": "火元素"}
+        prepared = {ability.get("slug"): ability for ability in abilities or [] if isinstance(ability, dict)}
+        for skill in hero.get("abilities", []) or []:
+            if not isinstance(skill, dict) or skill.get("name") not in orb_requirements:
+                continue
+            slug, behavior = skill["name"], _bits(skill.get("behavior"))
+            prerequisite = {"invoker_invoke": [r"元素.*融合", r"创造.*法术"]}
+            prerequisite.update({f"invoker_{orb}": [elements[orb]] for orb in orb_requirements[slug]})
+            if (behavior is None or not behavior & 1 or skill.get("is_item") or
+                    skill.get("ability_is_granted_by_scepter") or skill.get("ability_is_granted_by_shard") or
+                    not _matches(result, prerequisite)):
+                continue
+            ability = prepared.get(slug, {})
+            description = ability.get("description")
+            if isinstance(description, str) and description.strip():
+                notes = ability.get("notes", [])
+                result[slug] = " ".join([description, *[n for n in notes if isinstance(n, str)]]) if isinstance(notes, list) else description
     return result
 
 
@@ -270,13 +300,25 @@ LIFESTEALER_SEQUENCES = [
 ]
 
 PLAYBOOKS = {
-    113: {"hero_slug": "arcwarden", "build_plan": ARC_BUILD, "build_rules": ARC, "sequences": ARC_SEQUENCES},
+    113: {"hero_slug": "arcwarden", "build_plan": ARC_BUILD, "build_rules": ARC, "sequences": ARC_SEQUENCES, "preferred_lane_role": 2},
     8: {"hero_slug": "juggernaut", "sequences": JUGG_SEQUENCES},
     35: {"hero_slug": "sniper", "sequences": SNIPER_SEQUENCES},
     13: {"hero_slug": "puck", "sequences": PUCK_SEQUENCES},
     25: {"hero_slug": "lina", "sequences": LINA_SEQUENCES},
     54: {"hero_slug": "lifestealer", "sequences": LIFESTEALER_SEQUENCES},
 }
+
+for _hero_id, _authored in json.loads(Path(__file__).with_name("hero_playbooks_data.json").read_text()).items():
+    _hero_id = int(_hero_id)
+    # Build-only records intentionally preserve the six previously reviewed
+    # multi-flow playbooks, including Arc's existing route and dynamic cautions.
+    PLAYBOOKS[_hero_id] = {**PLAYBOOKS.get(_hero_id, {}), **_authored}
+
+
+def learning_lane(hero_id):
+    """Authored learning-route context, never a measured position label."""
+    lane = PLAYBOOKS.get(hero_id, {}).get("preferred_lane_role")
+    return lane if type(lane) is int and lane in {1, 2, 3} else None
 
 
 def operating_guide(hero: dict, abilities: list):
@@ -306,8 +348,9 @@ def operating_guide(hero: dict, abilities: list):
     build = deepcopy(entry.get("build_plan")) if _matches(current, entry.get("build_rules", {})) else None
     if not sequences and not build:
         return None
-    official = f"https://www.dota2.com/hero/{entry['hero_slug']}"
+    official = entry.get("mechanics_source_url") or f"https://www.dota2.com/hero/{entry['hero_slug']}"
     sources = [official]
     if build and build.get("source_url") and build["source_url"] not in sources:
         sources.append(build["source_url"])
-    return {"build_plan": build, "sequences": sequences, "source_urls": sources, "kind": "editorial_practice"}
+    return {"build_plan": build, "sequences": sequences, "source_urls": sources,
+            "preferred_lane_role": learning_lane(hero.get("id")), "kind": "editorial_practice"}

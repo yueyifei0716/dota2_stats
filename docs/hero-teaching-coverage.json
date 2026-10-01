@@ -1,0 +1,1806 @@
+{
+  "checked_at": 1790835521,
+  "mechanics_captured_at": 1790780232.822958,
+  "hero_count": 127,
+  "build_coverage": 127,
+  "flow_coverage": 127,
+  "flow_count": 141,
+  "build_phases": 399,
+  "conditional_choices": 275,
+  "action_steps": 749,
+  "authored_sha256": "150f9d1a93e529cd3f2c5f9cad0897dce4e8d3728d7952a1dbe8844e32bfc4d7",
+  "kind": "editorial_mechanism_reasoning",
+  "limitations": [
+    "Teaching is an authored learning route, not measured optimal play or purchase statistics.",
+    "Kez long-blade starter flow and Largo normal skill-bar flow; advanced alternate modes are not fully taught.",
+    "Summoned-unit secondary controls absent from the official corpus are not invented.",
+    "Real builds require separately verified public rank evidence and purchase logs; inventory never implies chronology."
+  ],
+  "heroes": [
+    {
+      "hero_id": 1,
+      "hero_cn": "敌法师",
+      "hero_en": "Anti-Mage",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=1"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 1
+    },
+    {
+      "hero_id": 2,
+      "hero_cn": "斧王",
+      "hero_en": "Axe",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=2"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 3,
+      "hero_cn": "祸乱之源",
+      "hero_en": "Bane",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=3"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 4,
+      "hero_cn": "血魔",
+      "hero_en": "Bloodseeker",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=4"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 1
+    },
+    {
+      "hero_id": 5,
+      "hero_cn": "水晶室女",
+      "hero_en": "Crystal Maiden",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=5"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 6,
+      "hero_cn": "卓尔游侠",
+      "hero_en": "Drow Ranger",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=6"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 1
+    },
+    {
+      "hero_id": 7,
+      "hero_cn": "撼地者",
+      "hero_en": "Earthshaker",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=7"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 8,
+      "hero_cn": "主宰",
+      "hero_en": "Juggernaut",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 3,
+      "action_steps": 12,
+      "source_urls": [
+        "https://www.dota2.com/hero/juggernaut",
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=8"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 1
+    },
+    {
+      "hero_id": 9,
+      "hero_cn": "米拉娜",
+      "hero_en": "Mirana",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=9"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 11,
+      "hero_cn": "影魔",
+      "hero_en": "Shadow Fiend",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=11"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 2
+    },
+    {
+      "hero_id": 10,
+      "hero_cn": "变体精灵",
+      "hero_en": "Morphling",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=10"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 1
+    },
+    {
+      "hero_id": 12,
+      "hero_cn": "幻影长矛手",
+      "hero_en": "Phantom Lancer",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=12"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 1
+    },
+    {
+      "hero_id": 13,
+      "hero_cn": "帕克",
+      "hero_en": "Puck",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 3,
+      "action_steps": 13,
+      "source_urls": [
+        "https://www.dota2.com/hero/puck",
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=13"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 2
+    },
+    {
+      "hero_id": 14,
+      "hero_cn": "帕吉",
+      "hero_en": "Pudge",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=14"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 15,
+      "hero_cn": "雷泽",
+      "hero_en": "Razor",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=15"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 16,
+      "hero_cn": "沙王",
+      "hero_en": "Sand King",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=16"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 17,
+      "hero_cn": "风暴之灵",
+      "hero_en": "Storm Spirit",
+      "build_phases": 4,
+      "conditional_choices": 3,
+      "flows": 1,
+      "action_steps": 7,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=17"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 2
+    },
+    {
+      "hero_id": 18,
+      "hero_cn": "斯温",
+      "hero_en": "Sven",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=18"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 1
+    },
+    {
+      "hero_id": 19,
+      "hero_cn": "小小",
+      "hero_en": "Tiny",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=19"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 20,
+      "hero_cn": "复仇之魂",
+      "hero_en": "Vengeful Spirit",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=20"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 22,
+      "hero_cn": "宙斯",
+      "hero_en": "Zeus",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=22"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 2
+    },
+    {
+      "hero_id": 23,
+      "hero_cn": "昆卡",
+      "hero_en": "Kunkka",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=23"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 25,
+      "hero_cn": "莉娜",
+      "hero_en": "Lina",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 3,
+      "action_steps": 12,
+      "source_urls": [
+        "https://www.dota2.com/hero/lina",
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=25"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 2
+    },
+    {
+      "hero_id": 31,
+      "hero_cn": "巫妖",
+      "hero_en": "Lich",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=31"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 26,
+      "hero_cn": "莱恩",
+      "hero_en": "Lion",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=26"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 27,
+      "hero_cn": "暗影萨满",
+      "hero_en": "Shadow Shaman",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=27"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 28,
+      "hero_cn": "斯拉达",
+      "hero_en": "Slardar",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=28"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 29,
+      "hero_cn": "潮汐猎人",
+      "hero_en": "Tidehunter",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 7,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=29"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 30,
+      "hero_cn": "巫医",
+      "hero_en": "Witch Doctor",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=30"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 32,
+      "hero_cn": "力丸",
+      "hero_en": "Riki",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=32"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 33,
+      "hero_cn": "谜团",
+      "hero_en": "Enigma",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=33"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 34,
+      "hero_cn": "修补匠",
+      "hero_en": "Tinker",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=34"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 2
+    },
+    {
+      "hero_id": 35,
+      "hero_cn": "狙击手",
+      "hero_en": "Sniper",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 3,
+      "action_steps": 12,
+      "source_urls": [
+        "https://www.dota2.com/hero/sniper",
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=35"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 36,
+      "hero_cn": "瘟疫法师",
+      "hero_en": "Necrophos",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=36"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 37,
+      "hero_cn": "术士",
+      "hero_en": "Warlock",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=37"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 38,
+      "hero_cn": "兽王",
+      "hero_en": "Beastmaster",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=38"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 39,
+      "hero_cn": "痛苦女王",
+      "hero_en": "Queen of Pain",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=39"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 2
+    },
+    {
+      "hero_id": 40,
+      "hero_cn": "剧毒术士",
+      "hero_en": "Venomancer",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=40"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 41,
+      "hero_cn": "虚空假面",
+      "hero_en": "Faceless Void",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=41"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 42,
+      "hero_cn": "冥魂大帝",
+      "hero_en": "Wraith King",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=42"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 43,
+      "hero_cn": "死亡先知",
+      "hero_en": "Death Prophet",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=43"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 44,
+      "hero_cn": "幻影刺客",
+      "hero_en": "Phantom Assassin",
+      "build_phases": 3,
+      "conditional_choices": 3,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=44"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 45,
+      "hero_cn": "帕格纳",
+      "hero_en": "Pugna",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=45"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 46,
+      "hero_cn": "圣堂刺客",
+      "hero_en": "Templar Assassin",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=46"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 2
+    },
+    {
+      "hero_id": 47,
+      "hero_cn": "冥界亚龙",
+      "hero_en": "Viper",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=47"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 48,
+      "hero_cn": "露娜",
+      "hero_en": "Luna",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=48"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 49,
+      "hero_cn": "龙骑士",
+      "hero_en": "Dragon Knight",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=49"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 50,
+      "hero_cn": "戴泽",
+      "hero_en": "Dazzle",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=50"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 51,
+      "hero_cn": "发条技师",
+      "hero_en": "Clockwerk",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=51"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 52,
+      "hero_cn": "拉席克",
+      "hero_en": "Leshrac",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=52"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 2
+    },
+    {
+      "hero_id": 53,
+      "hero_cn": "自然先知",
+      "hero_en": "Nature's Prophet",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=53"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 54,
+      "hero_cn": "噬魂鬼",
+      "hero_en": "Lifestealer",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 3,
+      "action_steps": 14,
+      "source_urls": [
+        "https://www.dota2.com/hero/life_stealer",
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=54"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 55,
+      "hero_cn": "黑暗贤者",
+      "hero_en": "Dark Seer",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=55"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 56,
+      "hero_cn": "克林克兹",
+      "hero_en": "Clinkz",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=56"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 57,
+      "hero_cn": "全能骑士",
+      "hero_en": "Omniknight",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=57"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 58,
+      "hero_cn": "魅惑魔女",
+      "hero_en": "Enchantress",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=58"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 59,
+      "hero_cn": "哈斯卡",
+      "hero_en": "Huskar",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=59"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 2
+    },
+    {
+      "hero_id": 60,
+      "hero_cn": "暗夜魔王",
+      "hero_en": "Night Stalker",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=60"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 61,
+      "hero_cn": "育母蜘蛛",
+      "hero_en": "Broodmother",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=61"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 62,
+      "hero_cn": "赏金猎人",
+      "hero_en": "Bounty Hunter",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=62"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 63,
+      "hero_cn": "编织者",
+      "hero_en": "Weaver",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=63"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 64,
+      "hero_cn": "杰奇洛",
+      "hero_en": "Jakiro",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=64"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 65,
+      "hero_cn": "蝙蝠骑士",
+      "hero_en": "Batrider",
+      "build_phases": 4,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=65"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 66,
+      "hero_cn": "陈",
+      "hero_en": "Chen",
+      "build_phases": 3,
+      "conditional_choices": 3,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=66"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 67,
+      "hero_cn": "幽鬼",
+      "hero_en": "Spectre",
+      "build_phases": 4,
+      "conditional_choices": 3,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=67"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 1
+    },
+    {
+      "hero_id": 69,
+      "hero_cn": "末日使者",
+      "hero_en": "Doom",
+      "build_phases": 4,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=69"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 68,
+      "hero_cn": "远古冰魄",
+      "hero_en": "Ancient Apparition",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=68"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 70,
+      "hero_cn": "熊战士",
+      "hero_en": "Ursa",
+      "build_phases": 4,
+      "conditional_choices": 3,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=70"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 1
+    },
+    {
+      "hero_id": 71,
+      "hero_cn": "裂魂人",
+      "hero_en": "Spirit Breaker",
+      "build_phases": 3,
+      "conditional_choices": 3,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=71"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 72,
+      "hero_cn": "矮人直升机",
+      "hero_en": "Gyrocopter",
+      "build_phases": 4,
+      "conditional_choices": 3,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=72"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 1
+    },
+    {
+      "hero_id": 73,
+      "hero_cn": "炼金术士",
+      "hero_en": "Alchemist",
+      "build_phases": 4,
+      "conditional_choices": 3,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=73"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 1
+    },
+    {
+      "hero_id": 74,
+      "hero_cn": "祈求者",
+      "hero_en": "Invoker",
+      "build_phases": 4,
+      "conditional_choices": 3,
+      "flows": 2,
+      "action_steps": 11,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=74"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 2
+    },
+    {
+      "hero_id": 75,
+      "hero_cn": "沉默术士",
+      "hero_en": "Silencer",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=75"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 76,
+      "hero_cn": "殁境神蚀者",
+      "hero_en": "Outworld Destroyer",
+      "build_phases": 4,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=76"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 2
+    },
+    {
+      "hero_id": 77,
+      "hero_cn": "狼人",
+      "hero_en": "Lycan",
+      "build_phases": 3,
+      "conditional_choices": 3,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=77"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 78,
+      "hero_cn": "酒仙",
+      "hero_en": "Brewmaster",
+      "build_phases": 3,
+      "conditional_choices": 3,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=78"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 79,
+      "hero_cn": "暗影恶魔",
+      "hero_en": "Shadow Demon",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=79"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 80,
+      "hero_cn": "独行德鲁伊",
+      "hero_en": "Lone Druid",
+      "build_phases": 4,
+      "conditional_choices": 3,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=80"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 1
+    },
+    {
+      "hero_id": 81,
+      "hero_cn": "混沌骑士",
+      "hero_en": "Chaos Knight",
+      "build_phases": 4,
+      "conditional_choices": 3,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=81"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 1
+    },
+    {
+      "hero_id": 82,
+      "hero_cn": "米波",
+      "hero_en": "Meepo",
+      "build_phases": 4,
+      "conditional_choices": 3,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=82"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 2
+    },
+    {
+      "hero_id": 83,
+      "hero_cn": "树精卫士",
+      "hero_en": "Treant Protector",
+      "build_phases": 3,
+      "conditional_choices": 3,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=83"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 84,
+      "hero_cn": "食人魔魔法师",
+      "hero_en": "Ogre Magi",
+      "build_phases": 3,
+      "conditional_choices": 3,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=84"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 85,
+      "hero_cn": "不朽尸王",
+      "hero_en": "Undying",
+      "build_phases": 3,
+      "conditional_choices": 3,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=85"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 86,
+      "hero_cn": "拉比克",
+      "hero_en": "Rubick",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=86"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 87,
+      "hero_cn": "干扰者",
+      "hero_en": "Disruptor",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=87"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 88,
+      "hero_cn": "司夜刺客",
+      "hero_en": "Nyx Assassin",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=88"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 89,
+      "hero_cn": "娜迦海妖",
+      "hero_en": "Naga Siren",
+      "build_phases": 4,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=89"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 90,
+      "hero_cn": "光之守卫",
+      "hero_en": "Keeper of the Light",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=90"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 91,
+      "hero_cn": "艾欧",
+      "hero_en": "Io",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=91"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 92,
+      "hero_cn": "维萨吉",
+      "hero_en": "Visage",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=92"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 93,
+      "hero_cn": "斯拉克",
+      "hero_en": "Slark",
+      "build_phases": 4,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=93"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 94,
+      "hero_cn": "美杜莎",
+      "hero_en": "Medusa",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=94"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 95,
+      "hero_cn": "巨魔战将",
+      "hero_en": "Troll Warlord",
+      "build_phases": 4,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=95"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 96,
+      "hero_cn": "半人马战行者",
+      "hero_en": "Centaur Warrunner",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=96"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 97,
+      "hero_cn": "马格纳斯",
+      "hero_en": "Magnus",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=97"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 98,
+      "hero_cn": "伐木机",
+      "hero_en": "Timbersaw",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=98"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 99,
+      "hero_cn": "钢背兽",
+      "hero_en": "Bristleback",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=99"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 100,
+      "hero_cn": "巨牙海民",
+      "hero_en": "Tusk",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=100"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 101,
+      "hero_cn": "天怒法师",
+      "hero_en": "Skywrath Mage",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=101"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 102,
+      "hero_cn": "亚巴顿",
+      "hero_en": "Abaddon",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=102"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 103,
+      "hero_cn": "上古巨神",
+      "hero_en": "Elder Titan",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=103"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 104,
+      "hero_cn": "军团指挥官",
+      "hero_en": "Legion Commander",
+      "build_phases": 4,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=104"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 106,
+      "hero_cn": "灰烬之灵",
+      "hero_en": "Ember Spirit",
+      "build_phases": 4,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=106"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 2
+    },
+    {
+      "hero_id": 107,
+      "hero_cn": "大地之灵",
+      "hero_en": "Earth Spirit",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=107"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 109,
+      "hero_cn": "恐怖利刃",
+      "hero_en": "Terrorblade",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=109"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 1
+    },
+    {
+      "hero_id": 110,
+      "hero_cn": "凤凰",
+      "hero_en": "Phoenix",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=110"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 111,
+      "hero_cn": "神谕者",
+      "hero_en": "Oracle",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=111"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 105,
+      "hero_cn": "工程师",
+      "hero_en": "Techies",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=105"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 112,
+      "hero_cn": "寒冬飞龙",
+      "hero_en": "Winter Wyvern",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=112"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 113,
+      "hero_cn": "天穹守望者",
+      "hero_en": "Arc Warden",
+      "build_phases": 4,
+      "conditional_choices": 6,
+      "flows": 4,
+      "action_steps": 22,
+      "source_urls": [
+        "https://www.dota2.com/hero/arcwarden",
+        "https://dota2protracker.com/m/hero/Arc%20Warden"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 2
+    },
+    {
+      "hero_id": 108,
+      "hero_cn": "孽主",
+      "hero_en": "Underlord",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=108"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 114,
+      "hero_cn": "齐天大圣",
+      "hero_en": "Monkey King",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=114"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 1
+    },
+    {
+      "hero_id": 120,
+      "hero_cn": "石鳞剑士",
+      "hero_en": "Pangolier",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=120"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 119,
+      "hero_cn": "邪影芳灵",
+      "hero_en": "Dark Willow",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=119"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 121,
+      "hero_cn": "天涯墨客",
+      "hero_en": "Grimstroke",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=121"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 129,
+      "hero_cn": "玛尔斯",
+      "hero_en": "Mars",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=129"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 126,
+      "hero_cn": "虚无之灵",
+      "hero_en": "Void Spirit",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=126"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 2
+    },
+    {
+      "hero_id": 128,
+      "hero_cn": "电炎绝手",
+      "hero_en": "Snapfire",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=128"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 123,
+      "hero_cn": "森海飞霞",
+      "hero_en": "Hoodwink",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=123"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 135,
+      "hero_cn": "破晓辰星",
+      "hero_en": "Dawnbreaker",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=135"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 136,
+      "hero_cn": "玛西",
+      "hero_en": "Marci",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=136"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 137,
+      "hero_cn": "獸",
+      "hero_en": "Primal Beast",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=137"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 3
+    },
+    {
+      "hero_id": 138,
+      "hero_cn": "琼英碧灵",
+      "hero_en": "Muerta",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=138"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 1
+    },
+    {
+      "hero_id": 131,
+      "hero_cn": "百戏大王",
+      "hero_en": "Ringmaster",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=131"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 145,
+      "hero_cn": "凯",
+      "hero_en": "Kez",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 7,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=145"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 155,
+      "hero_cn": "朗戈",
+      "hero_en": "Largo",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 5,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=155"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": null
+    },
+    {
+      "hero_id": 21,
+      "hero_cn": "风行者",
+      "hero_en": "Windranger",
+      "build_phases": 3,
+      "conditional_choices": 2,
+      "flows": 1,
+      "action_steps": 6,
+      "source_urls": [
+        "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=21"
+      ],
+      "current_mechanism_gate": "pass",
+      "preferred_learning_lane_role": 2
+    }
+  ],
+  "heroes_with_explicit_learning_lane": 59
+}

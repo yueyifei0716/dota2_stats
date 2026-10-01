@@ -25,7 +25,7 @@ from fastapi import APIRouter, HTTPException, Path
 from fetch_dota_stats import HEROES_CN, HEROES_EN, get_hero_icon_url
 from routers.players import _cached_get, _safe_int
 from services.hero_tips import usage_tips
-from services.hero_playbooks import operating_guide
+from services.hero_playbooks import operating_guide, learning_lane
 
 router = APIRouter()
 VALVE_URL = "https://www.dota2.com/datafeed"
@@ -41,6 +41,10 @@ BUILD_CACHE_DIR = FilePath(tempfile.gettempdir()) / "dota2stats-verified-hero-bu
 BUILD_SNAPSHOT_DIR = FilePath(__file__).resolve().parents[1] / "snapshots" / "hero_builds"
 WINDOW_DAYS = 14
 BUILD_BUDGET_SECONDS = 22
+try:
+    HERO_NAMES_EN = json.loads((FilesystemPath(__file__).resolve().parents[1] / "snapshots/hero_names_en.json").read_text())["names"]
+except (OSError, ValueError, KeyError):
+    HERO_NAMES_EN = {}
 RANKED_MODES = {1, 2, 3, 4, 16, 22}
 _cache = {}
 _locks = {}
@@ -125,18 +129,22 @@ def _description(raw, ability, variant="base"):
     return " ".join("".join(parser.parts).split()).replace("%%", "%")
 
 
+def _english_name(hero_id):
+    return HERO_NAMES_EN.get(str(hero_id)) or HEROES_EN.get(hero_id, "").replace("_", " ").title()
+
+
 @router.get("/hero-guides/heroes")
 def guide_heroes():
     data, fetched, stale = _valve("herolist")
     heroes = [{
         "hero_id": hero["id"], "hero_cn": hero.get("name_loc", ""),
-        "hero_en": hero.get("name_english_loc", ""),
+        "hero_en": _english_name(hero["id"]),
         "hero_icon": f"{CDN}/heroes/{hero['name'].removeprefix('npc_dota_hero_')}.png",
     } for hero in data.get("heroes", []) if hero.get("id") and hero.get("name")]
     source = "Valve"
     if not heroes:
         source = "内置英雄目录"
-        heroes = [{"hero_id": hero_id, "hero_cn": name, "hero_en": HEROES_EN.get(hero_id, ""), "hero_icon": get_hero_icon_url(hero_id)} for hero_id, name in HEROES_CN.items()]
+        heroes = [{"hero_id": hero_id, "hero_cn": name, "hero_en": _english_name(hero_id), "hero_icon": get_hero_icon_url(hero_id)} for hero_id, name in HEROES_CN.items()]
     return {"heroes": heroes, "source": source, "fetched_at": fetched, "stale": stale}
 
 
@@ -214,7 +222,7 @@ def hero_mechanics(hero_id: int = Path(ge=1, le=2000)):
     if practice and not set(practice["skills"]).issubset(slugs):
         practice = None
     return {
-        "hero": {"hero_id": hero_id, "hero_cn": hero.get("name_loc"), "hero_en": HEROES_EN.get(hero_id, ""), "hero_icon": f"{CDN}/heroes/{hero['name'].removeprefix('npc_dota_hero_')}.png"},
+        "hero": {"hero_id": hero_id, "hero_cn": hero.get("name_loc"), "hero_en": _english_name(hero_id), "hero_icon": f"{CDN}/heroes/{hero['name'].removeprefix('npc_dota_hero_')}.png"},
         "summary": _description(hero.get("npe_desc_loc") or hero.get("hype_loc"), {}),
         "abilities": abilities, "practice": practice,
         "usage_tips": usage_tips(hero, abilities) if not stale else [],
@@ -542,7 +550,15 @@ def _build_fallback(hero_id, previous, now):
         saved = _read_saved_build(directory, hero_id, now)
         if saved:
             options.append((saved, label))
-    return max(options, key=lambda option: option[0]["source"]["fetched_at"]) if options else (None, None)
+    if not options:
+        return None, None
+    latest = max(options, key=lambda option: option[0]["source"]["fetched_at"])
+    same_patch = [option for option in options if option[0].get("patch_id") == latest[0].get("patch_id")]
+    return max(same_patch, key=lambda option: (*_evidence_quality(option[0]), option[0]["source"]["fetched_at"]))
+
+
+def _evidence_quality(payload):
+    return (payload.get("purchase_log_sample", 0), payload.get("players_count", 0), payload.get("sample", 0))
 
 
 def aggregate_builds(hero_id, details, catalog, ranked_players=None, now=None, _grouped=False):
@@ -629,7 +645,13 @@ def aggregate_builds(hero_id, details, catalog, ranked_players=None, now=None, _
         for (patch_id, lane), group_details in grouped.items():
             subset = aggregate_builds(hero_id, group_details, catalog, ranked_players, now, _grouped=True)
             groups.append(_group_stats(subset["matches"], subset["candidates"]))
-        groups.sort(key=lambda group: (group["patch_id"] != patch, -group["sample"], group["lane_role"] or 0))
+        preferred_lane = learning_lane(hero_id)
+        groups.sort(key=lambda group: (group["patch_id"] != patch,
+                                      not (group["purchase_log_sample"] > 0 and group["lane_role"] == preferred_lane and preferred_lane is not None),
+                                      group["purchase_log_sample"] == 0,
+                                      not (group["lane_role"] == preferred_lane and preferred_lane is not None),
+                                      group["lane_role"] is None,
+                                      -group["purchase_log_sample"], -group["sample"]))
         primary = next((group for group in groups if group["patch_id"] == patch), None)
         result.update(groups=groups, primary_lane_role=primary["lane_role"] if primary else None,
                       candidates=primary["candidates"] if primary else [],
@@ -640,7 +662,7 @@ def aggregate_builds(hero_id, details, catalog, ranked_players=None, now=None, _
 
 
 @router.get("/hero-guides/{hero_id}/builds")
-def hero_builds(hero_id: int = Path(ge=1, le=2000)):
+def hero_builds(hero_id: int = Path(ge=1, le=2000), prefer_cached: bool = False):
     key = f"ranked_builds:{hero_id}"
     def usable_cache(entry):
         if not entry or time.time() - entry["time"] >= entry["ttl"]:
@@ -655,6 +677,14 @@ def hero_builds(hero_id: int = Path(ge=1, le=2000)):
                 return False
         return not data.get("source", {}).get("stale") or _valid_saved_build(hero_id, data, current)
     cached = _cache.get(key)
+    if prefer_cached:
+        saved, origin = _build_fallback(hero_id, (cached or {}).get("data", {}), int(time.time()))
+        if saved:
+            payload = deepcopy(saved)
+            payload["source"].update(status="stale", stale=True, fallback_origin=origin,
+                                     cache_read_at=int(time.time()), rank_reverified_on_refresh=False,
+                                     freshness_note="本次直接读取24小时内的已核验公开证据，没有刷新或重新核验段位；原始采集与段位核验时间见记录。")
+            return payload
     if usable_cache(cached):
         return cached["data"]
     with _lock(key):
@@ -696,96 +726,190 @@ def hero_builds(hero_id: int = Path(ge=1, le=2000)):
                 request_count += 1
             options["timeout"] = Timeout(total=remaining, connect=min(3, remaining), read=min(options.get("timeout", 10), remaining))
             return _public_get(path, params, **options)
+        # Stored accounts are hints, never current rank evidence. Start their
+        # profile/history chains before exploratory reads can consume the budget.
+        previous_players = (cached or {}).get("data", {}).get("source", {}).get("players", [])[:PLAYER_LIMIT // 2]
+        for directory in (BUILD_CACHE_DIR, BUILD_SNAPSHOT_DIR):
+            saved = _read_saved_build(directory, hero_id, now)
+            if saved:
+                previous_players = [*previous_players, *saved["source"]["players"]]
+        previous_players = list({row["account_id"]: row for row in previous_players
+                                 if isinstance(row, dict) and type(row.get("account_id")) is int and row["account_id"] > 0}.values())[:PLAYER_LIMIT // 2]
+        params = {"hero_id": hero_id, "lobby_type": 7, "date": WINDOW_DAYS, "limit": HISTORY_LIMIT}
+        def verified_history(account_id):
+            profile, rank_failure = fetch(f"/players/{account_id}", timeout=10, attempts=1)
+            if rank_failure or not _verified_rank(profile, account_id):
+                return None, [], rank_failure, None
+            rank = {**profile, "checked_at": int(time.time())}
+            history, history_failure = fetch(f"/players/{account_id}/matches", params, timeout=10, attempts=1)
+            return rank, history, None, history_failure
+
+        # Bound concurrent chains so early replay reads have room alongside
+        # discovery. Every account and replay is scheduled once per refresh.
+        from concurrent.futures import FIRST_COMPLETED, wait
+        account_ids, account_queue, account_pending = [], [], set()
+        eligible, ranks, details_by_id = {}, {}, {}
+        detail_queue, detail_scheduled, detail_pending = [], set(), set()
+        pending, discovery_waiting, discovered_details = {}, set(), {}
+        recent, public_candidates, discovery_rows, active, leaders = [], [], [], [], []
+        recent_warning = rankings_warning = discovery_warning = False
+        rank_warning = history_warning = detail_warning = False
+        catalog_raw, patches, catalog_warning, patch_warning = None, None, None, None
+        feed_done = rankings_done = False
+        cursor = 0
+
+        def queue_accounts(rows, limit=PLAYER_LIMIT):
+            for row in rows:
+                account = row.get("account_id") if isinstance(row, dict) else None
+                if (type(account) is int and account > 0 and account not in account_ids and len(account_ids) < limit):
+                    account_ids.append(account)
+                    account_queue.append(account)
+
+        def queue_detail(row, priority=0):
+            match_id = str(row["match_id"])
+            if match_id not in detail_scheduled:
+                detail_scheduled.add(match_id)
+                detail_queue.append((priority, match_id))
+
         with ThreadPoolExecutor(max_workers=4) as pool:
-            # A sampled public feed reveals current hero accounts. The average
-            # tier only helps discovery; every account still needs its own
-            # freshly checked Immortal rank and positive leaderboard place.
-            recent_future = pool.submit(_public_feed, fetch, deadline)
-            rankings_future = pool.submit(fetch, "/rankings", {"hero_id": hero_id}, timeout=10, attempts=1)
-            catalog_future = pool.submit(fetch, "/constants/items", timeout=10, attempts=1)
-            patch_future = pool.submit(fetch, "/constants/patch", timeout=10, attempts=1)
-            recent, recent_warning = recent_future.result()
-            rankings, rankings_warning = rankings_future.result()
-            warn("public_feed", recent_warning)
-            warn("hero_rankings", rankings_warning)
-            public_candidates = [row for row in recent if isinstance(row, dict) and
-                                 any(isinstance(row.get(team), list) and hero_id in row[team] for team in ("radiant_team", "dire_team")) and
-                                 _recent_ranked({**row, "hero_id": hero_id}, hero_id, now)]
-            public_candidates.sort(key=lambda row: row["start_time"], reverse=True)
-            discovery_rows = public_candidates[:DISCOVERY_DETAIL_LIMIT]
-            discovery_results = [future.result() for future in [pool.submit(fetch, f"/matches/{row['match_id']}", timeout=8, attempts=1) for row in discovery_rows]]
-            active, discovered_details = [], {}
-            discovery_warning = False
-            for row, (detail, warning) in zip(discovery_rows, discovery_results):
-                warn("public_match_discovery", warning)
-                discovery_warning = discovery_warning or bool(warning)
-                if not isinstance(detail, dict) or str(detail.get("match_id")) != str(row["match_id"]):
-                    continue
-                player = next((player for player in detail.get("players") or [] if isinstance(player, dict) and player.get("hero_id") == hero_id), None)
-                if (player and type(player.get("account_id")) is int and player["account_id"] > 0 and
-                        _recent_ranked({**detail, "hero_id": hero_id}, hero_id, now)):
-                    active.append({"account_id": player["account_id"]})
-                    discovered_details[str(detail["match_id"])] = (player["account_id"], detail)
-            leaders = rankings.get("rankings", []) if isinstance(rankings, dict) and isinstance(rankings.get("rankings"), list) else []
-            cursor_key = f"ranked_discovery:{hero_id}"
-            cursor = _cache.get(cursor_key, {}).get("offset", 0) % max(1, len(leaders))
-            discovery = (leaders[cursor:] + leaders[:cursor])[:PLAYER_LIMIT]
-            # Retain successful public accounts, then explore the next bounded
-            # ranking page on cache refresh instead of repeatedly checking only
-            # the same inactive specialists.
-            previous_players = (cached or {}).get("data", {}).get("source", {}).get("players", [])[:PLAYER_LIMIT // 2]
-            # A cold instance can discover previously observed public accounts,
-            # but their stored rank never qualifies them: profiles below are
-            # checked again before any history or inventory enters this sample.
-            bundled = _read_saved_build(BUILD_SNAPSHOT_DIR, hero_id, now)
-            if bundled:
-                previous_players = [*previous_players, *bundled["source"]["players"]][:PLAYER_LIMIT // 2]
-            account_ids = list(dict.fromkeys(row["account_id"] for row in [*previous_players, *active, *discovery]
-                                            if isinstance(row, dict) and type(row.get("account_id")) is int and row["account_id"] > 0))[:PLAYER_LIMIT]
-            _cache[cursor_key] = {"offset": cursor + PLAYER_LIMIT}
-            rank_futures = {account_id: pool.submit(fetch, f"/players/{account_id}", timeout=10, attempts=1) for account_id in account_ids}
-            ranks, rank_warning = {}, False
-            for account_id, future in rank_futures.items():
-                profile, warning = future.result()
-                warn("rank_verification", warning)
-                rank_warning = rank_warning or bool(warning)
-                if not warning and _verified_rank(profile, account_id):
-                    ranks[account_id] = {**profile, "checked_at": int(time.time())}
-            params = {"hero_id": hero_id, "lobby_type": 7, "date": WINDOW_DAYS, "limit": HISTORY_LIMIT}
-            history_futures = {account_id: pool.submit(fetch, f"/players/{account_id}/matches", params, timeout=10, attempts=1) for account_id in ranks}
-            eligible = {match_id: {**detail, "hero_id": hero_id, "expected_account_id": account}
-                        for match_id, (account, detail) in discovered_details.items() if account in ranks}
-            history_warning = False
-            for account_id, future in history_futures.items():
-                history, warning = future.result()
-                warn("ranked_history", warning)
-                history_warning = history_warning or bool(warning)
-                for row in history if isinstance(history, list) else []:
-                    if (_recent_ranked(row, hero_id, now) and
-                            ("account_id" not in row or row["account_id"] == account_id)):
-                        eligible.setdefault(str(row["match_id"]), {**row, "expected_account_id": account_id})
+            def pump_accounts():
+                while account_queue and len(account_pending) < 2:
+                    account = account_queue.pop(0)
+                    account_pending.add(account)
+                    pending[pool.submit(verified_history, account)] = ("account", account)
+
+            def pump_details():
+                while detail_queue and len(detail_pending) < 2:
+                    # A slow exploration replay cannot occupy both replay slots
+                    # and hold already verified account histories behind it.
+                    queued = sorted(detail_queue, key=lambda entry: entry[0])
+                    choice = next((entry for entry in queued if entry[1] not in discovery_waiting or
+                                   not any(match_id in discovery_waiting for match_id in detail_pending)), None)
+                    if choice is None:
+                        break
+                    detail_queue.remove(choice)
+                    match_id = choice[1]
+                    detail_pending.add(match_id)
+                    pending[pool.submit(fetch, f"/matches/{match_id}", timeout=10, attempts=1)] = ("detail", match_id)
+
+            def finish_discovery_accounts():
+                if feed_done and rankings_done and not discovery_waiting:
+                    queue_accounts(leaders)
+
+            queue_accounts(previous_players)
+            pump_accounts()
+            pending[pool.submit(_public_feed, fetch, deadline)] = ("feed", None)
+            pending[pool.submit(fetch, "/rankings", {"hero_id": hero_id}, timeout=10, attempts=1)] = ("rankings", None)
+            pending[pool.submit(fetch, "/constants/items", timeout=10, attempts=1)] = ("items", None)
+            pending[pool.submit(fetch, "/constants/patch", timeout=10, attempts=1)] = ("patch", None)
+
+            def consume_pending():
+                nonlocal recent, recent_warning, rankings_warning, discovery_warning
+                nonlocal rank_warning, history_warning, detail_warning
+                nonlocal public_candidates, discovery_rows, leaders, cursor, feed_done, rankings_done
+                nonlocal catalog_raw, patches, catalog_warning, patch_warning
+                done, _ = wait(pending, return_when=FIRST_COMPLETED)
+                for future in done:
+                    kind, identity = pending.pop(future)
+                    if kind == "account":
+                        account_pending.remove(identity)
+                        rank, history, rank_failure, history_failure = future.result()
+                        warn("rank_verification", rank_failure)
+                        warn("ranked_history", history_failure)
+                        rank_warning = rank_warning or bool(rank_failure)
+                        history_warning = history_warning or bool(history_failure)
+                        if rank:
+                            ranks[identity] = rank
+                            for row in history if isinstance(history, list) else []:
+                                if (_recent_ranked(row, hero_id, now) and
+                                        ("account_id" not in row or row["account_id"] == identity)):
+                                    eligible.setdefault(str(row["match_id"]), {**row, "expected_account_id": identity})
+                            for match_id, (account, detail) in discovered_details.items():
+                                if account == identity:
+                                    eligible.setdefault(match_id, {**detail, "hero_id": hero_id, "expected_account_id": account})
+                            # At most two early replays per account leaves the
+                            # final round-robin selection room for other players.
+                            account_rows = {match_id: row for match_id, row in eligible.items()
+                                            if row["expected_account_id"] == identity}
+                            for row in _select_matches(account_rows)[:2]:
+                                queue_detail(row)
+                    elif kind == "feed":
+                        recent, recent_warning = future.result()
+                        recent = recent if isinstance(recent, list) else []
+                        warn("public_feed", recent_warning)
+                        public_candidates = [row for row in recent if isinstance(row, dict) and
+                                             any(isinstance(row.get(team), list) and hero_id in row[team] for team in ("radiant_team", "dire_team")) and
+                                             _recent_ranked({**row, "hero_id": hero_id}, hero_id, now)]
+                        public_candidates.sort(key=lambda row: row["start_time"], reverse=True)
+                        discovery_rows = public_candidates[:DISCOVERY_DETAIL_LIMIT]
+                        feed_done = True
+                        for row in discovery_rows:
+                            match_id = str(row["match_id"])
+                            if match_id not in details_by_id:
+                                discovery_waiting.add(match_id)
+                                queue_detail(row, priority=1)
+                    elif kind == "rankings":
+                        rankings, rankings_warning = future.result()
+                        warn("hero_rankings", rankings_warning)
+                        leaders = rankings.get("rankings", []) if isinstance(rankings, dict) and isinstance(rankings.get("rankings"), list) else []
+                        cursor_key = f"ranked_discovery:{hero_id}"
+                        cursor = _cache.get(cursor_key, {}).get("offset", 0) % max(1, len(leaders))
+                        leaders = leaders[cursor:] + leaders[:cursor]
+                        _cache[cursor_key] = {"offset": cursor + PLAYER_LIMIT}
+                        rankings_done = True
+                        # Begin a small ranking batch promptly, reserving account
+                        # slots for freshly discovered public participants.
+                        queue_accounts(leaders, limit=PLAYER_LIMIT // 2)
+                    elif kind == "detail":
+                        detail_pending.remove(identity)
+                        detail, warning = future.result()
+                        exploratory = identity in discovery_waiting
+                        if exploratory:
+                            discovery_waiting.remove(identity)
+                            discovery_warning = discovery_warning or bool(warning)
+                            warn("public_match_discovery", warning)
+                        else:
+                            detail_warning = detail_warning or bool(warning)
+                            warn("match_details", warning)
+                        if isinstance(detail, dict) and str(detail.get("match_id")) == identity:
+                            details_by_id[identity] = detail
+                            if exploratory and _recent_ranked({**detail, "hero_id": hero_id}, hero_id, now):
+                                player = next((player for player in detail.get("players") or []
+                                               if isinstance(player, dict) and player.get("hero_id") == hero_id), None)
+                                if player and type(player.get("account_id")) is int and player["account_id"] > 0:
+                                    account = player["account_id"]
+                                    active.append({"account_id": account})
+                                    discovered_details[identity] = (account, detail)
+                                    queue_accounts([{"account_id": account}])
+                                    if account in ranks:
+                                        eligible.setdefault(identity, {**detail, "hero_id": hero_id, "expected_account_id": account})
+                    elif kind == "items":
+                        catalog_raw, catalog_warning = future.result()
+                        warn("item_catalog", catalog_warning)
+                    elif kind == "patch":
+                        patches, patch_warning = future.result()
+                        warn("patch_catalog", patch_warning)
+                finish_discovery_accounts()
+                pump_details()
+                pump_accounts()
+
+            while pending or account_queue or detail_queue:
+                consume_pending()
             selected = _select_matches(eligible)
-            def selected_detail(row):
-                discovered = discovered_details.get(str(row["match_id"]))
-                if discovered and discovered[0] == row["expected_account_id"]:
-                    return discovered[1], None
-                return fetch(f"/matches/{row['match_id']}", timeout=10, attempts=1)
-            futures = [pool.submit(selected_detail, row) for row in selected]
-            results = [future.result() for future in futures]
-            details = [data for row, (data, _) in zip(selected, results) if isinstance(data, dict) and
-                       str(data.get("match_id")) == str(row["match_id"]) and any(
+            for row in selected:
+                queue_detail(row)
+            pump_details()
+            while pending or detail_queue:
+                consume_pending()
+            details = [detail for row in selected
+                       if isinstance((detail := details_by_id.get(str(row["match_id"]))), dict) and any(
                            isinstance(player, dict) and player.get("hero_id") == hero_id and
-                           player.get("account_id") == row["expected_account_id"] for player in data.get("players") or [])]
-            detail_warning = any(warning for _, warning in results)
-            for _, warning in results:
-                warn("match_details", warning)
-            catalog_raw, catalog_warning = catalog_future.result()
-            patches, patch_warning = patch_future.result()
-            warn("item_catalog", catalog_warning)
-            warn("patch_catalog", patch_warning)
+                           player.get("account_id") == row["expected_account_id"] for player in detail.get("players") or [])]
         payload = aggregate_builds(hero_id, details, _catalog(catalog_raw), ranks, now)
-        patch = next((patch for patch in (patches if isinstance(patches, list) else []) if isinstance(patch, dict) and patch.get("id") == payload["patch_id"]), None)
-        payload["patch_name"] = patch.get("name") if patch else None
+        payload["patch_names"] = {str(entry["id"]): entry["name"] for entry in (patches if isinstance(patches, list) else [])
+                                  if isinstance(entry, dict) and type(entry.get("id")) is int and
+                                  isinstance(entry.get("name"), str) and re.fullmatch(r"\d+\.\d+[a-z]?", entry["name"], re.I)}
+        payload["patch_name"] = payload["patch_names"].get(str(payload["patch_id"]))
         used = {match["account_id"] for match in payload["matches"]}
         players = [{"account_id": account_id, "name": rank["profile"].get("name") or rank["profile"].get("personaname") or str(account_id),
                     "rank_tier": rank["rank_tier"], "leaderboard_rank": rank["leaderboard_rank"], "checked_at": rank["checked_at"],
@@ -809,18 +933,21 @@ def hero_builds(hero_id: int = Path(ge=1, le=2000)):
                              "warnings": failures, "stale": False,
                              "lane_basis": "OpenDota replay lane_role; not positions 1–5",
                              "purchase_basis": "replay purchase_log only; first three observed major purchases"}
-        if warned and not payload["sample"]:
+        if warned:
             saved, origin = _build_fallback(hero_id, (cached or {}).get("data", {}), now)
-            if saved:
+            if saved and (not payload["sample"] or
+                          (saved.get("patch_id") == payload.get("patch_id") and _evidence_quality(saved) > _evidence_quality(payload))):
                 # Original capture and rank timestamps survive cold starts and
                 # repeated failed refreshes. Fallback never extends their age.
+                refresh_sample, refresh_logs = payload["sample"], payload.get("purchase_log_sample", 0)
                 payload = deepcopy(saved)
                 payload["source"].update(status="stale", stale=True, warnings=failures, refresh_attempted_at=now,
                                          elapsed_seconds=round(time.monotonic() - started, 2),
                                          requests_used=request_count, budget_exhausted=time.monotonic() >= deadline,
                                          fallback_origin=origin, rank_reverified_on_refresh=False,
+                                         refresh_sample=refresh_sample, refresh_purchase_log_sample=refresh_logs,
                                          freshness_note="历史公开样本，段位核验时间见原记录；本次刷新未重新核验。")
-        elif payload["sample"]:
+        if payload["sample"] and not payload["source"].get("stale"):
             _write_saved_build(hero_id, payload, int(time.time()))
         # Sparse but successful responses also cache for ten minutes: refreshing
         # an empty public history repeatedly cannot reveal a private history.
