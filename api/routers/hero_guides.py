@@ -646,7 +646,14 @@ def hero_builds(hero_id: int = Path(ge=1, le=2000)):
         if not entry or time.time() - entry["time"] >= entry["ttl"]:
             return False
         data = entry["data"]
-        return not data.get("source", {}).get("stale") or _valid_saved_build(hero_id, data, time.time())
+        current = time.time()
+        if data.get("sample", 0) > 0:
+            fetched = data.get("source", {}).get("fetched_at")
+            checked = [match.get("rank_checked_at") for match in data.get("matches", [])]
+            if (type(fetched) not in (int, float) or not 0 <= current - fetched <= BUILD_EVIDENCE_MAX_AGE or
+                    any(type(stamp) not in (int, float) or not 0 <= current - stamp <= BUILD_EVIDENCE_MAX_AGE for stamp in checked)):
+                return False
+        return not data.get("source", {}).get("stale") or _valid_saved_build(hero_id, data, current)
     cached = _cache.get(key)
     if usable_cache(cached):
         return cached["data"]
