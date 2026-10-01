@@ -279,6 +279,7 @@ export interface HeroMechanics {
     action: string;
     evidence: { skill: string; name: string; text: string }[];
   }[];
+  operating_guide?: HeroOperatingGuide | null;
   practice: {
     title: string;
     skills: string[];
@@ -297,7 +298,41 @@ export interface GuideItem {
   cost: number | null;
 }
 
+export interface HeroOperatingGuide {
+  kind: "editorial_practice";
+  source_urls: string[];
+  build_plan: {
+    label: string;
+    steps: { item: string; label: string; reason: string }[];
+    branches: { when: string; item: string; label: string; reason: string }[];
+    note: string;
+    source_url: string;
+  } | null;
+  sequences: {
+    title: string; when: string;
+    steps: { skill?: string; item?: string; label: string; detail: string }[];
+    cautions: string[];
+  }[];
+}
+
+export interface HeroBuildGroup {
+  patch_id: number | null; lane_role: number | null; lane_name: string;
+  position: null; position_verified: false;
+  sample: number; inventory_sample: number; players_count: number;
+  purchase_log_sample: number; missing_purchase_log_sample: number;
+  status: "observed" | "small_sample";
+  candidates: HeroBuilds["candidates"];
+  purchase_items: (GuideItem & { matches: number; sample: number; players_count: number; pick_rate: number; timing_sample: number; purchase_minute: number | null; example_matches: string[] })[];
+  purchase_branches: { slugs: string[]; items: GuideItem[]; matches: number; sample: number; players: number; frequency: number; example_matches: string[]; complete_prefix: boolean }[];
+  match_ids: string[];
+}
+
 export interface HeroBuilds {
+  groups?: HeroBuildGroup[];
+  primary_lane_role?: number | null;
+  players_count?: number;
+  purchase_log_sample?: number;
+
   candidates: (GuideItem & {
     matches: number;
     sample: number;
@@ -318,6 +353,8 @@ export interface HeroBuilds {
     rank_tier: number | null;
     leaderboard_rank: number | null;
     rank_checked_at: number | null;
+    patch_id?: number | null; lane_role?: number | null; lane_name?: string;
+    purchase_sequence?: (GuideItem & { time: number; minute: number })[];
     win: boolean | null;
     kills: number | null;
     deaths: number | null;
@@ -348,7 +385,10 @@ export interface HeroBuilds {
     position_verified: boolean;
     elapsed_seconds?: number;
     budget_exhausted?: boolean;
-    status: "ready" | "partial" | "unavailable" | "insufficient";
+    status: "ready" | "partial" | "unavailable" | "insufficient" | "stale";
+    stale?: boolean;
+    sample_status?: string;
+    warnings?: { stage: string; reason: string; http_status: number | null }[];
   };
 }
 
@@ -710,6 +750,7 @@ export interface PlayerDataQuality {
 }
 
 export interface PlayerDashboardData {
+  public_evidence?: { stale: boolean; fetched_at: number; refresh_attempted_at: number; source: string };
   profile: PlayerProfile;
   summary: PlayerSummary;
   recent_matches: PlayerMatch[];

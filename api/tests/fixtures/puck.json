@@ -1,0 +1,1219 @@
+{
+  "source_url": "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=13",
+  "fetched_at": 1790780232.822958,
+  "hero": {
+    "id": 13,
+    "name": "npc_dota_hero_puck",
+    "abilities": [
+      {
+        "name": "puck_illusory_orb",
+        "behavior": "1099511627792",
+        "is_item": false,
+        "ability_is_granted_by_scepter": false,
+        "ability_is_granted_by_shard": false,
+        "special_values": [
+          {
+            "name": "radius",
+            "values_float": [
+              225
+            ],
+            "is_percentage": false,
+            "heading_loc": "范围：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "max_distance",
+            "values_float": [
+              1950
+            ],
+            "is_percentage": false,
+            "heading_loc": "最大距离：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "orb_speed",
+            "values_float": [
+              750
+            ],
+            "is_percentage": false,
+            "heading_loc": "速度：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "orb_vision",
+            "values_float": [
+              450
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "vision_duration",
+            "values_float": [
+              2.5
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "damage",
+            "values_float": [
+              70,
+              140,
+              210,
+              280
+            ],
+            "is_percentage": false,
+            "heading_loc": "冲击伤害：",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_puck_orb_damage",
+                "value": 35,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "warning_sound_time",
+            "values_float": [
+              0.25
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "curve_orb",
+            "values_float": [
+              1
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "curve_orb_duration_multiplier",
+            "values_float": [
+              100
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "curve_orb_max_acceleration",
+            "values_float": [
+              0.0015
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "curve_orb_pullback_bonus_launch_speed",
+            "values_float": [
+              0.25
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "curve_strength",
+            "values_float": [
+              0.6
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "vector_reticle_distance",
+            "values_float": [
+              200
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "damage_over_time_pct",
+            "values_float": [
+              3
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "damage_interval",
+            "values_float": [
+              0.5
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "max_orb_duration_tooltip",
+            "values_float": [
+              5.2
+            ],
+            "is_percentage": false,
+            "heading_loc": "最大法球持续时间：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastRange",
+            "values_float": [
+              1950
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastPoint",
+            "values_float": [
+              0.1
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityManaCost",
+            "values_float": [
+              90,
+              100,
+              110,
+              120
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCooldown",
+            "values_float": [
+              12,
+              11,
+              10,
+              9
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          }
+        ]
+      },
+      {
+        "name": "puck_waning_rift",
+        "behavior": "48",
+        "is_item": false,
+        "ability_is_granted_by_scepter": false,
+        "ability_is_granted_by_shard": false,
+        "special_values": [
+          {
+            "name": "radius",
+            "values_float": [
+              400
+            ],
+            "is_percentage": false,
+            "heading_loc": "作用范围：",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_puck_rift_radius",
+                "value": 350,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "silence_duration",
+            "values_float": [
+              2,
+              2.5,
+              3,
+              3.5
+            ],
+            "is_percentage": false,
+            "heading_loc": "持续时间：",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_puck_7",
+                "value": 1.25,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "damage",
+            "values_float": [
+              60,
+              120,
+              180,
+              240
+            ],
+            "is_percentage": false,
+            "heading_loc": "伤害：",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_puck_6",
+                "value": 60,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "max_distance",
+            "values_float": [
+              350
+            ],
+            "is_percentage": false,
+            "heading_loc": "最大距离：",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_puck_rift_radius",
+                "value": 350,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "push_pull_enabled",
+            "values_float": [
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "puck_jostling_rift",
+              "values": [
+                1
+              ],
+              "operation": 5
+            },
+            "required_facet": "puck_jostling_rift"
+          },
+          {
+            "name": "knock_distance",
+            "values_float": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "推开/牵引距离：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "puck_jostling_rift",
+              "values": [
+                75,
+                100,
+                125,
+                150
+              ],
+              "operation": 0
+            },
+            "required_facet": "puck_jostling_rift"
+          },
+          {
+            "name": "knock_duration",
+            "values_float": [
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "推开/牵引持续时间：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "puck_jostling_rift",
+              "values": [
+                0.3
+              ],
+              "operation": 0
+            },
+            "required_facet": "puck_jostling_rift"
+          },
+          {
+            "name": "pull_distance",
+            "values_float": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "puck_jostling_rift",
+              "values": [
+                75,
+                100,
+                125,
+                150
+              ],
+              "operation": 0
+            },
+            "required_facet": "puck_jostling_rift"
+          },
+          {
+            "name": "pull_duration",
+            "values_float": [
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "puck_jostling_rift",
+              "values": [
+                0.3
+              ],
+              "operation": 0
+            },
+            "required_facet": "puck_jostling_rift"
+          },
+          {
+            "name": "AbilityCastPoint",
+            "values_float": [
+              0.1
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityManaCost",
+            "values_float": [
+              100,
+              110,
+              120,
+              130
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCooldown",
+            "values_float": [
+              16,
+              15,
+              14,
+              13
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_puck_2",
+                "value": 2.5,
+                "operation": 2
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          }
+        ]
+      },
+      {
+        "name": "puck_phase_shift",
+        "behavior": "33816708",
+        "is_item": false,
+        "ability_is_granted_by_scepter": false,
+        "ability_is_granted_by_shard": false,
+        "special_values": [
+          {
+            "name": "duration",
+            "values_float": [
+              1,
+              1.75,
+              2.5,
+              3.25
+            ],
+            "is_percentage": false,
+            "heading_loc": "持续时间：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "shard_attack_range_bonus",
+            "values_float": [
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [
+              0
+            ],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "shard_bonus_damage",
+            "values_float": [
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "额外伤害：",
+            "bonuses": [],
+            "values_shard": [
+              20
+            ],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityChannelTime",
+            "values_float": [
+              1,
+              1.75,
+              2.5,
+              3.25
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastPoint",
+            "values_float": [
+              0.01
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCooldown",
+            "values_float": [
+              8,
+              7.5,
+              7,
+              6.5
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          }
+        ]
+      },
+      {
+        "name": "puck_puckish",
+        "behavior": "2",
+        "is_item": false,
+        "ability_is_granted_by_scepter": false,
+        "ability_is_granted_by_shard": false,
+        "special_values": [
+          {
+            "name": "mana_and_health_restore_pct",
+            "values_float": [
+              3
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_puck_5",
+                "value": 2,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "dodged_spell_multiplier",
+            "values_float": [
+              3
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          }
+        ]
+      },
+      {
+        "name": "puck_dream_coil",
+        "behavior": "48",
+        "is_item": false,
+        "ability_is_granted_by_scepter": false,
+        "ability_is_granted_by_shard": false,
+        "special_values": [
+          {
+            "name": "coil_duration",
+            "values_float": [
+              5,
+              5.5,
+              6
+            ],
+            "is_percentage": false,
+            "heading_loc": "缠绕持续时间：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "coil_break_radius",
+            "values_float": [
+              600
+            ],
+            "is_percentage": false,
+            "heading_loc": "破碎范围：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "stun_duration",
+            "values_float": [
+              0.5
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "coil_initial_damage",
+            "values_float": [
+              175,
+              250,
+              325
+            ],
+            "is_percentage": false,
+            "heading_loc": "初始伤害：",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_puck_coil_damage",
+                "value": 200,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "coil_stun_duration",
+            "values_float": [
+              1.5,
+              2,
+              2.5
+            ],
+            "is_percentage": false,
+            "heading_loc": "破碎<font color='#2dd5e4'>眩晕</font>时间：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "coil_break_damage",
+            "values_float": [
+              200,
+              300,
+              400
+            ],
+            "is_percentage": false,
+            "heading_loc": "破碎伤害：",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_puck_coil_damage",
+                "value": 200,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "coil_radius",
+            "values_float": [
+              375
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "coil_rapid_fire_rate",
+            "values_float": [
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [
+              0.6
+            ],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "coil_rapid_fire_z_offset",
+            "values_float": [
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [
+              150
+            ],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "attack_rate_pct",
+            "values_float": [
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [
+              90
+            ],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastRange",
+            "values_float": [
+              750
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastPoint",
+            "values_float": [
+              0.1
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityManaCost",
+            "values_float": [
+              125,
+              175,
+              225
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCooldown",
+            "values_float": [
+              75
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_puck",
+                "value": 30,
+                "operation": 2
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          }
+        ]
+      }
+    ]
+  },
+  "abilities": [
+    {
+      "id": 5069,
+      "slug": "puck_illusory_orb",
+      "name": "幻象法球",
+      "icon": "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/puck_illusory_orb.png",
+      "kind": "主动",
+      "description": "以矢量为目标。帕克向路线方向发出一个魔法球，对经过路径上的敌人造成伤害。法球每0.5秒会在作用范围内额外造成3%击中伤害，但超过最大施法距离后法球会被摧毁。 在幻象法球飞行过程中，帕克可以使用灵动之翼来传送到法球所在的位置。 可以设为多样施法（右键点击技能栏图标），让法球的路线为向前的直线。",
+      "notes": [
+        "幻象法球在飞行途中提供顺畅视野。",
+        "将自己传送到幻象法球可以躲避攻击和技能弹道。"
+      ],
+      "scepter": "",
+      "shard": "",
+      "cooldowns": [
+        12,
+        11,
+        10,
+        9
+      ],
+      "mana_costs": [
+        90,
+        100,
+        110,
+        120
+      ]
+    },
+    {
+      "id": 5071,
+      "slug": "puck_waning_rift",
+      "name": "新月之痕",
+      "icon": "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/puck_waning_rift.png",
+      "kind": "主动",
+      "description": "帕克传送至目标地点洒出它神秘的仙女粉尘，对周围的敌人造成伤害和沉默。",
+      "notes": [],
+      "scepter": "",
+      "shard": "",
+      "cooldowns": [
+        16,
+        15,
+        14,
+        13
+      ],
+      "mana_costs": [
+        100,
+        110,
+        120,
+        130
+      ]
+    },
+    {
+      "id": 5072,
+      "slug": "puck_phase_shift",
+      "name": "相位转移",
+      "icon": "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/puck_phase_shift.png",
+      "kind": "持续施法",
+      "description": "持续施法 - 帕克暂时将自己转移到另一个位面，从而免疫伤害。",
+      "notes": [
+        "帕克在相位转移状态下依然具有碰撞体积。",
+        "进行任何动作都会中止相位转移。",
+        "帕克在相位转移状态下无敌。"
+      ],
+      "scepter": "",
+      "shard": "帕克的攻击造成额外魔法伤害。帕克每次施放相位转移时对攻击距离内所有敌人发动一次攻击。",
+      "cooldowns": [
+        8,
+        7.5,
+        7,
+        6.5
+      ],
+      "mana_costs": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": 1222,
+      "slug": "puck_puckish",
+      "name": "顽皮克敌",
+      "icon": "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/puck_puckish.png",
+      "kind": "先天",
+      "description": "每当帕克躲避攻击时，它就会分别回复最大生命值和最大魔法值的3%。躲避指向性技能的弹道将回复3倍数值。防御塔的攻击不会对此生效。",
+      "notes": [],
+      "scepter": "",
+      "shard": "",
+      "cooldowns": [
+        0
+      ],
+      "mana_costs": [
+        0
+      ]
+    },
+    {
+      "id": 5073,
+      "slug": "puck_dream_coil",
+      "name": "梦境缠绕",
+      "icon": "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/puck_dream_coil.png",
+      "kind": "主动",
+      "description": "创造一个变化无常的的魔法梦境来困住敌方英雄，对他们造成伤害和束缚。如果被困住的敌方英雄试图挣脱缠绕走出梦境，将因为梦境破碎而受到眩晕和额外伤害。",
+      "notes": [],
+      "scepter": "梦境缠绕作用下的所有敌人都会被帕克攻击，攻击频率基于帕克攻击频率的90%。即使目标挣脱梦境，被眩晕时攻击也会继续。",
+      "shard": "",
+      "cooldowns": [
+        75
+      ],
+      "mana_costs": [
+        125,
+        175,
+        225
+      ]
+    }
+  ]
+}

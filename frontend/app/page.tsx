@@ -2198,6 +2198,8 @@ export default function Home() {
   const [missionBusy, setMissionBusy] = useState(false);
   const [positionBusy, setPositionBusy] = useState("");
   const loadRequestRef = useRef(0);
+  const loadedPlayerKey = useRef("");
+  const visitedHeroTab = useRef(false);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -2241,8 +2243,14 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (activeTab === "pool") { visitedHeroTab.current = true; return; }
+    // A hero deep-link must not consume personal-data requests in the background.
+    if (!visitedHeroTab.current && new URLSearchParams(window.location.search).has("hero")) return;
+    const key = `${accountId}:${limit}`;
+    if (loadedPlayerKey.current === key) return;
+    loadedPlayerKey.current = key;
     void loadPlayer(accountId, limit);
-  }, [accountId, limit, loadPlayer]);
+  }, [accountId, limit, activeTab, loadPlayer]);
 
   useEffect(() => {
     let active = true;
@@ -2291,7 +2299,8 @@ export default function Home() {
       if (resolved) {
         setSearchResults([]);
         setError("");
-        setAccountId(resolved);
+        if (resolved === accountId) void loadPlayer(resolved, limit);
+        else setAccountId(resolved);
         return;
       }
 
@@ -2312,7 +2321,7 @@ export default function Home() {
         setLoading(false);
       }
     },
-    [query],
+    [query, accountId, limit, loadPlayer],
   );
 
   const pickPlayer = useCallback((nextAccountId: number) => {
@@ -2490,6 +2499,10 @@ export default function Home() {
         {error && <div className="rounded-lg border border-red-300/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">{error}</div>}
         <SearchResults results={searchResults} onPick={pickPlayer} />
         {!data && loading && <div className="cockpit-loading"><LoaderCircle size={20} className="animate-spin" /><div><div className="font-black text-stone-200">正在读取最近比赛</div><div className="mt-1 text-xs text-stone-500">比赛详情随后补全。</div></div></div>}</>}
+
+        {activeTab !== "pool" && data?.public_evidence?.stale && <div role="status" className="rounded-lg border border-yellow-300/20 bg-yellow-300/10 px-4 py-3 text-xs text-yellow-100">
+          数据源暂时不可用，保留 {data.updated_at}（北京时间）读取的公开记录；段位与比赛列表尚未刷新。可以再次点击查看重试。
+        </div>}
 
         {activeTab === "meta" && <GlobalMetaDashboard meta={meta} loading={metaLoading} error={metaError} />}
 

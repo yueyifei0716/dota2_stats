@@ -18,6 +18,7 @@ from fastapi import APIRouter, Body, Header, HTTPException, Query
 
 from fetch_dota_stats import HEROES_CN, HEROES_EN, get_hero_icon_url
 from routers.commercial import verify_access_token
+from services import public_player_cache
 from services.stats import get_item_icon_url, get_rank_name, get_rank_name_simple
 from services.training import load_position_labels, normalize_client_id, training_state
 
@@ -90,6 +91,7 @@ LOBBY_TYPES = {
 }
 
 _cache: Dict[str, Dict[str, Any]] = {}
+_upstream_failures: Dict[str, Dict[str, Any]] = {}
 _cache_locks: Dict[str, Lock] = {}
 _cache_locks_guard = Lock()
 
@@ -133,9 +135,23 @@ def _cached_get(path: str, params: Optional[Dict[str, Any]] = None, timeout: int
     cache_key = f"{path}:{sorted(params.items())}"
     cached = _cache.get(cache_key)
     now = time.time()
-    if cached and now - cached["time"] < CACHE_TTL:
+    ttl = 86400 if path == "/constants/items" else CACHE_TTL
+    if not cached and path == "/constants/items":
+        try:
+            recorded = json.loads((Path(__file__).resolve().parents[1] / "snapshots/opendota_items.json").read_text())
+            if isinstance(recorded.get("data"), dict) and 0 <= now - recorded.get("fetched_at", 0) < ttl:
+                cached = {"data": recorded["data"], "time": recorded["fetched_at"]}
+                _cache[cache_key] = cached
+        except (OSError, ValueError, TypeError):
+            pass
+    if cached and now - cached["time"] < ttl:
         return cached["data"], None
 
+    failed = _upstream_failures.get(cache_key)
+    if failed and now - failed["time"] < 60:
+        if cached and 0 <= now - cached["time"] <= 86400:
+            return cached["data"], f"{path} 暂时不可用，显示的是缓存数据"
+        return None, failed["warning"]
     warning = ""
     for attempt in range(attempts):
         try:
@@ -148,10 +164,12 @@ def _cached_get(path: str, params: Optional[Dict[str, Any]] = None, timeout: int
             response.raise_for_status()
             data = response.json()
             _cache[cache_key] = {"time": time.time(), "data": data}
+            _upstream_failures.pop(cache_key, None)
             return data, None
         except requests.HTTPError as exc:
             status = exc.response.status_code if exc.response is not None else "unknown"
-            return None, f"{path} returned HTTP {status}"
+            warning = f"{path} returned HTTP {status}"
+            break
         except requests.RequestException as exc:
             # 异常原文包含主机名与连接池细节，只写日志；warning 会渲染给用户。
             logger.warning("OpenDota %s request failed: %s", path, exc)
@@ -170,7 +188,11 @@ def _cached_get(path: str, params: Optional[Dict[str, Any]] = None, timeout: int
     # 全部尝试都失败。这里返回 None 会让调用方拼出一个「看起来正常但是错的」结果——
     # profile 取不到时用户名会退成 "Player <id>"、段位退成「未校准」，而胜负数据来自
     # 另一个接口照常显示，用户看不出这是故障。过期数据比假数据好。
-    if cached:
+    _upstream_failures[cache_key] = {"time": time.time(), "warning": warning or f"{path} request failed"}
+    if len(_upstream_failures) > 1024:
+        oldest = min(_upstream_failures, key=lambda key: _upstream_failures[key]["time"])
+        _upstream_failures.pop(oldest, None)
+    if cached and 0 <= time.time() - cached["time"] <= 86400:
         return cached["data"], f"{path} 暂时不可用，显示的是缓存数据"
     return None, warning or f"{path} request failed"
 
@@ -466,6 +488,12 @@ def _item_payload(item_id: Any, catalog: Optional[Dict[int, Dict[str, str]]] = N
 def _player_match_detail(account_id: int, match_id: str, item_catalog: Optional[Dict[int, Dict[str, str]]] = None) -> Tuple[str, Optional[Dict[str, Any]], Optional[str]]:
     data, warning = _cached_get(f"/matches/{match_id}", {"api_key": None}, timeout=8, attempts=1)
     if warning and not isinstance(data, dict):
+        record = public_player_cache.load(account_id)
+        cached_match = next((row for row in record["data"]["recent_matches"] if row.get("match_id") == str(match_id) and row.get("detail_available")), None) if record else None
+        if cached_match:
+            cached_match["detail_status"] = "ready"
+            cached_match["detail_fetched_at"] = record["fetched_at"]
+            return match_id, cached_match, warning + "；保留此前已核验的公开详情"
         return match_id, None, warning
     if not isinstance(data, dict):
         return match_id, None, f"/matches/{match_id} returned unexpected data"
@@ -1662,7 +1690,7 @@ def _fetch_player_sources(account_id: int, include_deep: bool = True, limit: int
     warnings: List[str] = []
     with ThreadPoolExecutor(max_workers=len(requests_to_make)) as executor:
         futures = {
-            executor.submit(_cached_get, path, params, timeout): key
+            executor.submit(_cached_get, path, params, min(timeout, 6), 1): key
             for key, (path, params, timeout) in requests_to_make.items()
         }
         for future in as_completed(futures):
@@ -1689,9 +1717,47 @@ def _empty_hero_meta() -> Dict[str, Any]:
     }
 
 
+def _snapshot_player_payload(account_id: int, limit: int, client_id: str, warnings: List[str], stage: str) -> Optional[Dict[str, Any]]:
+    record = public_player_cache.load(account_id)
+    if not record:
+        return None
+    saved = record["data"]
+    matches = saved["recent_matches"][:limit]
+    confirmed = _apply_confirmed_positions(account_id, client_id, matches)
+    verified = sum(match.get("position_source") == "stratz" for match in matches)
+    summary = _summary(matches)
+    hero_pool = _hero_pool(matches)
+    time_data, weekday_data = _time_analysis(matches)
+    lifetime = saved.get("lifetime_heroes", [])
+    hero_meta = saved.get("hero_meta") or _empty_hero_meta()
+    return {
+        "profile": saved["profile"], "summary": summary, "recent_matches": matches,
+        "hero_pool": hero_pool, "lifetime_heroes": lifetime, "hero_meta": hero_meta,
+        "meta_fit": _position_meta_fit(matches, hero_meta),
+        "build_signatures": _build_signatures(matches), "role_matrix": _role_matrix(matches),
+        "position_coverage": {"verified_matches": verified, "confirmed_matches": confirmed,
+            "covered_matches": verified + confirmed, "total_matches": len(matches),
+            "coverage_rate": _round((verified + confirmed) / len(matches) * 100) if matches else 0,
+            "source": "STRATZ Ranked Roles + 玩家确认"},
+        "rank_history": saved.get("rank_history", []), "rolling_winrate": _rolling_winrate(matches),
+        "time_analysis": time_data, "weekday_analysis": weekday_data, "counts": saved.get("counts", {}),
+        "coach": _coach_pack(summary, matches, hero_pool, lifetime, time_data, weekday_data),
+        "training": training_state(account_id, client_id, matches, hero_pool),
+        "data_quality": _data_quality(matches),
+        "warnings": [*warnings, "公开数据源暂时不可用，保留此前已核验的公开记录；段位和比赛列表尚未刷新。"],
+        "data_stage": stage,
+        "public_evidence": {"stale": True, "fetched_at": record["fetched_at"],
+            "refresh_attempted_at": time.time(), "source": record["source"]},
+        "updated_at": datetime.fromtimestamp(record["fetched_at"], tz=CN_TZ).strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+
 def _player_quick_payload(account_id: int, limit: int, client_id: str = "") -> Dict[str, Any]:
     sources, warnings = _fetch_player_sources(account_id, include_deep=False, limit=limit)
     if not isinstance(sources.get("recent"), list):
+        snapshot = _snapshot_player_payload(account_id, min(limit, 20), client_id, warnings, "quick")
+        if snapshot:
+            return snapshot
         raise HTTPException(503, "公开比赛列表暂时读取失败，请稍后重试")
     recent_matches = _aggregate_recent(sources.get("recent") if isinstance(sources.get("recent"), list) else [], min(limit, 20))
     confirmed_positions = _apply_confirmed_positions(account_id, client_id, recent_matches)
@@ -1700,7 +1766,7 @@ def _player_quick_payload(account_id: int, limit: int, client_id: str = "") -> D
     lifetime_heroes = _lifetime_heroes(sources.get("heroes"))
     time_data, weekday_data = _time_analysis(recent_matches)
 
-    return {
+    payload = {
         "profile": _profile(account_id, sources.get("profile") or {}, sources.get("wl") or {}),
         "summary": summary,
         "recent_matches": recent_matches,
@@ -1732,11 +1798,19 @@ def _player_quick_payload(account_id: int, limit: int, client_id: str = "") -> D
     }
 
 
+    if payload["profile"]["profile_available"] and isinstance(sources.get("wl"), dict) and not any(warning.startswith(f"/players/{account_id}") for warning in warnings):
+        public_player_cache.save(payload)
+    return payload
+
+
 def _player_dashboard_payload(account_id: int, limit: int, client_id: str = "") -> Dict[str, Any]:
     sources, warnings = _fetch_player_sources(account_id, include_deep=True, limit=limit)
     profile_raw = sources.get("profile")
     recent_raw = sources.get("recent")
     if not isinstance(recent_raw, list):
+        snapshot = _snapshot_player_payload(account_id, limit, client_id, warnings, "deep")
+        if snapshot:
+            return snapshot
         raise HTTPException(503, "公开比赛列表暂时读取失败，请稍后重试")
     wl_raw = sources.get("wl")
     heroes_raw = sources.get("heroes")
@@ -1764,7 +1838,7 @@ def _player_dashboard_payload(account_id: int, limit: int, client_id: str = "") 
     lifetime_heroes = _lifetime_heroes(heroes_raw)
     time_data, weekday_data = _time_analysis(recent_matches)
 
-    return {
+    payload = {
         "profile": _profile(account_id, profile_raw or {}, wl_raw or {}),
         "summary": summary,
         "recent_matches": recent_matches,
@@ -1794,6 +1868,11 @@ def _player_dashboard_payload(account_id: int, limit: int, client_id: str = "") 
         "data_stage": "deep",
         "updated_at": datetime.now(tz=CN_TZ).strftime("%Y-%m-%d %H:%M:%S"),
     }
+
+
+    if payload["profile"]["profile_available"] and isinstance(sources.get("wl"), dict) and not any(warning.startswith(f"/players/{account_id}") for warning in warnings):
+        public_player_cache.save(payload)
+    return payload
 
 
 def _review_match_sample(matches: List[Dict[str, Any]], limit: int = 20) -> List[Dict[str, Any]]:

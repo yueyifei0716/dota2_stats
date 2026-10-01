@@ -141,3 +141,26 @@ OpenDota API 文档：https://docs.opendota.com/
 Valve 中文技能数据：https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=7
 
 默认账号：`894447460`
+
+
+Hero guidance now puts editorial learning routes and mechanism-checked operation
+steps before the encyclopedia. Arc Warden has four operation flows and a mid-lane
+learning route with conditional items; Juggernaut, Sniper, Puck, Lina and Lifestealer
+have distinct operation flows. These are editorial, not measured optimal combos.
+Captured official mechanics retain their receipt and expire after 24 hours;
+stale mechanism data suppresses the new flows.
+
+Verified Immortal-player inventories and actual purchase-log branches are displayed
+directly, grouped by patch and replay lane. Replay lane is not position 1–5;
+rank 80 plus a positive leaderboard place does not establish 7000 MMR. Sampling
+has a 22-second shared budget and 52-read limit. Captured build evidence survives
+cold instances on refresh failure, keeping rank/source dates, 24-hour evidence
+expiry and a 14-day match window. The initial Arc receipt contains 8 matches from
+1 player; only 3 have purchase logs, so this remains a small sample.
+
+Personal recent-list failures retain bounded public evidence rather than returning
+a false no-games result. Public snapshots exclude training state and confirmed
+position labels, which are read again for the current client. Failures are cached
+briefly to avoid repeated waits; a bundled public receipt for the default account
+supports cold instances. No durable external database was added: other accounts
+need a successful initial upstream read; expired receipts are not current data.

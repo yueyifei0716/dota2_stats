@@ -1,0 +1,979 @@
+{
+  "source_url": "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=54",
+  "fetched_at": 1790780232.822958,
+  "hero": {
+    "id": 54,
+    "name": "npc_dota_hero_life_stealer",
+    "abilities": [
+      {
+        "name": "life_stealer_rage",
+        "behavior": "2052",
+        "is_item": false,
+        "ability_is_granted_by_scepter": false,
+        "ability_is_granted_by_shard": false,
+        "special_values": [
+          {
+            "name": "duration",
+            "values_float": [
+              3,
+              4,
+              5,
+              6
+            ],
+            "is_percentage": false,
+            "heading_loc": "持续时间：",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_lifestealer",
+                "value": 1,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "magic_resist",
+            "values_float": [
+              80
+            ],
+            "is_percentage": true,
+            "heading_loc": "魔法抗性：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "debuff_immunity",
+            "values_float": [
+              1
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "movespeed_bonus",
+            "values_float": [
+              6,
+              9,
+              12,
+              15
+            ],
+            "is_percentage": true,
+            "heading_loc": "移动速度加成：",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_lifestealer_rage_movespeed",
+                "value": 8,
+                "operation": 5
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityManaCost",
+            "values_float": [
+              80,
+              100,
+              120,
+              140
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCooldown",
+            "values_float": [
+              21,
+              20,
+              19,
+              18
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          }
+        ]
+      },
+      {
+        "name": "life_stealer_open_wounds",
+        "behavior": "8",
+        "is_item": false,
+        "ability_is_granted_by_scepter": false,
+        "ability_is_granted_by_shard": false,
+        "special_values": [
+          {
+            "name": "duration",
+            "values_float": [
+              7
+            ],
+            "is_percentage": false,
+            "heading_loc": "持续时间：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "slow_steps",
+            "values_float": [
+              -50,
+              -50,
+              -40,
+              -30,
+              -20,
+              -10,
+              -10,
+              -10
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "heal_percent",
+            "values_float": [
+              20,
+              30,
+              40,
+              50
+            ],
+            "is_percentage": true,
+            "heading_loc": "伤害转为<font color='#07d738'>治疗</font>：",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_lifestealer_6",
+                "value": 25,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "spread_radius",
+            "values_float": [
+              700
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "slow_step_pct_of_max",
+            "values_float": [
+              100
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "slow_tooltip",
+            "values_float": [
+              50
+            ],
+            "is_percentage": true,
+            "heading_loc": "最大减速：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "attack_speed_on_target",
+            "values_float": [],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_lifestealer_4",
+                "value": 50,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastRange",
+            "values_float": [
+              300,
+              400,
+              500,
+              600
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastPoint",
+            "values_float": [
+              0.2
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityManaCost",
+            "values_float": [
+              90
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCooldown",
+            "values_float": [
+              30,
+              25,
+              20,
+              15
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          }
+        ]
+      },
+      {
+        "name": "life_stealer_feast",
+        "behavior": "2",
+        "is_item": false,
+        "ability_is_granted_by_scepter": false,
+        "ability_is_granted_by_shard": false,
+        "special_values": [
+          {
+            "name": "hp_leech_percent",
+            "values_float": [
+              1.45,
+              2.05,
+              2.65,
+              3.25
+            ],
+            "is_percentage": true,
+            "heading_loc": "来自目标最大生命值的<font color='#07d738'>治疗</font>：",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_lifestealer_3",
+                "value": 1,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "hp_damage_percent",
+            "values_float": [
+              1.45,
+              2.05,
+              2.65,
+              3.25
+            ],
+            "is_percentage": true,
+            "heading_loc": "最大生命值伤害：",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_lifestealer_3",
+                "value": 1,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "creep_deny_percent",
+            "values_float": [
+              50
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "bonus_hp_per_hero",
+            "values_float": [
+              10
+            ],
+            "is_percentage": false,
+            "heading_loc": "击杀英雄获得生命上限：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "bonus_hp_per_creep",
+            "values_float": [
+              1
+            ],
+            "is_percentage": false,
+            "heading_loc": "击杀非英雄获得生命上限：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "bonus_hp_total",
+            "values_float": [
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "永久生命上限：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          }
+        ]
+      },
+      {
+        "name": "life_stealer_ghoul_frenzy",
+        "behavior": "562949953421379",
+        "is_item": false,
+        "ability_is_granted_by_scepter": false,
+        "ability_is_granted_by_shard": false,
+        "special_values": [
+          {
+            "name": "movement_speed_bonus",
+            "values_float": [
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "attack_speed_bonus",
+            "values_float": [
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "攻击速度加成：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          }
+        ]
+      },
+      {
+        "name": "life_stealer_infest",
+        "behavior": "33554440",
+        "is_item": false,
+        "ability_is_granted_by_scepter": false,
+        "ability_is_granted_by_shard": false,
+        "special_values": [
+          {
+            "name": "radius",
+            "values_float": [
+              700
+            ],
+            "is_percentage": false,
+            "heading_loc": "伤害范围：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "damage",
+            "values_float": [
+              150,
+              275,
+              400
+            ],
+            "is_percentage": false,
+            "heading_loc": "伤害：",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_lifestealer_infest_damage",
+                "value": 175,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "bonus_movement_speed",
+            "values_float": [
+              15,
+              20,
+              25
+            ],
+            "is_percentage": true,
+            "heading_loc": "移动速度：",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_lifestealer_infest_target_bonus",
+                "value": 12,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "bonus_health",
+            "values_float": [
+              400,
+              800,
+              1200
+            ],
+            "is_percentage": false,
+            "heading_loc": "额外生命值：",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_lifestealer_infest_target_bonus",
+                "value": 15,
+                "operation": 3
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "self_regen",
+            "values_float": [
+              3,
+              4,
+              5
+            ],
+            "is_percentage": true,
+            "heading_loc": "自身最大生命值每秒恢复：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [
+              100
+            ],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "infest_duration_enemy",
+            "values_float": [
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "对敌持续时间：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [
+              4
+            ],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "attack_rate_enemy",
+            "values_float": [
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "攻击间隔：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [
+              1
+            ],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "creep_max_hp_drain_pct_per_second",
+            "values_float": [
+              1.5,
+              0.75,
+              0
+            ],
+            "is_percentage": true,
+            "heading_loc": "生物每秒最大生命值流失：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "can_target_ancients",
+            "values_float": [
+              1
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "dot_damage_as_pct_of_damage_dealt",
+            "values_float": [
+              0
+            ],
+            "is_percentage": true,
+            "heading_loc": "剩余生命值作为总伤害：",
+            "bonuses": [],
+            "values_shard": [
+              30
+            ],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "dot_duration",
+            "values_float": [
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "持续伤害时间：",
+            "bonuses": [],
+            "values_shard": [
+              3
+            ],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "dot_tick_interval",
+            "values_float": [
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [
+              1
+            ],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastRange",
+            "values_float": [
+              150
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [
+              250
+            ],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastPoint",
+            "values_float": [
+              0.2
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityManaCost",
+            "values_float": [
+              100,
+              125,
+              150
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCooldown",
+            "values_float": [
+              80,
+              65,
+              50
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [
+              20
+            ],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          }
+        ]
+      }
+    ]
+  },
+  "abilities": [
+    {
+      "id": 5249,
+      "slug": "life_stealer_rage",
+      "name": "狂暴",
+      "icon": "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/life_stealer_rage.png",
+      "kind": "主动",
+      "description": "进入狂暴状态，变成减益免疫，提升魔法抗性和移动速度。 驱散类型：弱驱散",
+      "notes": [],
+      "scepter": "",
+      "shard": "",
+      "cooldowns": [
+        21,
+        20,
+        19,
+        18
+      ],
+      "mana_costs": [
+        80,
+        100,
+        120,
+        140
+      ]
+    },
+    {
+      "id": 5251,
+      "slug": "life_stealer_open_wounds",
+      "name": "撕裂伤口",
+      "icon": "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/life_stealer_open_wounds.png",
+      "kind": "主动",
+      "description": "噬魂鬼撕裂一个敌方单位，减缓受害者的移动速度，并使所有友军在攻击该单位时根据造成的伤害回复一定比例的生命。受害者在持续时间内逐渐恢复移动速度。",
+      "notes": [
+        "撕裂伤口的减速有8个独立的阶段：50%/50%/40%/30%/20%/10%/10%/10%，每过一秒就会进入下个阶段，减速效果不断降低。",
+        "治疗数值会被噬魂鬼的生命回复增强效果提升。"
+      ],
+      "scepter": "",
+      "shard": "",
+      "cooldowns": [
+        30,
+        25,
+        20,
+        15
+      ],
+      "mana_costs": [
+        90
+      ]
+    },
+    {
+      "id": 5250,
+      "slug": "life_stealer_feast",
+      "name": "盛宴",
+      "icon": "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/life_stealer_feast.png",
+      "kind": "被动",
+      "description": "噬魂鬼每次攻击时还会根据目标最大生命值的一定百分比造成伤害，同时获得治疗。每次击杀单位他都会获得永久生命上限。",
+      "notes": [
+        "对友军和敌人有效。对肉山无效。",
+        "回复量与造成伤害相互独立。",
+        "破坏会使技能无法获得新的叠加效果。"
+      ],
+      "scepter": "",
+      "shard": "",
+      "cooldowns": [
+        0
+      ],
+      "mana_costs": [
+        0
+      ]
+    },
+    {
+      "id": 631,
+      "slug": "life_stealer_ghoul_frenzy",
+      "name": "尸鬼狂怒",
+      "icon": "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/life_stealer_ghoul_frenzy.png",
+      "kind": "先天",
+      "description": "被动提升噬魂鬼的攻击速度。",
+      "notes": [],
+      "scepter": "",
+      "shard": "",
+      "cooldowns": [
+        0
+      ],
+      "mana_costs": [
+        0
+      ]
+    },
+    {
+      "id": 5252,
+      "slug": "life_stealer_infest",
+      "name": "感染",
+      "icon": "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/life_stealer_infest.png",
+      "kind": "主动",
+      "description": "噬魂鬼进入目标单位的身体，无法被察觉，而且自身在体内时每秒恢复最大生命值的一定百分比。接着可以从宿主体内现身，对周围所有敌方单位造成伤害。如果被感染单位是敌方非英雄单位或中立生物，噬魂鬼可以控制其进行移动和攻击，而且该生物会持续失去最大生命值的一部分。无法对敌方英雄生效。 驱散类型：弱驱散",
+      "notes": [
+        "噬魂鬼在感染一个单位期间能够从周围死亡的单位身上获得经验。",
+        "被感染控制的单位会获得感染的移动速度加成。",
+        "不会触发法术反弹。"
+      ],
+      "scepter": "提升施法距离并且冷却时间降低至对应数值秒。感染可以对敌方英雄施放，持续时间较短，并在他们体内发动攻击，同时提升噬魂鬼的恢复速率。",
+      "shard": "吞噬感染的中立生物会使敌人沾满鲜血，根据宿主的剩余生命值造成持续伤害。",
+      "cooldowns": [
+        80,
+        65,
+        50
+      ],
+      "mana_costs": [
+        100,
+        125,
+        150
+      ]
+    }
+  ]
+}

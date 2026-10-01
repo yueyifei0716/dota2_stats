@@ -1,0 +1,935 @@
+{
+  "source_url": "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=8",
+  "fetched_at": 1790780232.822958,
+  "hero": {
+    "id": 8,
+    "name": "npc_dota_hero_juggernaut",
+    "abilities": [
+      {
+        "name": "juggernaut_blade_fury",
+        "behavior": "4196356",
+        "is_item": false,
+        "ability_is_granted_by_scepter": false,
+        "ability_is_granted_by_shard": false,
+        "special_values": [
+          {
+            "name": "blade_fury_damage",
+            "values_float": [
+              85,
+              115,
+              145,
+              175
+            ],
+            "is_percentage": false,
+            "heading_loc": "每秒造成伤害：",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_juggernaut",
+                "value": 120,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "blade_fury_damage_tick",
+            "values_float": [
+              0.2
+            ],
+            "is_percentage": false,
+            "heading_loc": "伤害频率：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "blade_fury_radius",
+            "values_float": [
+              260
+            ],
+            "is_percentage": false,
+            "heading_loc": "作用范围：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "duration",
+            "values_float": [
+              5
+            ],
+            "is_percentage": false,
+            "heading_loc": "持续时间：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "bonus_movespeed",
+            "values_float": [],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_juggernaut_blade_fury_movespeed",
+                "value": 45,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "immunity_resist",
+            "values_float": [
+              80
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityManaCost",
+            "values_float": [
+              110
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCooldown",
+            "values_float": [
+              30,
+              26,
+              22,
+              18
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          }
+        ]
+      },
+      {
+        "name": "juggernaut_healing_ward",
+        "behavior": "48",
+        "is_item": false,
+        "ability_is_granted_by_scepter": false,
+        "ability_is_granted_by_shard": false,
+        "special_values": [
+          {
+            "name": "healing_ward_heal_amount",
+            "values_float": [
+              2,
+              3,
+              4,
+              5
+            ],
+            "is_percentage": true,
+            "heading_loc": "每秒最大生命值回复：",
+            "bonuses": [],
+            "values_shard": [
+              1.5
+            ],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "healing_ward_aura_radius",
+            "values_float": [
+              400
+            ],
+            "is_percentage": false,
+            "heading_loc": "作用范围：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "healing_ward_movespeed_tooltip",
+            "values_float": [
+              325
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "healing_ward_bonus_health",
+            "values_float": [
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [
+              1
+            ],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "healing_ward_hits_to_kill_tooltip",
+            "values_float": [
+              1
+            ],
+            "is_percentage": false,
+            "heading_loc": "摧毁所需次数：",
+            "bonuses": [],
+            "values_shard": [
+              1
+            ],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastRange",
+            "values_float": [
+              350
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityDuration",
+            "values_float": [
+              18,
+              20,
+              22,
+              24
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastPoint",
+            "values_float": [
+              0.3
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityManaCost",
+            "values_float": [
+              120
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCooldown",
+            "values_float": [
+              60
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_juggernaut_5",
+                "value": 12,
+                "operation": 2
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          }
+        ]
+      },
+      {
+        "name": "juggernaut_blade_dance",
+        "behavior": "2",
+        "is_item": false,
+        "ability_is_granted_by_scepter": false,
+        "ability_is_granted_by_shard": false,
+        "special_values": [
+          {
+            "name": "blade_dance_crit_chance",
+            "values_float": [
+              35
+            ],
+            "is_percentage": true,
+            "heading_loc": "致命一击概率：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "blade_dance_crit_mult",
+            "values_float": [
+              140,
+              160,
+              180,
+              200
+            ],
+            "is_percentage": true,
+            "heading_loc": "致命一击伤害：",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_juggernaut_4",
+                "value": 15,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "blade_dance_lifesteal",
+            "values_float": [],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_juggernaut_blade_dance_lifesteal",
+                "value": 40,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          }
+        ]
+      },
+      {
+        "name": "juggernaut_swift_slash",
+        "behavior": "8623489033",
+        "is_item": false,
+        "ability_is_granted_by_scepter": true,
+        "ability_is_granted_by_shard": false,
+        "special_values": [
+          {
+            "name": "duration",
+            "values_float": [
+              1
+            ],
+            "is_percentage": false,
+            "heading_loc": "持续时间：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastRange",
+            "values_float": [
+              450
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastPoint",
+            "values_float": [
+              0.3
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityManaCost",
+            "values_float": [
+              150
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCooldown",
+            "values_float": [
+              25
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          }
+        ]
+      },
+      {
+        "name": "juggernaut_bladeform",
+        "behavior": "8796093022210",
+        "is_item": false,
+        "ability_is_granted_by_scepter": false,
+        "ability_is_granted_by_shard": false,
+        "special_values": [
+          {
+            "name": "max_stacks",
+            "values_float": [
+              10
+            ],
+            "is_percentage": false,
+            "heading_loc": "最大叠加层数：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "stack_gain_time",
+            "values_float": [
+              2
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_juggernaut_3",
+                "value": 1,
+                "operation": 2
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "agi_bonus_pct_per_stack",
+            "values_float": [
+              2.5
+            ],
+            "is_percentage": true,
+            "heading_loc": "每层叠加基础敏捷：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "movement_speed_pct_per_stack",
+            "values_float": [
+              1
+            ],
+            "is_percentage": true,
+            "heading_loc": "每层叠加移动速度：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "linger_duration",
+            "values_float": [
+              2
+            ],
+            "is_percentage": false,
+            "heading_loc": "粘滞持续时间：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          }
+        ]
+      },
+      {
+        "name": "juggernaut_omni_slash",
+        "behavior": "33554440",
+        "is_item": false,
+        "ability_is_granted_by_scepter": false,
+        "ability_is_granted_by_shard": false,
+        "special_values": [
+          {
+            "name": "attack_rate_multiplier",
+            "values_float": [
+              1.4
+            ],
+            "is_percentage": false,
+            "heading_loc": "斩击频率倍数：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "bonus_damage",
+            "values_float": [
+              25,
+              30,
+              35
+            ],
+            "is_percentage": false,
+            "heading_loc": "攻击力加成：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "bonus_attack_speed",
+            "values_float": [
+              40
+            ],
+            "is_percentage": false,
+            "heading_loc": "攻击速度加成：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "duration",
+            "values_float": [
+              3,
+              3.25,
+              3.5
+            ],
+            "is_percentage": false,
+            "heading_loc": "持续时间：",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_juggernaut_omnislash_duration",
+                "value": 1,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "omni_slash_radius",
+            "values_float": [
+              425
+            ],
+            "is_percentage": false,
+            "heading_loc": "斩击跳跃范围：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastRange",
+            "values_float": [
+              450
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastPoint",
+            "values_float": [
+              0.3
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityManaCost",
+            "values_float": [
+              200,
+              275,
+              350
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCooldown",
+            "values_float": [
+              120
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_juggernaut_omnislash_cooldown",
+                "value": 15,
+                "operation": 2
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          }
+        ]
+      }
+    ]
+  },
+  "abilities": [
+    {
+      "id": 5028,
+      "slug": "juggernaut_blade_fury",
+      "name": "剑刃风暴",
+      "icon": "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/juggernaut_blade_fury.png",
+      "kind": "主动",
+      "description": "舞起具有破坏性力量的剑刃风暴，使主宰获得减益免疫状态，魔法抗性提升80%，并且每0.2秒对主宰周围的敌方单位造成伤害。旋转结束时施加强驱散效果。",
+      "notes": [
+        "剑刃风暴期间可以使用物品。",
+        "主宰在施放剑刃风暴的过程中依然可以进行物理攻击。但是只有不受剑刃风暴伤害的单位，如守卫和建筑才会受到这些物理伤害。"
+      ],
+      "scepter": "提升作用范围并减速范围内的敌人。 主宰每对应数值秒对作用的敌人发动一次攻击。",
+      "shard": "",
+      "cooldowns": [
+        30,
+        26,
+        22,
+        18
+      ],
+      "mana_costs": [
+        110
+      ]
+    },
+    {
+      "id": 5029,
+      "slug": "juggernaut_healing_ward",
+      "name": "治疗守卫",
+      "icon": "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/juggernaut_healing_ward.png",
+      "kind": "主动",
+      "description": "召唤一个治疗守卫，按周围友军单位最大生命值的一定比例治疗他们。治疗守卫可以移动，移动速度为325。持续对应数值秒。",
+      "notes": [
+        "可以控制治疗守卫。",
+        "多个治疗守卫的效果不会叠加。"
+      ],
+      "scepter": "",
+      "shard": "提升守卫的治疗量和生命值。",
+      "cooldowns": [
+        60
+      ],
+      "mana_costs": [
+        120
+      ]
+    },
+    {
+      "id": 5027,
+      "slug": "juggernaut_blade_dance",
+      "name": "剑舞",
+      "icon": "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/juggernaut_blade_dance.png",
+      "kind": "被动",
+      "description": "主宰有一定概率在攻击时触发致命一击。",
+      "notes": [],
+      "scepter": "",
+      "shard": "",
+      "cooldowns": [
+        0
+      ],
+      "mana_costs": [
+        0
+      ]
+    },
+    {
+      "id": 419,
+      "slug": "juggernaut_swift_slash",
+      "name": "迅风斩",
+      "icon": "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/juggernaut_swift_slash.png",
+      "kind": "主动",
+      "description": "发动一次短时间的无敌斩，持续1秒。",
+      "notes": [],
+      "scepter": "",
+      "shard": "",
+      "cooldowns": [
+        25
+      ],
+      "mana_costs": [
+        150
+      ]
+    },
+    {
+      "id": 1210,
+      "slug": "juggernaut_bladeform",
+      "name": "剑心犹在",
+      "icon": "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/juggernaut_bladeform.png",
+      "kind": "先天",
+      "description": "主宰未受到伤害时每2秒获得一层剑心的叠加层数。每层叠加效果提供基础敏捷和移动速度加成。叠加效果在受到任何伤害时会粘滞2秒后再消失。",
+      "notes": [
+        "破坏会使技能无法获得新的叠加效果。",
+        "破坏不会使现有叠加效果提供的加成失效。"
+      ],
+      "scepter": "",
+      "shard": "",
+      "cooldowns": [
+        0
+      ],
+      "mana_costs": [
+        0
+      ]
+    },
+    {
+      "id": 5030,
+      "slug": "juggernaut_omni_slash",
+      "name": "无敌斩",
+      "icon": "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/juggernaut_omni_slash.png",
+      "kind": "主动",
+      "description": "主宰挥剑跃向敌方目标单位，随后再以更短的攻击频率斩击该单位和附近的其它敌方单位。主宰在无敌斩期间无敌。 驱散类型：弱驱散",
+      "notes": [
+        "无敌斩期间可以使用物品。"
+      ],
+      "scepter": "",
+      "shard": "",
+      "cooldowns": [
+        120
+      ],
+      "mana_costs": [
+        200,
+        275,
+        350
+      ]
+    }
+  ]
+}

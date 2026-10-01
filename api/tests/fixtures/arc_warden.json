@@ -1,0 +1,1184 @@
+{
+  "source_url": "https://www.dota2.com/datafeed/herodata?language=schinese&hero_id=113",
+  "fetched_at": "2026-10-01, parent session",
+  "hero": {
+    "id": 113,
+    "name": "npc_dota_hero_arc_warden",
+    "abilities": [
+      {
+        "name": "arc_warden_flux",
+        "behavior": "8",
+        "is_item": false,
+        "ability_is_granted_by_scepter": false,
+        "ability_is_granted_by_shard": false,
+        "special_values": [
+          {
+            "name": "duration",
+            "values_float": [
+              6
+            ],
+            "is_percentage": false,
+            "heading_loc": "持续时间：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [
+              2
+            ],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "search_radius",
+            "values_float": [
+              225
+            ],
+            "is_percentage": false,
+            "heading_loc": "友军搜寻范围：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "think_interval",
+            "values_float": [
+              0.5
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "damage_per_second",
+            "values_float": [
+              15,
+              30,
+              45,
+              60
+            ],
+            "is_percentage": false,
+            "heading_loc": "每秒伤害：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [
+              50
+            ],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "move_speed_slow_pct",
+            "values_float": [
+              20,
+              25,
+              30,
+              35
+            ],
+            "is_percentage": true,
+            "heading_loc": "移动速度减缓：",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_arc_warden_4",
+                "value": 20,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "applies_silence",
+            "values_float": [
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [
+              1
+            ],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastRange",
+            "values_float": [
+              625,
+              700,
+              775,
+              850
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_arc_warden_5",
+                "value": 200,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastPoint",
+            "values_float": [
+              0.3
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityManaCost",
+            "values_float": [
+              75
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCooldown",
+            "values_float": [
+              16
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          }
+        ]
+      },
+      {
+        "name": "arc_warden_magnetic_field",
+        "behavior": "4429185072",
+        "is_item": false,
+        "ability_is_granted_by_scepter": false,
+        "ability_is_granted_by_shard": false,
+        "special_values": [
+          {
+            "name": "radius",
+            "values_float": [
+              300
+            ],
+            "is_percentage": false,
+            "heading_loc": "作用范围：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "duration",
+            "values_float": [
+              4,
+              5,
+              6,
+              7
+            ],
+            "is_percentage": false,
+            "heading_loc": "持续时间：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "attack_speed_bonus",
+            "values_float": [
+              30,
+              60,
+              90,
+              120
+            ],
+            "is_percentage": false,
+            "heading_loc": "攻击速度加成：",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_arc_warden_3",
+                "value": 25,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "evasion_chance",
+            "values_float": [
+              100
+            ],
+            "is_percentage": true,
+            "heading_loc": "闪避加成：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "rune_pull_strength",
+            "values_float": [
+              100
+            ],
+            "is_percentage": false,
+            "heading_loc": "神符牵引拉力：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "rune_pull_max_speed_as_multiplier_of_pull_strength",
+            "values_float": [
+              4
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "rune_pull_falloff_multiplier",
+            "values_float": [
+              3
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "rune_pull_radius",
+            "values_float": [
+              800,
+              1200,
+              1600,
+              2000
+            ],
+            "is_percentage": false,
+            "heading_loc": "神符牵引范围：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "rune_activate_radius_buffer",
+            "values_float": [
+              30
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastRange",
+            "values_float": [
+              900
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastPoint",
+            "values_float": [
+              0.3
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityManaCost",
+            "values_float": [
+              60,
+              70,
+              80,
+              90
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCooldown",
+            "values_float": [
+              20,
+              19,
+              18,
+              17
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_arc_warden_9",
+                "value": 4,
+                "operation": 2
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          }
+        ]
+      },
+      {
+        "name": "arc_warden_spark_wraith",
+        "behavior": "48",
+        "is_item": false,
+        "ability_is_granted_by_scepter": false,
+        "ability_is_granted_by_shard": false,
+        "special_values": [
+          {
+            "name": "radius",
+            "values_float": [
+              375
+            ],
+            "is_percentage": false,
+            "heading_loc": "搜寻范围：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "duration",
+            "values_float": [
+              16
+            ],
+            "is_percentage": false,
+            "heading_loc": "持续时间：",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_arc_warden_7",
+                "value": 30,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "move_speed_slow_pct",
+            "values_float": [
+              100
+            ],
+            "is_percentage": true,
+            "heading_loc": "移动速度减缓：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "base_activation_delay",
+            "values_float": [
+              1.5
+            ],
+            "is_percentage": false,
+            "heading_loc": "启动延迟：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "spark_damage_base",
+            "values_float": [
+              100,
+              170,
+              240,
+              310
+            ],
+            "is_percentage": false,
+            "heading_loc": "伤害：",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_arc_warden",
+                "value": 240,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "wraith_speed_base",
+            "values_float": [
+              550
+            ],
+            "is_percentage": false,
+            "heading_loc": "幽魂速度：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "ministun_duration",
+            "values_float": [
+              0.7,
+              0.8,
+              0.9,
+              1
+            ],
+            "is_percentage": false,
+            "heading_loc": "减速持续时间：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "think_interval",
+            "values_float": [
+              0.2
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "wraith_vision_radius",
+            "values_float": [
+              300
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "wraith_vision_duration",
+            "values_float": [
+              3.34
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "maximum_targets",
+            "values_float": [
+              1
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastRange",
+            "values_float": [
+              2000
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastPoint",
+            "values_float": [
+              0.3
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityManaCost",
+            "values_float": [
+              80
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCooldown",
+            "values_float": [
+              4
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          }
+        ]
+      },
+      {
+        "name": "arc_warden_runic_infusion",
+        "behavior": "567347999932419",
+        "is_item": false,
+        "ability_is_granted_by_scepter": false,
+        "ability_is_granted_by_shard": false,
+        "special_values": [
+          {
+            "name": "water_bounty_rune_duration_pct",
+            "values_float": [
+              67
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "bonus_stacks_per_rune_pickup",
+            "values_float": [
+              1
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "all_attribute_bonus_per_stack",
+            "values_float": [
+              1.5
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [
+              {
+                "name": "special_bonus_unique_arc_warden_8",
+                "value": 1,
+                "operation": 0
+              }
+            ],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          }
+        ]
+      },
+      {
+        "name": "arc_warden_tempest_double",
+        "behavior": "16",
+        "is_item": false,
+        "ability_is_granted_by_scepter": false,
+        "ability_is_granted_by_shard": false,
+        "special_values": [
+          {
+            "name": "bounty",
+            "values_float": [
+              180,
+              240,
+              300
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "bounty_gold",
+            "values_float": [
+              70
+            ],
+            "is_percentage": false,
+            "heading_loc": "击杀金钱：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "bounty_xp",
+            "values_float": [
+              70
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "duration",
+            "values_float": [
+              18,
+              21,
+              24
+            ],
+            "is_percentage": false,
+            "heading_loc": "持续时间：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "max_blind_chance",
+            "values_float": [
+              35
+            ],
+            "is_percentage": true,
+            "heading_loc": "最高攻击落空几率：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "max_slow",
+            "values_float": [
+              35
+            ],
+            "is_percentage": true,
+            "heading_loc": "最高自身减速：",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "has_debuff",
+            "values_float": [
+              1
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "rune_duration",
+            "values_float": [
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [
+              12
+            ],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "invis_rune",
+            "values_float": [
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [
+              1
+            ],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "arcane_rune",
+            "values_float": [
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [
+              1
+            ],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "haste_rune",
+            "values_float": [
+              0
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [
+              1
+            ],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastRange",
+            "values_float": [
+              700
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCastPoint",
+            "values_float": [
+              0.15
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          },
+          {
+            "name": "AbilityCooldown",
+            "values_float": [
+              60,
+              55,
+              50
+            ],
+            "is_percentage": false,
+            "heading_loc": "",
+            "bonuses": [],
+            "values_shard": [],
+            "values_scepter": [],
+            "facet_bonus": {
+              "name": "",
+              "values": [],
+              "operation": 0
+            },
+            "required_facet": ""
+          }
+        ]
+      }
+    ]
+  },
+  "abilities": [
+    {
+      "id": 5677,
+      "slug": "arc_warden_flux",
+      "name": "乱流",
+      "icon": "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/arc_warden_flux.png",
+      "kind": "主动",
+      "description": "将不稳定的涡流能量灌注到落单敌人体内，造成持续伤害并减缓其移动速度。如目标周围有其他敌方单位 ，则不会造成伤害。",
+      "notes": [],
+      "scepter": "目标落单时乱流具有沉默效果，造成更高伤害，而且持续时间更长。",
+      "shard": "",
+      "cooldowns": [
+        16
+      ],
+      "mana_costs": [
+        75
+      ]
+    },
+    {
+      "id": 5678,
+      "slug": "arc_warden_magnetic_field",
+      "name": "磁场",
+      "icon": "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/arc_warden_magnetic_field.png",
+      "kind": "主动",
+      "description": "天穹守望者制造一个充满磁能的圆形扭曲力场。磁场提供攻击速度加成，并且其中的友方单位可以闪避来自磁场外的攻击。磁场可以牵引神符，并且自动激活其中的神符。",
+      "notes": [],
+      "scepter": "",
+      "shard": "",
+      "cooldowns": [
+        20,
+        19,
+        18,
+        17
+      ],
+      "mana_costs": [
+        60,
+        70,
+        80,
+        90
+      ]
+    },
+    {
+      "id": 5679,
+      "slug": "arc_warden_spark_wraith",
+      "name": "闪光幽魂",
+      "icon": "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/arc_warden_spark_wraith.png",
+      "kind": "主动",
+      "description": "召唤一个缓慢实体化的闪光怨灵萦绕在目标区域，直到有敌人进入范围。一旦有敌方单位进入范围，怨灵将贴近敌人自我熔化，造成魔法伤害并使目标减速。",
+      "notes": [
+        "闪光幽魂无法被躲避。"
+      ],
+      "scepter": "",
+      "shard": "",
+      "cooldowns": [
+        4,
+        4,
+        4,
+        4
+      ],
+      "mana_costs": [
+        80
+      ]
+    },
+    {
+      "id": 1407,
+      "slug": "arc_warden_runic_infusion",
+      "name": "神符灌注",
+      "icon": "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/arc_warden_runic_infusion.png",
+      "kind": "先天",
+      "description": "神符之力与本尊融合。天穹守望者或风暴双雄每次激活强化神符后天穹守望者都会永久获得+1.5 全属性。",
+      "notes": [],
+      "scepter": "",
+      "shard": "",
+      "cooldowns": [
+        0
+      ],
+      "mana_costs": [
+        0
+      ]
+    },
+    {
+      "id": 5683,
+      "slug": "arc_warden_tempest_double",
+      "name": "风暴双雄",
+      "icon": "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/arc_warden_tempest_double.png",
+      "kind": "主动",
+      "description": "天穹守望者将破碎的自我汇聚到一起，创造出自身的完美电子复制体。复制体可以使用天穹守望者的当前所有物品和基础技能，但是大部分消耗品以及死亡时会掉落的物品除外。复制体的物品和技能冷却时间会独立计算。 复制体会逐渐失去自我意识，移动速度变慢，攻击准确度下降。",
+      "notes": [
+        "复制体无法使用风暴双雄或刷新球。"
+      ],
+      "scepter": "",
+      "shard": "风暴双雄产生时带有奥术、隐身和极速神符的效果，持续12秒。 不会触发神符灌注。",
+      "cooldowns": [
+        60,
+        55,
+        50
+      ],
+      "mana_costs": [
+        0
+      ]
+    }
+  ]
+}
