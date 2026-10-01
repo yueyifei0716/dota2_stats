@@ -7,6 +7,7 @@ import json
 import logging
 import math
 import os
+import re
 from pathlib import Path
 from threading import Lock
 import time
@@ -463,8 +464,8 @@ def _item_payload(item_id: Any, catalog: Optional[Dict[int, Dict[str, str]]] = N
 
 
 def _player_match_detail(account_id: int, match_id: str, item_catalog: Optional[Dict[int, Dict[str, str]]] = None) -> Tuple[str, Optional[Dict[str, Any]], Optional[str]]:
-    data, warning = _cached_get(f"/matches/{match_id}", timeout=12)
-    if warning:
+    data, warning = _cached_get(f"/matches/{match_id}", {"api_key": None}, timeout=8, attempts=1)
+    if warning and not isinstance(data, dict):
         return match_id, None, warning
     if not isinstance(data, dict):
         return match_id, None, f"/matches/{match_id} returned unexpected data"
@@ -492,6 +493,7 @@ def _player_match_detail(account_id: int, match_id: str, item_catalog: Optional[
 
     return match_id, {
         "detail_available": True,
+        "detail_status": "ready",
         "benchmark_available": bool(benchmarks),
         "benchmarks": benchmarks,
         "replay_parsed": replay_parsed,
@@ -518,7 +520,7 @@ def _player_match_detail(account_id: int, match_id: str, item_catalog: Optional[
         "equipment_available": any(player.get(field) is not None for field in [*(f"item_{index}" for index in range(6)), "item_neutral"]),
         "equipment_source": "opendota",
         "opendota_url": f"https://www.opendota.com/matches/{match_id}",
-    }, None
+    }, warning
 
 
 def _enrich_match_details(account_id: int, matches: List[Dict[str, Any]]) -> List[str]:
@@ -542,6 +544,7 @@ def _enrich_match_details(account_id: int, matches: List[Dict[str, Any]]) -> Lis
                 continue
             if warning:
                 warnings.append(warning)
+                match.update(detail_status="retryable", detail_error=warning)
             if detail:
                 match.update(detail)
 
@@ -709,6 +712,7 @@ def _aggregate_recent(raw_matches: List[Dict[str, Any]], limit: int) -> List[Dic
             "performance_available": False,
             "form_score": _form_score(match),
             "detail_available": False,
+            "detail_status": "deferred",
             "benchmark_available": False,
             "benchmarks": {},
             "replay_parsed": False,
@@ -1687,6 +1691,8 @@ def _empty_hero_meta() -> Dict[str, Any]:
 
 def _player_quick_payload(account_id: int, limit: int, client_id: str = "") -> Dict[str, Any]:
     sources, warnings = _fetch_player_sources(account_id, include_deep=False, limit=limit)
+    if not isinstance(sources.get("recent"), list):
+        raise HTTPException(503, "公开比赛列表暂时读取失败，请稍后重试")
     recent_matches = _aggregate_recent(sources.get("recent") if isinstance(sources.get("recent"), list) else [], min(limit, 20))
     confirmed_positions = _apply_confirmed_positions(account_id, client_id, recent_matches)
     summary = _summary(recent_matches)
@@ -1730,6 +1736,8 @@ def _player_dashboard_payload(account_id: int, limit: int, client_id: str = "") 
     sources, warnings = _fetch_player_sources(account_id, include_deep=True, limit=limit)
     profile_raw = sources.get("profile")
     recent_raw = sources.get("recent")
+    if not isinstance(recent_raw, list):
+        raise HTTPException(503, "公开比赛列表暂时读取失败，请稍后重试")
     wl_raw = sources.get("wl")
     heroes_raw = sources.get("heroes")
     ratings_raw = sources.get("ratings")
@@ -2423,6 +2431,31 @@ def player_dashboard(
     x_dotasense_client: Optional[str] = Header(default=None, alias="X-DotaSense-Client"),
 ):
     return _player_dashboard_payload(account_id, limit, _optional_client_id(x_dotasense_client))
+
+
+@router.get("/players/{account_id}/match-details")
+def player_match_details(account_id: int, match_ids: str = Query(..., max_length=160)):
+    """Hydrate only the visible page; deferred data is not missing public data."""
+    ids = match_ids.split(",")
+    if not 1 <= len(ids) <= MATCH_DETAIL_LIMIT or any(not re.fullmatch(r"[1-9][0-9]{0,18}", value) for value in ids):
+        raise HTTPException(422, "Provide 1 to 8 positive match IDs")
+    ids = list(dict.fromkeys(ids))
+    catalog = _cached_item_catalog()
+    results = {}
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        futures = {pool.submit(_player_match_detail, account_id, match_id, catalog): match_id for match_id in ids}
+        for future in as_completed(futures):
+            match_id = futures[future]
+            try:
+                _, detail, warning = future.result()
+            except Exception:
+                detail, warning = None, "比赛详情读取失败，请重试"
+            results[match_id] = {
+                "match_id": match_id,
+                **(detail or {"detail_status": "retryable"}),
+                "detail_error": warning or "",
+            }
+    return {"matches": [results[match_id] for match_id in ids]}
 
 
 @router.get("/players/{account_id}/matches/{match_id}/scorecard")

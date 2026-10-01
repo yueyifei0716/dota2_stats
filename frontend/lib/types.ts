@@ -346,6 +346,8 @@ export interface HeroBuilds {
       url: string;
     }[];
     position_verified: boolean;
+    elapsed_seconds?: number;
+    budget_exhausted?: boolean;
     status: "ready" | "partial" | "unavailable" | "insufficient";
   };
 }
@@ -445,6 +447,8 @@ export interface PlayerMatch {
   performance_available: boolean;
   form_score: number;
   detail_available: boolean;
+  detail_status?: "deferred" | "ready" | "retryable";
+  detail_error?: string;
   benchmark_available: boolean;
   benchmarks: Record<string, { raw: number; pct: number }>;
   replay_parsed: boolean;

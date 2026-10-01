@@ -10,6 +10,7 @@ import re
 import time
 
 import requests
+from urllib3.util import Timeout
 from fastapi import APIRouter, HTTPException, Path
 
 from fetch_dota_stats import HEROES_CN, HEROES_EN, get_hero_icon_url
@@ -22,6 +23,7 @@ CDN = "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react"
 SAMPLE_LIMIT = 8
 PLAYER_LIMIT = 8
 WINDOW_DAYS = 14
+BUILD_BUDGET_SECONDS = 22
 RANKED_MODES = {1, 2, 3, 4, 16, 22}
 _cache = {}
 _locks = {}
@@ -322,13 +324,21 @@ def hero_builds(hero_id: int = Path(ge=1, le=2000)):
         if cached and time.time() - cached["time"] < cached["ttl"]:
             return cached["data"]
         now = int(time.time())
+        started = time.monotonic()
+        deadline = started + BUILD_BUDGET_SECONDS
+        def fetch(path, params=None, **options):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return None, "upstream request budget exhausted"
+            options["timeout"] = Timeout(total=remaining, connect=min(3, remaining), read=min(options.get("timeout", 10), remaining))
+            return _public_get(path, params, **options)
         with ThreadPoolExecutor(max_workers=4) as pool:
             # League appearances find recently active accounts; they never enter
             # the ranked inventory sample or establish a player's rank.
-            recent_future = pool.submit(_public_get, f"/heroes/{hero_id}/matches", timeout=10, attempts=1)
-            rankings_future = pool.submit(_public_get, "/rankings", {"hero_id": hero_id}, timeout=10, attempts=1)
-            catalog_future = pool.submit(_public_get, "/constants/items", timeout=10, attempts=1)
-            patch_future = pool.submit(_public_get, "/constants/patch", timeout=10, attempts=1)
+            recent_future = pool.submit(fetch, f"/heroes/{hero_id}/matches", timeout=10, attempts=1)
+            rankings_future = pool.submit(fetch, "/rankings", {"hero_id": hero_id}, timeout=10, attempts=1)
+            catalog_future = pool.submit(fetch, "/constants/items", timeout=10, attempts=1)
+            patch_future = pool.submit(fetch, "/constants/patch", timeout=10, attempts=1)
             recent, recent_warning = recent_future.result()
             rankings, rankings_warning = rankings_future.result()
             active = [row for row in recent if isinstance(row, dict) and row.get("leagueid") and
@@ -337,7 +347,7 @@ def hero_builds(hero_id: int = Path(ge=1, le=2000)):
             leaders = rankings.get("rankings", []) if isinstance(rankings, dict) and isinstance(rankings.get("rankings"), list) else []
             account_ids = list(dict.fromkeys(row["account_id"] for row in [*active, *leaders]
                                             if isinstance(row, dict) and type(row.get("account_id")) is int and row["account_id"] > 0))[:PLAYER_LIMIT]
-            rank_futures = {account_id: pool.submit(_public_get, f"/players/{account_id}", timeout=10, attempts=1) for account_id in account_ids}
+            rank_futures = {account_id: pool.submit(fetch, f"/players/{account_id}", timeout=10, attempts=1) for account_id in account_ids}
             ranks, rank_warning = {}, False
             for account_id, future in rank_futures.items():
                 profile, warning = future.result()
@@ -345,7 +355,7 @@ def hero_builds(hero_id: int = Path(ge=1, le=2000)):
                 if not warning and _verified_rank(profile, account_id):
                     ranks[account_id] = {**profile, "checked_at": int(time.time())}
             params = {"hero_id": hero_id, "lobby_type": 7, "date": WINDOW_DAYS, "limit": 4}
-            history_futures = {account_id: pool.submit(_public_get, f"/players/{account_id}/matches", params, timeout=10, attempts=1) for account_id in ranks}
+            history_futures = {account_id: pool.submit(fetch, f"/players/{account_id}/matches", params, timeout=10, attempts=1) for account_id in ranks}
             eligible, history_warning = {}, False
             for account_id, future in history_futures.items():
                 history, warning = future.result()
@@ -354,7 +364,7 @@ def hero_builds(hero_id: int = Path(ge=1, le=2000)):
                     if _recent_ranked(row, hero_id, now):
                         eligible.setdefault(str(row["match_id"]), {**row, "expected_account_id": account_id})
             selected = sorted(eligible.values(), key=lambda row: row["start_time"], reverse=True)[:SAMPLE_LIMIT]
-            futures = [pool.submit(_public_get, f"/matches/{row['match_id']}", timeout=10, attempts=1) for row in selected]
+            futures = [pool.submit(fetch, f"/matches/{row['match_id']}", timeout=10, attempts=1) for row in selected]
             results = [future.result() for future in futures]
             details = [data for row, (data, _) in zip(selected, results) if isinstance(data, dict) and
                        str(data.get("match_id")) == str(row["match_id"]) and any(
@@ -375,6 +385,8 @@ def hero_builds(hero_id: int = Path(ge=1, le=2000)):
         payload["source"] = {"label": "OpenDota 冠绝选手近期天梯", "url": "https://docs.opendota.com/#tag/players",
                              "scope": "ranked_immortal_players", "fetched_at": now, "window_days": WINDOW_DAYS,
                              "attempted": len(selected), "players_checked": len(account_ids), "players_verified": len(ranks),
-                             "players": players, "position_verified": False, "status": status}
-        _cache[key] = {"data": payload, "time": now, "ttl": 600 if payload["sample"] >= 3 else 60}
+                             "players": players, "position_verified": False, "status": status,
+                             "elapsed_seconds": round(time.monotonic() - started, 2),
+                             "budget_exhausted": time.monotonic() >= deadline}
+        _cache[key] = {"data": payload, "time": now, "ttl": 600 if payload["sample"] >= 3 and not warned else 60}
         return payload

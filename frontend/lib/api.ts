@@ -153,6 +153,12 @@ export async function getPlayerQuickDashboard(accountId: string | number, limit 
   return fetchApi<import("./types").PlayerDashboardData>(`/players/${accountId}/dashboard/quick?limit=${Math.min(limit, 20)}`);
 }
 
+export async function getPlayerMatchDetails(accountId: string | number, matchIds: string[], signal?: AbortSignal) {
+  return fetchApi<{ matches: (Partial<import("./types").PlayerMatch> & { match_id: string })[] }>(
+    `/players/${accountId}/match-details?match_ids=${encodeURIComponent(matchIds.join(","))}`, { signal },
+  );
+}
+
 export async function getPlayerMatchScorecard(accountId: string | number, matchId: string | number) {
   return fetchApi<import("./types").PlayerMatchScorecard>(`/players/${accountId}/matches/${matchId}/scorecard`);
 }

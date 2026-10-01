@@ -68,7 +68,7 @@ function Equipment({ builds, onRetry }: { builds: Resource<HeroBuilds>; onRetry:
   const data = builds.data;
   return <section className={styles.section} aria-labelledby="equipment-heading">
     <div className={styles.sectionHeading}><h2 id="equipment-heading"><Coins size={18} />两件装备候选</h2><Retry onClick={onRetry} label="重新读取出装样本" /></div>
-    {builds.loading ? <Loading>正在读取近期出装记录</Loading> : builds.error ? <p className={styles.status} role="alert">{builds.error}</p> : data && <>
+    {builds.loading ? <Loading>正在核验选手与近期天梯出装，首次读取可能需要约 20 秒</Loading> : builds.error ? <p className={styles.status} role="alert">{builds.error}</p> : data && <>
       <p className={styles.evidence}>近 {data.source.window_days} 天 · {data.source.players.length} 名榜内冠绝选手 · {data.sample} 场天梯完整样本 · {data.patch_name ? `主版本 ${data.patch_name}` : "版本号未核验"}</p>
       {data.candidates.length > 0 ? <div className={styles.candidates}>
         {data.candidates.map((item) => <article key={item.slug} className={styles.candidate}>
@@ -79,6 +79,7 @@ function Equipment({ builds, onRetry }: { builds: Resource<HeroBuilds>; onRetry:
           <div className={styles.examples}>{item.example_matches.slice(0, 2).map((id, index) => <a key={id} href={`https://www.opendota.com/matches/${id}`} target="_blank" rel="noreferrer">比赛 {index + 1}<ExternalLink size={12} /></a>)}</div>
         </article>)}
       </div> : <p className={styles.empty}>{data.source.status === "unavailable" ? "高分选手或近期天梯接口暂时不可用，暂无可核验的装备候选。" : data.sample < 3 ? "核验到的高分选手天梯完整样本少于 3 场，暂不生成候选。" : "这批样本没有足够的成装记录。"}</p>}
+      {data.source.budget_exhausted && <p className={styles.disclaimer}>部分上游读取用时较长，已停止继续等待；已核验样本保留，可稍后重新读取。</p>}
       <p className={styles.disclaimer}>仅纳入 OpenDota 记录为冠绝一世且有榜位的选手，以及他们的近期天梯排位。段位为资料读取结果，不是该场比赛时点的精确 MMR；位置与小版本未核验。持有频次不代表最优顺序或胜率提升。</p>
       {data.source.players.length > 0 && <details className={styles.rankSources}><summary>选手段位来源</summary><ul>{data.source.players.map((player) => <li key={player.account_id}><a href={player.url} target="_blank" rel="noreferrer">{player.name}<ExternalLink size={12} /></a><span>冠绝一世 · 榜位 #{player.leaderboard_rank} · 读取于 {dateLabel(player.checked_at)}</span></li>)}</ul></details>}
       {data.source.status === "partial" && <p className={styles.disclaimer}>部分上游数据暂不可用或来自缓存：读取 {data.source.attempted} 场，采用 {data.sample} 场同主版本记录。</p>}

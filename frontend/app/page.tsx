@@ -65,6 +65,7 @@ import type {
   PlayerReviewResponse,
   PlayerSearchResult,
 } from "@/lib/types";
+import { useMatchDetails } from "@/hooks/useMatchDetails";
 import WardMap from "@/components/WardMap";
 import HeroGuide from "@/components/HeroGuide";
 import { JournalStatus, NextMatchReminder, ReviewEditor, ReviewHistory, ReviewNotebook, SessionRecap, useReviewJournal } from "@/components/ReviewJournal";
@@ -662,7 +663,7 @@ function PlayerDataExplorer({ data, equipmentLoading, onOpenMatches, onReview }:
       </section>
 
       {filteredMatches.length ? (
-        <MatchHistoryList matches={filteredMatches} limit={8} equipmentLoading={equipmentLoading} onOpenAll={onOpenMatches} onReview={onReview} />
+        <MatchHistoryList accountId={data.profile.account_id} matches={filteredMatches} limit={8} equipmentLoading={equipmentLoading} onOpenAll={onOpenMatches} onReview={onReview} />
       ) : (
         <div className="card explorer-empty">
           <div><strong>没有符合条件的比赛</strong><span>当前已加载 {data.recent_matches.length} 场公开比赛。</span></div>
@@ -1149,7 +1150,7 @@ function MatchLab({
   initialMatchId?: string;
   onReview: (match: MatchMemory) => void;
 }) {
-  const candidates = useMemo(() => data.recent_matches.slice(0, 8), [data.recent_matches]);
+  const candidates = useMemo(() => data.recent_matches, [data.recent_matches]);
   const [selectedMatchId, setSelectedMatchId] = useState(initialMatchId || candidates[0]?.match_id || "");
   const [scorecard, setScorecard] = useState<PlayerMatchScorecard | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1936,7 +1937,7 @@ function EquipmentSlots({ match, compact = false, loading = false }: { match: Pl
         </div>
       );
     }
-    return <span className="text-xs text-stone-500">无公开装备记录</span>;
+    return <span className="text-xs text-stone-500">{match.detail_status === "retryable" ? "详情读取失败，可重试" : !match.detail_available ? "详情尚未读取" : "上游未返回装备记录"}</span>;
   }
 
   const emptyItem = { item_id: 0, name: "", icon: "" };
@@ -1965,7 +1966,9 @@ function MatchHistoryList({
   equipmentLoading = false,
   onOpenAll,
   onReview,
+  accountId,
 }: {
+  accountId?: number;
   matches: PlayerMatch[];
   limit?: number;
   compact?: boolean;
@@ -1973,8 +1976,10 @@ function MatchHistoryList({
   onOpenAll?: () => void;
   onReview?: (match: MatchMemory) => void;
 }) {
+  const hydrated = useMatchDetails(accountId || 0, matches.slice(0, limit), !equipmentLoading);
+  const displayed = hydrated.matches;
   if (!matches.length) return null;
-  const equipmentCoverage = matches.filter((match) => match.equipment_available).length;
+  const equipmentCoverage = displayed.filter((match) => match.equipment_available).length;
 
   return (
     <section className="match-history-panel">
@@ -1982,9 +1987,10 @@ function MatchHistoryList({
         <div>
           <h2>最近比赛</h2>
           <div>
-            最近 {Math.min(matches.length, limit)} 场，按时间倒序 · {equipmentLoading ? "装备补全中" : `${equipmentCoverage}/${matches.length} 场 6+1 装备`}
+            最近 {Math.min(matches.length, limit)} 场，按时间倒序 · {equipmentLoading ? "装备补全中" : `${equipmentCoverage}/${displayed.length} 场 6+1 装备`}
           </div>
         </div>
+        {hydrated.error && <button type="button" onClick={hydrated.retry} disabled={hydrated.loading}>重试比赛详情</button>}
         {onOpenAll && (
           <button
             type="button"
@@ -1997,7 +2003,7 @@ function MatchHistoryList({
         )}
       </div>
       <div className="match-history-list">
-        {matches.slice(0, limit).map((match) => {
+        {displayed.map((match) => {
           const opendotaUrl = match.opendota_url || `https://www.opendota.com/matches/${match.match_id}`;
 
           return (
@@ -2027,7 +2033,7 @@ function MatchHistoryList({
                 <strong>{match.gold_per_min || "-"} GPM</strong>
                 <span>{match.duration_text} · Lv {match.level || "-"}</span>
               </div>
-              <div className="match-equipment-cell"><EquipmentSlots match={match} compact={compact} loading={equipmentLoading} /></div>
+              <div className="match-equipment-cell"><EquipmentSlots match={match} compact={compact} loading={equipmentLoading || hydrated.loading} /></div>
               <div className="match-date-cell">
                 <span>{match.played_at}</span>
                 {onReview && <button type="button" className="match-external-link" title="记录这局复盘" aria-label={`记录比赛 ${match.match_id} 的复盘`} onClick={() => onReview(match)}><NotebookPen size={15} /></button>}
@@ -2050,7 +2056,10 @@ function MatchHistoryList({
   );
 }
 
-function MatchTable({ matches, equipmentLoading = false }: { matches: PlayerMatch[]; equipmentLoading?: boolean }) {
+function MatchTable({ matches: sourceMatches, accountId, equipmentLoading = false }: { matches: PlayerMatch[]; accountId: number; equipmentLoading?: boolean }) {
+  const [visibleCount, setVisibleCount] = useState(20);
+  const hydrated = useMatchDetails(accountId, sourceMatches.slice(0, visibleCount), !equipmentLoading);
+  const matches = hydrated.matches;
   if (!matches.length) return null;
 
   const compact = (value: number) => {
@@ -2059,7 +2068,7 @@ function MatchTable({ matches, equipmentLoading = false }: { matches: PlayerMatc
     return String(value);
   };
 
-  const detailCount = matches.slice(0, 20).filter((match) => match.detail_available).length;
+  const detailCount = matches.filter((match) => match.detail_available).length;
 
   return (
     <div className="card">
@@ -2071,8 +2080,13 @@ function MatchTable({ matches, equipmentLoading = false }: { matches: PlayerMatc
           </div>
         </div>
         <span className="w-fit rounded-lg border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-xs font-black text-cyan-200">
-          {detailCount}/{Math.min(matches.length, 20)} 场详情
+          {detailCount}/{matches.length} 场详情{hydrated.loading ? " · 正在补全" : ""}
         </span>
+      </div>
+      <div className="mb-3 flex flex-wrap gap-3 text-xs">
+        <button type="button" onClick={hydrated.retry} disabled={hydrated.loading || equipmentLoading}>重新读取未完成详情</button>
+        {visibleCount < sourceMatches.length && <button type="button" onClick={() => setVisibleCount((count) => count + 20)}>加载更多比赛（{matches.length}/{sourceMatches.length}）</button>}
+        {hydrated.error && <span role="alert">{hydrated.error}</span>}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1180px] text-sm">
@@ -2091,7 +2105,7 @@ function MatchTable({ matches, equipmentLoading = false }: { matches: PlayerMatc
             </tr>
           </thead>
           <tbody>
-            {matches.slice(0, 20).map((match) => {
+            {matches.map((match) => {
               const opendotaUrl = match.opendota_url || `https://www.opendota.com/matches/${match.match_id}`;
 
               return (
@@ -2132,7 +2146,7 @@ function MatchTable({ matches, equipmentLoading = false }: { matches: PlayerMatc
                     {match.hero_healing > 0 && <div className="text-xs text-green-300">治疗 {compact(match.hero_healing)}</div>}
                   </td>
                   <td className="py-3 pr-4">
-                    <div className="min-w-[220px]"><EquipmentSlots match={match} compact loading={equipmentLoading} /></div>
+                    <div className="min-w-[220px]"><EquipmentSlots match={match} compact loading={equipmentLoading || hydrated.loading} /></div>
                   </td>
                   <td className="py-3 pr-4">
                     <div className="font-bold text-stone-300">{match.game_mode}</div>
@@ -2541,7 +2555,7 @@ export default function Home() {
                 </>}
                 {labView === "report" && <><AiReviewPanel data={data} commercialConfig={commercialConfig} /><details className="journal-secondary"><summary>开通与联系</summary><ProLeadForm data={data} commercialConfig={commercialConfig} /></details></>}
                 {labView === "vision" && <WardMap accountId={data.profile.account_id} />}
-                {labView === "history" && <MatchTable matches={data.recent_matches} equipmentLoading={deepLoading} />}
+                {labView === "history" && <MatchTable key={data.profile.account_id} accountId={data.profile.account_id} matches={data.recent_matches} equipmentLoading={deepLoading} />}
                 <div className="updated-at">Updated {data.updated_at}</div>
               </>
             )}
