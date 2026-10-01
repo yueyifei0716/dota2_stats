@@ -1,3 +1,5 @@
+import { cachedMatchDetail, rememberMatchDetails } from "./match-details-cache";
+
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname)
@@ -154,13 +156,19 @@ export async function getPlayerQuickDashboard(accountId: string | number, limit 
 }
 
 export async function getPlayerMatchDetails(accountId: string | number, matchIds: string[], signal?: AbortSignal) {
-  return fetchApi<{ matches: (Partial<import("./types").PlayerMatch> & { match_id: string })[] }>(
-    `/players/${accountId}/match-details?match_ids=${encodeURIComponent(matchIds.join(","))}`, { signal },
-  );
+  const pending = matchIds.filter((id) => !cachedMatchDetail(accountId, id));
+  const result = pending.length ? await fetchApi<{ matches: (Partial<import("./types").PlayerMatch> & { match_id: string })[] }>(
+    `/players/${accountId}/match-details?match_ids=${encodeURIComponent(pending.join(","))}`, { signal },
+  ) : { matches: [] };
+  rememberMatchDetails(accountId, result.matches);
+  return { matches: matchIds.map((id) => cachedMatchDetail(accountId, id) ||
+    result.matches.find((row) => row.match_id === id) || { match_id: id, detail_status: "retryable" as const }) };
 }
 
 export async function getPlayerMatchScorecard(accountId: string | number, matchId: string | number) {
-  return fetchApi<import("./types").PlayerMatchScorecard>(`/players/${accountId}/matches/${matchId}/scorecard`);
+  const result = await fetchApi<import("./types").PlayerMatchScorecard>(`/players/${accountId}/matches/${matchId}/scorecard`);
+  if (result.match_detail?.match_id === String(matchId)) rememberMatchDetails(accountId, [result.match_detail]);
+  return result;
 }
 
 export async function startTrainingMission(accountId: string | number, focusKey = "") {

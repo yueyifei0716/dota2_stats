@@ -491,6 +491,7 @@ export interface PlayerMatch {
   detail_available: boolean;
   detail_status?: "deferred" | "ready" | "retryable";
   detail_error?: string;
+  detail_fetched_at?: number | null;
   benchmark_available: boolean;
   benchmarks: Record<string, { raw: number; pct: number }>;
   replay_parsed: boolean;
@@ -808,6 +809,7 @@ export interface MatchScorecardEvidence {
 }
 
 export interface PlayerMatchScorecard {
+  match_detail?: Partial<PlayerMatch> & { match_id: string };
   match: {
     match_id: string;
     hero_id: number;

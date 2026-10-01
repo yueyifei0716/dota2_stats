@@ -4,9 +4,60 @@ from unittest.mock import patch
 from fastapi import HTTPException
 from routers.players import _aggregate_recent, _player_match_detail, player_match_details, _player_quick_payload, _player_dashboard_payload
 from routers.hero_guides import hero_builds
+from routers import players
 
 
 class MatchDetailTests(unittest.TestCase):
+    def test_saved_detail_fallback_keeps_its_original_capture_time(self):
+        record = {"fetched_at": 2000, "data": {"recent_matches": [{
+            "match_id": "9022234630", "detail_available": True,
+            "detail_fetched_at": 1000, "gold_per_min": 356,
+        }]}}
+        with patch.object(players, "_cached_get", return_value=(None, "timeout")), \
+             patch.object(players.public_player_cache, "load", return_value=record):
+            _, detail, warning = players._player_match_detail(894447460, "9022234630")
+        self.assertEqual(detail["detail_fetched_at"], 1000)
+        self.assertEqual(detail["detail_status"], "ready")
+        self.assertIn("保留此前已核验", warning)
+
+    def test_scorecard_success_reuses_the_same_public_raw_cache_in_list_details(self):
+        account, match_id, fetched = 894447460, "9022234630", 1790836000
+        raw = {"duration": 2454, "radiant_win": True, "players": [{
+            "account_id": account, "hero_id": 14, "player_slot": 3, "level": 21,
+            "gold_per_min": 356, "xp_per_min": 605, "kills": 8, "deaths": 11, "assists": 16,
+            "item_0": 1, "item_1": 0, "item_2": 36, "item_3": 116,
+            "item_4": 214, "item_5": 267, "item_neutral": 680,
+            "benchmarks": {"gold_per_min": {"raw": 356, "pct": .38}},
+        }]}
+        class Response:
+            status_code = 200
+            def raise_for_status(self): pass
+            def json(self): return raw
+        with patch.object(players, "_cache", {}), patch.object(players, "_upstream_failures", {}), \
+             patch.object(players.time, "time", return_value=fetched), \
+             patch.object(players, "_cached_item_catalog", return_value={}), \
+             patch.object(players.requests, "get", side_effect=[Response(), AssertionError("duplicate upstream read")]) as get:
+            card = players.player_match_scorecard(account, match_id)
+            detail = players.player_match_details(account, match_id)["matches"][0]
+        get.assert_called_once()
+        self.assertEqual(get.call_args.kwargs["params"], {"api_key": None})
+        self.assertEqual(card["match_detail"]["items"], detail["items"])
+        self.assertEqual([item["item_id"] for item in detail["items"]], [1, 0, 36, 116, 214, 267])
+        self.assertEqual(detail["neutral_item"]["item_id"], 680)
+        self.assertEqual(detail["detail_fetched_at"], fetched)
+        self.assertEqual(detail["gold_per_min"], 356)
+        self.assertEqual(detail["xp_per_min"], 605)
+        self.assertTrue(detail["detail_available"])
+        self.assertTrue(detail["equipment_available"])
+        self.assertEqual(detail["detail_status"], "ready")
+        self.assertFalse(detail["replay_parsed"])
+
+    def test_normalizing_another_players_cached_raw_never_reuses_the_first_players_detail(self):
+        raw = {"players": [{"account_id": 1, "gold_per_min": 356, "item_0": 1}]}
+        _, detail, warning = players._match_detail_from_raw(2, "9022234630", raw)
+        self.assertIsNone(detail)
+        self.assertIn("missing player 2", warning)
+
     def test_unread_recent_match_is_deferred(self):
         matches = _aggregate_recent([{"match_id": 9022234630, "hero_id": 14}], 1)
         self.assertEqual(matches[0]["detail_status"], "deferred")

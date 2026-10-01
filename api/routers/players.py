@@ -492,9 +492,15 @@ def _player_match_detail(account_id: int, match_id: str, item_catalog: Optional[
         cached_match = next((row for row in record["data"]["recent_matches"] if row.get("match_id") == str(match_id) and row.get("detail_available")), None) if record else None
         if cached_match:
             cached_match["detail_status"] = "ready"
-            cached_match["detail_fetched_at"] = record["fetched_at"]
+            if cached_match.get("detail_fetched_at") is None:
+                cached_match["detail_fetched_at"] = record["fetched_at"]
             return match_id, cached_match, warning + "；保留此前已核验的公开详情"
         return match_id, None, warning
+    return _match_detail_from_raw(account_id, match_id, data, item_catalog, warning)
+
+
+def _match_detail_from_raw(account_id: int, match_id: str, data: Any, item_catalog: Optional[Dict[int, Dict[str, str]]] = None, warning: Optional[str] = None) -> Tuple[str, Optional[Dict[str, Any]], Optional[str]]:
+    """Normalize the same verified scoreboard for single-match and list views."""
     if not isinstance(data, dict):
         return match_id, None, f"/matches/{match_id} returned unexpected data"
 
@@ -522,6 +528,8 @@ def _player_match_detail(account_id: int, match_id: str, item_catalog: Optional[
     return match_id, {
         "detail_available": True,
         "detail_status": "ready",
+        "detail_error": warning or "",
+        "detail_fetched_at": _cache.get(f"/matches/{match_id}:{sorted({'api_key': None}.items())}", {}).get("time"),
         "benchmark_available": bool(benchmarks),
         "benchmarks": benchmarks,
         "replay_parsed": replay_parsed,
@@ -2395,7 +2403,7 @@ def _scorecard_story(
 
 
 def _match_scorecard_payload(account_id: int, match_id: str) -> Dict[str, Any]:
-    data, warning = _cached_get(f"/matches/{match_id}", timeout=18)
+    data, warning = _cached_get(f"/matches/{match_id}", {"api_key": None}, timeout=18)
     if warning:
         raise HTTPException(status_code=502, detail=warning)
     if not isinstance(data, dict):
@@ -2448,7 +2456,9 @@ def _match_scorecard_payload(account_id: int, match_id: str) -> Dict[str, Any]:
     player_slot = _safe_int(player.get("player_slot"))
     won = bool(data.get("radiant_win")) == _is_radiant(player_slot)
     story = _scorecard_story(data, player, item_ids, player_slot)
+    _, detail, _ = _match_detail_from_raw(account_id, match_id, data, _cached_item_catalog())
     return {
+        "match_detail": {"match_id": str(match_id), **(detail or {})},
         "match": {
             "match_id": str(match_id),
             "hero_id": _safe_int(player.get("hero_id")),

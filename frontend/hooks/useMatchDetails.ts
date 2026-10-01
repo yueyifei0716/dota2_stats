@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getPlayerMatchDetails } from "@/lib/api";
+import { cachedMatchDetail, mergeMatchDetail } from "@/lib/match-details-cache";
 import type { PlayerMatch } from "@/lib/types";
 
 type Detail = Partial<PlayerMatch> & { match_id: string };
@@ -17,7 +18,7 @@ export function useMatchDetails(accountId: number, matches: PlayerMatch[], enabl
   useEffect(() => {
     const controller = new AbortController();
     if (cache.current.accountId !== accountId) cache.current = { accountId, rows: {} };
-    const pending = ids.split(",").filter((id) => id && !cache.current.rows[id]?.detail_available);
+    const pending = ids.split(",").filter((id) => id && !cachedMatchDetail(accountId, id) && !cache.current.rows[id]?.detail_available);
     async function load() {
       await Promise.resolve();
       if (controller.signal.aborted) return;
@@ -46,8 +47,10 @@ export function useMatchDetails(accountId: number, matches: PlayerMatch[], enabl
 
   // Account identity prevents a late response from leaking another player's data.
   return {
-    matches: matches.map((match) => view.accountId === accountId
-      ? { ...match, ...view.rows[match.match_id] } : match),
+    matches: matches.map((match) => mergeMatchDetail(
+      mergeMatchDetail(match, view.accountId === accountId ? view.rows[match.match_id] : undefined),
+      cachedMatchDetail(accountId, match.match_id),
+    )),
     loading,
     error,
     retry: () => setRetryCount((value) => value + 1),
