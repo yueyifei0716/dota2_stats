@@ -734,6 +734,12 @@ def hero_builds(hero_id: int = Path(ge=1, le=2000)):
             # ranking page on cache refresh instead of repeatedly checking only
             # the same inactive specialists.
             previous_players = (cached or {}).get("data", {}).get("source", {}).get("players", [])[:PLAYER_LIMIT // 2]
+            # A cold instance can discover previously observed public accounts,
+            # but their stored rank never qualifies them: profiles below are
+            # checked again before any history or inventory enters this sample.
+            bundled = _read_saved_build(BUILD_SNAPSHOT_DIR, hero_id, now)
+            if bundled:
+                previous_players = [*previous_players, *bundled["source"]["players"]][:PLAYER_LIMIT // 2]
             account_ids = list(dict.fromkeys(row["account_id"] for row in [*previous_players, *active, *discovery]
                                             if isinstance(row, dict) and type(row.get("account_id")) is int and row["account_id"] > 0))[:PLAYER_LIMIT]
             _cache[cursor_key] = {"offset": cursor + PLAYER_LIMIT}
@@ -794,6 +800,7 @@ def hero_builds(hero_id: int = Path(ge=1, le=2000)):
                              "budget_exhausted": time.monotonic() >= deadline,
                              "target_sample": SAMPLE_LIMIT, "request_limit": REQUEST_LIMIT, "requests_used": request_count,
                              "selection": "recent_games_round_robin_by_verified_player", "ranking_cursor": cursor,
+                             "discovery_seed_accounts": [row["account_id"] for row in previous_players],
                              "eligible_matches": len(eligible), "sample_status": "small_sample" if payload["sample"] < 20 else "observed",
                              "public_feed": {"pages": _cache.get("ranked_public_feed", {}).get("pages", 0),
                                              "rows": len(recent), "hero_candidates": len(public_candidates),

@@ -86,6 +86,33 @@ class HeroGuideTests(unittest.TestCase):
         self.assertGreater(request.call_count, 0)
         self.assertEqual(result["sample"], 0)
 
+    def test_cold_snapshot_account_is_only_a_discovery_seed_and_requires_fresh_rank(self):
+        snapshot = json.loads((BUILD_SNAPSHOT_DIR / "113.json").read_text())["payload"]
+        account = snapshot["source"]["players"][0]["account_id"]
+        now = snapshot["source"]["fetched_at"] + 600
+        for tier, expected in [(75, 0), (80, 1)]:
+            def get(path, params=None, **kwargs):
+                if path == "/publicMatches": return [], None
+                if path == "/rankings": return {"rankings": []}, None
+                if path == "/constants/items": return {item["slug"]: item for item in CATALOG.values()}, None
+                if path == "/constants/patch": return [], None
+                if path == f"/players/{account}": return profile(account,rank=tier), None
+                if path == f"/players/{account}/matches":
+                    return [{"match_id":501,"hero_id":113,"start_time":now-10,"duration":3000,"lobby_type":7,"game_mode":22}], None
+                detail=match(501);detail.update(start_time=now-10,lobby_type=7,game_mode=22)
+                detail["players"][0].update(hero_id=113,account_id=account)
+                return detail,None
+            with self.subTest(tier=tier), patch("routers.hero_guides._cache",{}), patch("routers.hero_guides.time.time",return_value=now), patch("routers.hero_guides._cached_get",side_effect=get) as request:
+                result=hero_builds(113)
+            self.assertEqual(result["sample"],expected)
+            self.assertIn(account,result["source"]["discovery_seed_accounts"])
+            history_calls=[call for call in request.call_args_list if call.args[0]==f"/players/{account}/matches"]
+            self.assertEqual(bool(history_calls),tier==80)
+            if expected:
+                self.assertEqual([row["match_id"] for row in result["matches"]],["501"])
+                self.assertEqual(result["matches"][0]["rank_checked_at"],now)
+                self.assertFalse(result["source"]["stale"])
+
     def test_new_valid_arc_sample_is_never_augmented_or_replaced_by_the_bundled_snapshot(self):
         snapshot = json.loads((BUILD_SNAPSHOT_DIR / "113.json").read_text())["payload"]
         now = snapshot["source"]["fetched_at"] + 600
